@@ -1,0 +1,27 @@
+[submodule "Vulture/lib/glfw"]
+	path = Vulture/lib/glfw
+	url = https://github.com/Zydak/glfw.git
+[submodule "Vulture/lib/glm"]
+	path = Vulture/lib/glm
+	url = https://github.com/Zydak/glm.git
+[submodule "Vulture/lib/imgui"]
+	path = Vulture/lib/imgui
+	url = https://github.com/Zydak/imgui.git
+[submodule "Vulture/lib/msdf-atlas-gen"]
+	path = Vulture/lib/msdf-atlas-gen
+	url = https://github.com/Zydak/msdf-atlas-gen.git
+[submodule "Vulture/lib/spdlog"]
+	path = Vulture/lib/spdlog
+	url = https://github.com/Zydak/spdlog.git
+[submodule "Vulture/lib/stbimage"]
+	path = Vulture/lib/stbimage
+	url = https://github.com/Zydak/stbimage.git
+[submodule "Vulture/lib/VulkanLib"]
+	path = Vulture/lib/VulkanLib
+	url = https://github.com/Zydak/VulkanLib
+[submodule "Vulture/lib/vulkanLib"]
+	path = Vulture/lib/vulkanLib
+	url = https://github.com/Zydak/vulkanLib
+[submodule "Vulture/lib/entt"]
+	path = Vulture/lib/entt
+	url = https://github.com/Zydak/entt
