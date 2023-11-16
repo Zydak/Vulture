@@ -11,11 +11,11 @@
 namespace Vulture
 {
 
-	Image::Image(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImageAspectFlagBits aspect, SamplerInfo samplerInfo, int layerCount, ImageType type)
+	Image::Image(const ImageInfo& imageInfo)
 	{
-		m_Size.Width = width;
-		m_Size.Height = height;
-		CreateImage(width, height, format, tiling, usage, 1, layerCount, type);
+		m_Size.Width = imageInfo.width;
+		m_Size.Height = imageInfo.height;
+		CreateImage(imageInfo.width, imageInfo.height, imageInfo.format, imageInfo.tiling, imageInfo.usage, 1, imageInfo.layerCount, imageInfo.type);
 
 		VkMemoryRequirements memRequirements;
 		vkGetImageMemoryRequirements(Device::GetDevice(), m_Image, &memRequirements);
@@ -23,7 +23,7 @@ namespace Vulture
 		VkMemoryAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = Device::FindMemoryType(memRequirements.memoryTypeBits, properties);
+		allocInfo.memoryTypeIndex = Device::FindMemoryType(memRequirements.memoryTypeBits, imageInfo.properties);
 
 		VL_CORE_RETURN_ASSERT(vkAllocateMemory(Device::GetDevice(), &allocInfo, nullptr, &m_ImageMemory),
 			VK_SUCCESS, 
@@ -35,19 +35,19 @@ namespace Vulture
 			"failed to bind image memory!"
 		);
 
-		if (type == ImageType::Cubemap)
+		if (imageInfo.type == ImageType::Cubemap)
 		{
-			CreateImageView(format, aspect, layerCount, VK_IMAGE_VIEW_TYPE_CUBE_ARRAY);
+			CreateImageView(imageInfo.format, imageInfo.aspect, imageInfo.layerCount, VK_IMAGE_VIEW_TYPE_CUBE_ARRAY);
 		}
-		else if (layerCount > 1 || type == ImageType::Image2DArray)
+		else if (imageInfo.layerCount > 1 || imageInfo.type == ImageType::Image2DArray)
 		{
-			CreateImageView(format, aspect, layerCount, VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+			CreateImageView(imageInfo.format, imageInfo.aspect, imageInfo.layerCount, VK_IMAGE_VIEW_TYPE_2D_ARRAY);
 		}
 		else
 		{
-			CreateImageView(format, aspect, layerCount, VK_IMAGE_VIEW_TYPE_2D);
+			CreateImageView(imageInfo.format, imageInfo.aspect, imageInfo.layerCount, VK_IMAGE_VIEW_TYPE_2D);
 		}
-		CreateImageSampler(samplerInfo);
+		CreateImageSampler(imageInfo.samplerInfo);
 	}
 
 	Image::~Image()
@@ -175,10 +175,9 @@ namespace Vulture
 
 		Image::TransitionImageLayout(m_Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, range);
 		CopyBufferToImage(buffer->GetBuffer(), static_cast<uint32_t>(m_Size.Width), static_cast<uint32_t>(m_Size.Height));
-		// we're doing second transition in GenerateMipMaps now
-		//Image::TransitionImageLayout(m_Device, m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-		GenerateMipmaps();
+		Image::TransitionImageLayout(m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		m_ImageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 		CreateImageView(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
 		CreateImageSampler(samplerInfo);
@@ -391,7 +390,8 @@ namespace Vulture
 			Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetCommandPool());
 	}
 
-	void Image::CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height) {
+	void Image::CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkOffset3D offset) 
+	{
 		VkCommandBuffer commandBuffer;
 		Device::BeginSingleTimeCommands(commandBuffer, Device::GetCommandPool());
 
@@ -405,10 +405,37 @@ namespace Vulture
 		region.imageSubresource.baseArrayLayer = 0;
 		region.imageSubresource.layerCount = 1;
 
-		region.imageOffset = { 0, 0, 0 };
+		region.imageOffset = offset;
 		region.imageExtent = { width, height, 1 };
 
 		vkCmdCopyBufferToImage(commandBuffer, buffer, m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+		Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetCommandPool());
+	}
+
+	void Image::CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkOffset3D offset)
+	{
+		VkCommandBuffer commandBuffer;
+		Device::BeginSingleTimeCommands(commandBuffer, Device::GetCommandPool());
+
+		VkImageCopy region{};
+
+		region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.srcSubresource.mipLevel = 0;
+		region.srcSubresource.baseArrayLayer = 0;
+		region.srcSubresource.layerCount = 1;
+
+		region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.dstSubresource.mipLevel = 0;
+		region.dstSubresource.baseArrayLayer = 0;
+		region.dstSubresource.layerCount = 1;
+
+		region.srcOffset = { 0, 0, 0 };
+		region.dstOffset = offset;
+		region.extent = { width, height, 1 };
+
+		vkCmdCopyImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_Image, m_ImageLayout, 1, &region);
+		
 
 		Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetCommandPool());
 	}

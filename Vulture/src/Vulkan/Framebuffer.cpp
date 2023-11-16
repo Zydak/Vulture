@@ -79,14 +79,36 @@ namespace Vulture
 
 	void Framebuffer::CreateColorAttachment(VkFormat format, int layers, ImageType type, VkImageUsageFlags customBits)
 	{
-		m_ColorAttachments.emplace_back(m_Extent.width, m_Extent.height, format, VK_IMAGE_TILING_OPTIMAL, customBits | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_COLOR_BIT, SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR), layers, type);
+		ImageInfo imageInfo;
+		imageInfo.width = m_Extent.width;
+		imageInfo.height = m_Extent.height;
+		imageInfo.format = format;
+		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.usage = customBits | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		imageInfo.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageInfo.samplerInfo = SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR);
+		imageInfo.layerCount = layers;
+		imageInfo.type = type;
+
+		m_ColorAttachments.emplace_back(imageInfo);
 	}
 
 	void Framebuffer::CreateDepthAttachment(int layers, ImageType type, VkImageUsageFlags customBits)
 	{
-		m_DepthAttachments.emplace_back(m_Extent.width, m_Extent.height, m_DepthFormat, VK_IMAGE_TILING_OPTIMAL, customBits | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_ASPECT_DEPTH_BIT, SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR), layers, type);
+		ImageInfo imageInfo;
+		imageInfo.width = m_Extent.width;
+		imageInfo.height = m_Extent.height;
+		imageInfo.format = m_DepthFormat;
+		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.usage = customBits | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		imageInfo.aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+		imageInfo.samplerInfo = SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR);
+		imageInfo.layerCount = layers;
+		imageInfo.type = type;
+
+		m_DepthAttachments.emplace_back(imageInfo);
 	}
 
 }
