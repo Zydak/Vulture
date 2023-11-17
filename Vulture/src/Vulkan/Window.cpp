@@ -2,6 +2,7 @@
 #include "Utility/Utility.h"
 
 #include "Window.h"
+#include "stbimage/stb_image.h"
 
 namespace Vulture
 {
@@ -12,7 +13,7 @@ namespace Vulture
 		VL_CORE_ERROR("{0}", message);
 	}
 
-	Window::Window(int width, int height, std::string name) : m_Width(width), m_Height(height), m_Name(name)
+	Window::Window(const WindowInfo& winInfo) : m_Width(winInfo.Width), m_Height(winInfo.Height), m_Name(winInfo.Name)
 	{
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -31,6 +32,20 @@ namespace Vulture
 			m_Monitors[i].Monitor = monitorwRaw[i];
 			m_Monitors[i].Name = glfwGetMonitorName(m_Monitors[i].Monitor);
 			m_MonitorRawNames[i] = glfwGetMonitorName(m_Monitors[i].Monitor);
+		}
+
+		int width, height, channels;
+		unsigned char* iconData = stbi_load(winInfo.Icon.c_str(), &width, &height, &channels, 0);
+		if (iconData)
+		{
+			GLFWimage icon;
+			icon.width = width;
+			icon.height = height;
+			icon.pixels = iconData;
+
+			glfwSetWindowIcon(m_Window, 1, &icon);
+
+			stbi_image_free(iconData);
 		}
 	}
 

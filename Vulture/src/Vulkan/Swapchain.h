@@ -86,7 +86,7 @@ namespace Vulture
 		std::vector<VkSemaphore> m_ImageAvailableSemaphores;
 		std::vector<VkSemaphore> m_RenderFinishedSemaphores;
 		std::vector<VkFence> m_InFlightFences;
-		//std::vector<VkFence> m_ImagesInFlight;
+		std::vector<VkFence> m_ImagesInFlight;
 
 		VkFormat m_SwapchainImageFormat;
 		VkFormat m_SwapchainDepthFormat;

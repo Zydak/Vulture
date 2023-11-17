@@ -1,6 +1,7 @@
 #pragma once
 #include "pch.h"
 #include "glm/glm.hpp"
+#include "../Renderer/Transform.h"
 
 namespace Vulture
 {
@@ -65,10 +66,34 @@ namespace Vulture
 
 	class SpriteComponent
 	{
+	public:
 		glm::vec2 AtlasOffsets;
 
 		SpriteComponent(const glm::vec2 atlasOffsets)
 			: AtlasOffsets(atlasOffsets)
+		{
+
+		}
+
+		void Draw()
+		{
+
+		}
+	};
+
+	class TransformComponent
+	{
+	public:
+		Transform transform;
+
+		TransformComponent(const Transform& transform)
+			: transform(transform)
+		{
+
+		}
+
+		TransformComponent(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale)
+			: transform({translation, rotation, scale})
 		{
 
 		}

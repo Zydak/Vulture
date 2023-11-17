@@ -18,9 +18,17 @@ namespace Vulture
 		GLFWmonitor* Monitor;
 	};
 
+	struct WindowInfo
+	{
+		int Width;
+		int Height;
+		std::string Name;
+		std::string Icon;
+	};
+
 	class Window {
 	public:
-		Window(int width, int height, std::string name);
+		Window(const WindowInfo& winInfo);
 		~Window();
 
 		Window(const Window&) = delete;

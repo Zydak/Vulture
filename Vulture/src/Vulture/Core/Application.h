@@ -10,6 +10,7 @@ namespace Vulture
 	{
 		std::string WorkingDirectory;
 		std::string Name;
+		std::string Icon;
 	};
 
 	class Application

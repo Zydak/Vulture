@@ -279,7 +279,7 @@ namespace Vulture
 	void Swapchain::CreateFramebuffers()
 	{
 
-		// HDR / Presentable
+		// Presentable
 		{
 			m_PresentableFramebuffers.resize(GetImageCount());
 			for (uint32_t i = 0; i < GetImageCount(); i++)
@@ -308,11 +308,11 @@ namespace Vulture
 	*/
 	VkResult Swapchain::SubmitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex)
 	{
-		// if (m_ImagesInFlight[*imageIndex] != VK_NULL_HANDLE) 
-		// {
-		// 	vkWaitForFences(Device::GetDevice(), 1, &m_ImagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX);
-		// }
-		// m_ImagesInFlight[*imageIndex] = m_InFlightFences[m_CurrentFrame];
+		if (m_ImagesInFlight[*imageIndex] != VK_NULL_HANDLE) 
+		{
+			vkWaitForFences(Device::GetDevice(), 1, &m_ImagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX);
+		}
+		m_ImagesInFlight[*imageIndex] = m_InFlightFences[m_CurrentFrame];
 
 		VkSubmitInfo submitInfo = {};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -379,7 +379,7 @@ namespace Vulture
 		m_ImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		m_RenderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 		m_InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-		//m_ImagesInFlight.resize(GetImageCount(), VK_NULL_HANDLE);
+		m_ImagesInFlight.resize(GetImageCount(), VK_NULL_HANDLE);
 
 		VkSemaphoreCreateInfo semaphoreInfo = {};
 		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;

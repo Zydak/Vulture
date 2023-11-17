@@ -14,7 +14,12 @@ namespace Vulture
 
 		Logger::Init();
 		VL_CORE_TRACE("LOGGER INITIALIZED");
-		m_Window = std::make_shared<Window>((int)width, (int)height, appInfo.Name);
+		WindowInfo winInfo;
+		winInfo.Width = (int)width;
+		winInfo.Height = (int)height;
+		winInfo.Name = appInfo.Name;
+		winInfo.Icon = appInfo.Icon;
+		m_Window = std::make_shared<Window>(winInfo);
 		Device::Init(*m_Window);
 		Renderer::Init(*m_Window);
 	}
@@ -31,8 +36,6 @@ namespace Vulture
 			m_Window->PollEvents();
 
 			OnUpdate(0.0f);
-
-			Renderer::Render();
 		}
 
 		Renderer::Destroy();

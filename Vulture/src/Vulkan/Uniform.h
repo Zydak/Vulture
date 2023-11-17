@@ -24,7 +24,7 @@ namespace Vulture
 	class Uniform
 	{
 	public:
-		Uniform(DescriptorPool& pool, bool resizable = false);
+		Uniform(DescriptorPool& pool);
 		~Uniform();
 
 		inline Ref<Buffer> GetBuffer(const int& binding) { return m_Buffers[binding]; }
@@ -36,7 +36,7 @@ namespace Vulture
 
 		void AddImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout, VkShaderStageFlagBits stage, VkDescriptorType type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		void AddUniformBuffer(uint32_t binding, uint32_t bufferSize, VkShaderStageFlagBits stage);
-		void AddStorageBuffer(uint32_t binding, uint32_t bufferSize, VkShaderStageFlagBits stage);
+		void AddStorageBuffer(uint32_t binding, uint32_t bufferSize, VkShaderStageFlagBits stage, bool resizable = false);
 		void Build();
 		void Resize(uint32_t binding, uint32_t newSize, VkQueue queue, VkCommandPool pool);
 		void UpdateImageSampler(uint32_t binding, VkImageView imageView, VkSampler sampler, VkImageLayout layout);
@@ -54,8 +54,6 @@ namespace Vulture
 		std::unordered_map<uint32_t, Binding> m_Bindings;
 
 		DescriptorPool& m_Pool;
-
-		bool m_Resizable;
 	};
 
 }

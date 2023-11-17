@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "TextureAtlas.h"
+#include "Renderer/Renderer.h"
 
 namespace Vulture
 {
@@ -14,8 +15,20 @@ namespace Vulture
 
 	}
 
+	glm::vec2& TextureAtlas::GetTextureOffset(const std::string& filepath)
+	{
+		VL_CORE_ASSERT(m_Textures.find(filepath) != m_Textures.end(), "There is no such texture");
+		return m_Textures[filepath];
+	}
+
+	Ref<Uniform> TextureAtlas::GetAtlasUniform()
+	{
+		return m_AtlasUniform;
+	}
+
 	void TextureAtlas::AddTexture(const std::string& filepath)
 	{
+		static int i = 0;
 		auto it = std::find_if(m_Images.begin(), m_Images.end(), [filepath](const std::pair<std::string, Scope<Image>>& p) {
 			return p.first == filepath;
 			});
@@ -23,6 +36,11 @@ namespace Vulture
 		VL_CORE_ASSERT(it == m_Images.end(), "Element already added");
 
 		m_Images.push_back(std::make_pair(filepath, std::make_unique<Image>(filepath)));
+
+		// TODO: Textures that are bigger than tiling size are not supported rn
+		VL_CORE_ASSERT(m_Images[i].second->GetImageSize().Width <= m_TilingSize || m_Images[i].second->GetImageSize().Height <= m_TilingSize,
+			"Textures that are bigger than tiling size are not supported rn");
+		i++;
 	}
 
 	void TextureAtlas::SetTiling(int tiling)
@@ -44,6 +62,7 @@ namespace Vulture
 
 	void TextureAtlas::PackAtlas()
 	{
+		// TODO: way to automatically deduce atlas size
 		ImageInfo info{};
 		info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		info.format = VK_FORMAT_R8G8B8A8_UNORM;
@@ -54,6 +73,7 @@ namespace Vulture
 		info.type = ImageType::Image2D;
 		info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		info.samplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST };
 
 		m_AtlasTexture = std::make_shared<Image>(info);
 
@@ -99,11 +119,32 @@ namespace Vulture
 			}
 		
 			m_LastOffset.x += (float)image->GetImageSize().Width;
-			
 		}
 
+		// Create Uniform
 		Image::TransitionImageLayout(m_AtlasTexture->GetImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, range);
 		m_AtlasTexture->SetImageLayout(VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		m_AtlasUniform = std::make_shared<Uniform>(*Renderer::s_Pool);
+		m_AtlasUniform->AddImageSampler(
+			0,
+			m_AtlasTexture->GetSampler(),
+			m_AtlasTexture->GetImageView(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_SHADER_STAGE_FRAGMENT_BIT
+		); 
+		m_AtlasUniform->AddUniformBuffer(
+			1,
+			sizeof(AtlasInfoBuffer),
+			VK_SHADER_STAGE_FRAGMENT_BIT
+		);
+		m_AtlasUniform->Build();
+
+		AtlasInfoBuffer atlasInfo;
+		atlasInfo.TilingSize = glm::vec4((float)m_TilingSize);
+		m_AtlasUniform->GetBuffer(1)->WriteToBuffer(&atlasInfo, sizeof(AtlasInfoBuffer), 0);
+		m_AtlasUniform->GetBuffer(1)->Flush();
+
 	}
 
 }

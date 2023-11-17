@@ -133,6 +133,7 @@ namespace Vulture
 	Image::Image(const std::string& filepath, SamplerInfo samplerInfo)
 	{
 		int texChannels;
+		stbi_set_flip_vertically_on_load(true);
 		stbi_uc* pixels = stbi_load(filepath.c_str(), &m_Size.Width, &m_Size.Height, &texChannels, STBI_rgb_alpha);
 		m_MipLevels = static_cast<uint32_t>(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
 		VkDeviceSize imageSize = m_Size.Width * m_Size.Height * 4;

@@ -2,15 +2,23 @@
 #include "pch.h"
 #include "glm/glm.hpp"
 #include "Vulkan/Image.h"
+#include "Vulkan/Uniform.h"
 
 namespace Vulture
 {
+	struct AtlasInfoBuffer
+	{
+		glm::vec4 TilingSize;
+	};
 
 	class TextureAtlas
 	{
 	public:
 		TextureAtlas();
 		~TextureAtlas();
+
+		glm::vec2& GetTextureOffset(const std::string& filepath);
+		Ref<Uniform> GetAtlasUniform();
 
 		void AddTexture(const std::string& filepath);
 		//void RemoveTexture(const std::string filepath);
@@ -26,6 +34,8 @@ namespace Vulture
 		glm::vec2 m_LastOffset = {0.0f, 0.0f};
 		glm::vec2 m_AtlasSize = {100.0f, 100.0f};
 		int m_BiggestYInRow = 0;
+
+		Ref<Uniform> m_AtlasUniform;
 	};
 
 }

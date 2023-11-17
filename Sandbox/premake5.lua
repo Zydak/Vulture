@@ -17,6 +17,7 @@ project "Sandbox"
 	includedirs
 	{
 		"%{wks.location}/Vulture/src/",
+		"%{wks.location}/Vulture/src/Vulture",
 		"%{wks.location}",
 		"%{wks.location}/Vulture/lib/",
         "%{wks.location}/Vulture/lib/glfw/include/",
