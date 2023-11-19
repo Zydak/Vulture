@@ -7,6 +7,19 @@
 namespace Vulture
 {
 
+	/*
+	 * @brief Initializes a Framebuffer object with color and depth attachments based on the specified
+	 * attachmentsFormats, renderPass, extent, depthFormat, layers, type, and customBits parameters. It creates
+	 * the required attachments and framebuffers accordingly.
+	 *
+	 * @param attachmentsFormats - Vector specifying the format of each attachment in the framebuffer.
+	 * @param renderPass - The Vulkan render pass to be used with the framebuffer.
+	 * @param extent - The extent (width and height) of the framebuffer.
+	 * @param depthFormat - The Vulkan format for the depth attachment.
+	 * @param layers - The number of layers in the framebuffer.
+	 * @param type - The type of image attachments.
+	 * @param customBits - Additional custom Vulkan image usage flags.
+	 */
 	Framebuffer::Framebuffer(const std::vector<FramebufferAttachment>& attachmentsFormats,
 		VkRenderPass renderPass, VkExtent2D extent, VkFormat depthFormat, int layers, ImageType type, VkImageUsageFlags customBits)
 		: m_Extent(extent), m_DepthFormat(depthFormat)
@@ -77,6 +90,14 @@ namespace Vulture
 		}
 	}
 
+	/**
+	 * @brief Pushes a color attachment for the framebuffer using the specified format, layers, image type, and custom usage flags to m_ColorAttachments.
+	 *
+	 * @param format - The Vulkan format of the color attachment.
+	 * @param layers - The number of layers in the color attachment.
+	 * @param type - The image type of the color attachment.
+	 * @param customBits - Additional custom Vulkan image usage flags.
+	 */
 	void Framebuffer::CreateColorAttachment(VkFormat format, int layers, ImageType type, VkImageUsageFlags customBits)
 	{
 		ImageInfo imageInfo;
@@ -94,6 +115,14 @@ namespace Vulture
 		m_ColorAttachments.emplace_back(imageInfo);
 	}
 
+	/**
+	 * @brief Pushes a depth attachment for the framebuffer using the specified layers, image type, and custom usage flags to m_DepthAttachments.
+	 *
+	 * @param format - The Vulkan format of the color attachment.
+	 * @param layers - The number of layers in the color attachment.
+	 * @param type - The image type of the color attachment.
+	 * @param customBits - Additional custom Vulkan image usage flags.
+	 */
 	void Framebuffer::CreateDepthAttachment(int layers, ImageType type, VkImageUsageFlags customBits)
 	{
 		ImageInfo imageInfo;

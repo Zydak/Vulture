@@ -58,8 +58,6 @@ namespace Vulture
 
 		bool AllocateDescriptorSets(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor) const;
 
-		void FreeDescriptors(std::vector<VkDescriptorSet>& descriptors) const;
-
 		inline VkDescriptorPool GetDescriptorPool() { return m_DescriptorPool; }
 
 		void ResetPool();

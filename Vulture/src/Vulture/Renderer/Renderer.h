@@ -40,7 +40,7 @@ namespace Vulture
 
 		static void UpdateStorageBuffer();
 
-		static void CreateSwapchain();
+		static void RecreateSwapchain();
 		static void CreateCommandBuffers();
 		static void CreateUniforms();
 		static void CreatePool();

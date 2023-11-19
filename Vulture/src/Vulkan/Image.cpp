@@ -10,7 +10,12 @@
 
 namespace Vulture
 {
-
+	/**
+	 * @brief Initializes an Image object using the provided image information, creating the image, allocating memory,
+	 * binding the memory, and creating the image view and sampler accordingly.
+	 *
+	 * @param imageInfo - The information required to create the image, including dimensions, format, tiling, usage, etc.
+	 */
 	Image::Image(const ImageInfo& imageInfo)
 	{
 		m_Size.Width = imageInfo.width;
@@ -63,6 +68,15 @@ namespace Vulture
 		}
 	}
 
+	/*
+	 * @brief Creates an image view for the image based on the provided format, aspect, layer count, and image type.
+	 * It also handles the creation of individual layer views when the layer count is greater than 1.
+	 *
+	 * @param format - The format of the image view.
+	 * @param aspect - The aspect of the image view.
+	 * @param layerCount - The number of layers for the image view.
+	 * @param imageType - The type of the image view.
+	 */
 	void Image::CreateImageView(VkFormat format, VkImageAspectFlagBits aspect, int layerCount, VkImageViewType imageType)
 	{
 		{
@@ -105,6 +119,21 @@ namespace Vulture
 		}
 	}
 
+	/*
+	 * @brief Creates an image with the specified parameters.
+	 *
+	 * @param width - The width of the image.
+	 * @param height - The height of the image.
+	 * @param format - The format of the image.
+	 * @param tiling - The tiling mode of the image.
+	 * @param usage - The usage flags for the image.
+	 * @param mipLevels - The number of mip levels for the image.
+	 * @param layerCount - The number of layers for the image.
+	 * @param type - The type of the image.
+	 *
+	 * @note The function uses Vulkan API calls to create the image.
+	 * @note It asserts if any of the Vulkan operations fail.
+	 */
 	void Image::CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, uint32_t mipLevels, int layerCount, ImageType type)
 	{
 		VkImageCreateInfo imageInfo{};
@@ -130,12 +159,19 @@ namespace Vulture
 		);
 	}
 
+	/*
+	 * @brief Loads an image from the specified file, creates an image, allocates memory for it,
+	 * binds the memory to the image, and sets up the image view and sampler.
+	 *
+	 * @param filepath - The file path of the image.
+	 * @param samplerInfo - The sampler information for the image.
+	 */
 	Image::Image(const std::string& filepath, SamplerInfo samplerInfo)
 	{
 		int texChannels;
 		stbi_set_flip_vertically_on_load(true);
 		stbi_uc* pixels = stbi_load(filepath.c_str(), &m_Size.Width, &m_Size.Height, &texChannels, STBI_rgb_alpha);
-		m_MipLevels = static_cast<uint32_t>(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
+		//m_MipLevels = static_cast<uint32_t>(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
 		VkDeviceSize imageSize = m_Size.Width * m_Size.Height * 4;
 
 		VL_CORE_ASSERT(pixels, "failed to load texture image! " + filepath);
@@ -170,7 +206,8 @@ namespace Vulture
 		VkImageSubresourceRange range{};
 		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		range.baseMipLevel = 0;
-		range.levelCount = m_MipLevels;
+		//range.levelCount = m_MipLevels;
+		range.levelCount = 1;
 		range.baseArrayLayer = 0;
 		range.layerCount = 1;
 
@@ -178,17 +215,24 @@ namespace Vulture
 		CopyBufferToImage(buffer->GetBuffer(), static_cast<uint32_t>(m_Size.Width), static_cast<uint32_t>(m_Size.Height));
 
 		Image::TransitionImageLayout(m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		m_ImageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 		CreateImageView(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
 		CreateImageSampler(samplerInfo);
 	}
 
+	/*
+	 * @brief Creates a sampler for the image using the specified sampler information.
+	 *
+	 * @param samplerInfo - The sampler information for the image.
+	 */
 	void Image::CreateImageSampler(SamplerInfo samplerInfo)
 	{
-		m_Sampler = std::make_shared<Sampler>(samplerInfo, m_MipLevels > 1 ? m_MipLevels : 0);
+		m_Sampler = std::make_shared<Sampler>(samplerInfo);
 	}
 
+	/*
+	 * @brief Generates mipmaps for the image.
+	 */
 	void Image::GenerateMipmaps()
 	{
 		VkCommandBuffer commandBuffer;
@@ -278,6 +322,15 @@ namespace Vulture
 		Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetCommandPool());
 	}
 
+	/*
+	 * @brief Transitions the image layout from oldLayout to newLayout.
+	 *
+	 * @param image - The Vulkan image to transition.
+	 * @param oldLayout - The old layout of the image.
+	 * @param newLayout - The new layout to transition the image to.
+	 * @param cmdBuffer - Optional command buffer for the transition (useful for custom command buffer recording).
+	 * @param subresourceRange - Optional subresource range for the transition.
+	 */
 	void Image::TransitionImageLayout(const VkImage& image, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer, const VkImageSubresourceRange& subresourceRange) {
 		VkCommandBuffer commandBuffer;
 
@@ -391,6 +444,14 @@ namespace Vulture
 			Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetCommandPool());
 	}
 
+	/**
+	 * @brief Copies data from a buffer to the image.
+	 *
+	 * @param buffer - The source buffer containing the data to copy.
+	 * @param width - The width of the image region to copy.
+	 * @param height - The height of the image region to copy.
+	 * @param offset - The offset in the image to copy the data to.
+	 */
 	void Image::CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkOffset3D offset) 
 	{
 		VkCommandBuffer commandBuffer;
@@ -414,7 +475,17 @@ namespace Vulture
 		Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetCommandPool());
 	}
 
-	void Image::CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkOffset3D offset)
+	/*
+	 * @briefCopies data from one image to another using Vulkan commands.
+	 *
+	 * @param image - The source image containing the data to copy.
+	 * @param width - The width of the image region to copy.
+	 * @param height - The height of the image region to copy.
+	 * @param layout - The layout of the destination image.
+	 * @param srcOffset - The offset in the source image to copy the data from.
+	 * @param dstOffset - The offset in the destination image to copy the data to.
+	 */
+	void Image::CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkImageLayout layout, VkOffset3D srcOffset, VkOffset3D dstOffset)
 	{
 		VkCommandBuffer commandBuffer;
 		Device::BeginSingleTimeCommands(commandBuffer, Device::GetCommandPool());
@@ -431,12 +502,11 @@ namespace Vulture
 		region.dstSubresource.baseArrayLayer = 0;
 		region.dstSubresource.layerCount = 1;
 
-		region.srcOffset = { 0, 0, 0 };
-		region.dstOffset = offset;
+		region.srcOffset = srcOffset;
+		region.dstOffset = dstOffset;
 		region.extent = { width, height, 1 };
 
-		vkCmdCopyImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_Image, m_ImageLayout, 1, &region);
-		
+		vkCmdCopyImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_Image, layout, 1, &region);
 
 		Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetCommandPool());
 	}

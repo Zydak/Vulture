@@ -51,8 +51,8 @@ namespace Vulture
 		inline std::vector<PresentMode>& GetAvailablePresentModes() { return m_AvailablePresentModes; }
 		inline PresentModes GetCurrentPresentMode() { return m_CurrentPresentMode; }
 
-		VkResult SubmitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex);
-		VkResult AcquireNextImage(uint32_t* imageIndex);
+		VkResult SubmitCommandBuffers(const VkCommandBuffer* buffers, uint32_t& imageIndex);
+		VkResult AcquireNextImage(uint32_t& imageIndex);
 
 		bool CompareSwapFormats(const Swapchain& swapChain) const { return swapChain.m_SwapchainDepthFormat == m_SwapchainDepthFormat && swapChain.m_SwapchainImageFormat == m_SwapchainImageFormat; }
 

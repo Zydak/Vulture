@@ -55,14 +55,20 @@ namespace Vulture
 		}
 	}
 
+	/*
+	 * @brief Iterates through the available surface formats and chooses a suitable one.
+	 * It specifically looks for the VK_FORMAT_B8G8R8A8_UNORM format with VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT color space.
+	 * If no suitable format is found, it returns the first available format.
+	 *
+	 * @param availableFormats - A vector containing the available surface formats.
+	 * @return The chosen swap surface format.
+	 */
 	VkSurfaceFormatKHR Swapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
 	{
 		for (const auto& availableFormat : availableFormats)
 		{
-			// VK_COLOR_SPACE_SRGB_NONLINEAR_KHR specifies if SRGB color space is used
-			// SRGB color space results in more accurate perceived colors* + it is standard for textures
-			// * https://stackoverflow.com/questions/12524623/what-are-the-practical-differences-when-working-with-colors-in-a-linear-vs-a-no
-			if (availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+			// https://stackoverflow.com/questions/12524623/what-are-the-practical-differences-when-working-with-colors-in-a-linear-vs-a-no
+			if (availableFormat.format == VK_FORMAT_B8G8R8A8_UNORM && availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT)
 			{
 				return availableFormat;
 			}
@@ -71,12 +77,19 @@ namespace Vulture
 		return availableFormats[0];
 	}
 
-	/**
-	 * @brief Chooses how to present images to Screen
-	 * @brief Mailbox - Most efficient one, solves screen tearing issue in immediate mode. (not supported by Linux)
-	 * @brief Immediate - Presents images on screen as fast as possible. Possible screen tearing.
-	 * @brief V-Sync (FIFO) - Synchronizes presenting images with monitor refresh rate.
-	*/
+	/*
+	 * @brief Takes a PresentModes enum value and chooses the corresponding Vulkan present mode.
+	 * It checks if the chosen present mode is supported, and if not, it asserts with an error message.
+	 * If the present mode is supported, it sets the current present mode and returns the Vulkan present mode.
+	 *
+	 * @param presentMode - The desired present mode (VSync, Immediate, or MailBox).
+	 * @return The chosen Vulkan present mode.
+	 * 
+	 * @note Chooses how to present images to Screen
+	 * @note Mailbox - The most efficient one, solves screen tearing issue in immediate mode. (not supported by Linux)
+	 * @note Immediate - Presents images on screen as fast as possible. Possible screen tearing.
+	 * @note V-Sync (FIFO) - Synchronizes presenting images with monitor refresh rate.
+	 */
 	VkPresentModeKHR Swapchain::ChooseSwapPresentMode(const PresentModes& presentMode)
 	{
 		switch (presentMode)
@@ -112,6 +125,14 @@ namespace Vulture
 		return VK_PRESENT_MODE_FIFO_KHR; // just to get rid of compiler warning
 	}
 
+	/*
+	 * @brief Choose the swap extent based on the provided surface capabilities.
+	 * If the current extent is already specified by the surface capabilities, it is returned.
+	 * Otherwise, the window extent is clamped between the minimum and maximum image extents supported by the surface.
+	 *
+	 * @param capabilities - The surface capabilities.
+	 * @return The chosen swap extent.
+	 */
 	VkExtent2D Swapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
 	{
 		if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) { return capabilities.currentExtent; }
@@ -125,6 +146,13 @@ namespace Vulture
 		}
 	}
 
+	/*
+	 * @brief Initializes the swapchain by selecting the appropriate surface format, present mode,
+	 * and swap extent based on the provided surface capabilities. It also sets up the number of images
+	 * in the swapchain and their properties.
+	 *
+	 * @param presentMode - The desired present mode for the swapchain.
+	 */
 	void Swapchain::CreateSwapchain(const PresentModes& presentMode)
 	{
 		SwapchainSupportDetails swapChainSupport = Device::GetSwapchainSupport();
@@ -186,6 +214,9 @@ namespace Vulture
 		m_SwapchainExtent = extent;
 	}
 
+	/*
+	 * @brief Creates image views for the presentable images in the swapchain.
+	 */
 	void Swapchain::CreateImageViews()
 	{
 		m_PresentableImageViews.resize(m_PresentableImages.size());
@@ -210,6 +241,9 @@ namespace Vulture
 		}
 	}
 
+	/*
+	 * @brief Create a render pass for the swapchain images.
+	 */
 	void Swapchain::CreateRenderPass()
 	{
 		VkAttachmentDescription colorAttachment = {};
@@ -230,7 +264,14 @@ namespace Vulture
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
-		subpass.pDepthStencilAttachment = nullptr;
+
+		VkSubpassDependency dependency = {};
+		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency.dstSubpass = 0;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.srcAccessMask = 0;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
 		std::vector<VkAttachmentDescription> attachments = { colorAttachment };
 		VkRenderPassCreateInfo renderPassInfo = {};
@@ -239,17 +280,26 @@ namespace Vulture
 		renderPassInfo.pAttachments = attachments.data();
 		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = &subpass;
-		renderPassInfo.dependencyCount = 0;
-		renderPassInfo.pDependencies = nullptr;
+		renderPassInfo.dependencyCount = 1;
+		renderPassInfo.pDependencies = &dependency;
 
 		m_RenderPass.CreateRenderPass(renderPassInfo);
 	}
 
+	/*
+	 * @brief Find the supported depth format for the swapchain.
+	 * @return The supported depth format.
+	 */
 	VkFormat Swapchain::FindDepthFormat()
 	{
 		return Device::FindSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	}
 
+	/*
+	 * @brief Finds and sets the availability of different presentation modes.
+	 * 
+	 * @param availablePresentModes - The available presentation modes.
+	 */
 	void Swapchain::FindPresentModes(const std::vector<VkPresentModeKHR>& availablePresentModes)
 	{
 		m_AvailablePresentModes.resize(3);
@@ -276,9 +326,11 @@ namespace Vulture
 		}
 	}
 
+	/*
+	 * @brief Creates framebuffers for the swapchain images.
+	 */
 	void Swapchain::CreateFramebuffers()
 	{
-
 		// Presentable
 		{
 			m_PresentableFramebuffers.resize(GetImageCount());
@@ -303,16 +355,20 @@ namespace Vulture
 		}
 	}
 
-	/**
-	 * @brief Synchronizes CPU-GPU work, submits command buffer into graphics queue and presents image
-	*/
-	VkResult Swapchain::SubmitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex)
+	/*
+	 * @brief Submits command buffers for execution and presents the images to the swap chain.
+	 *
+	 * @param buffers - A pointer to the buffers to be submitted.
+	 * @param imageIndex - Index of the image to present.
+	 * @return VkResult - The result of the presentation.
+	 */
+	VkResult Swapchain::SubmitCommandBuffers(const VkCommandBuffer* buffers, uint32_t& imageIndex)
 	{
-		if (m_ImagesInFlight[*imageIndex] != VK_NULL_HANDLE) 
+		if (m_ImagesInFlight[imageIndex] != VK_NULL_HANDLE) 
 		{
-			vkWaitForFences(Device::GetDevice(), 1, &m_ImagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX);
+			vkWaitForFences(Device::GetDevice(), 1, &m_ImagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
 		}
-		m_ImagesInFlight[*imageIndex] = m_InFlightFences[m_CurrentFrame];
+		m_ImagesInFlight[imageIndex] = m_InFlightFences[m_CurrentFrame];
 
 		VkSubmitInfo submitInfo = {};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -346,7 +402,7 @@ namespace Vulture
 		presentInfo.swapchainCount = 1;
 		presentInfo.pSwapchains = swapChains;
 
-		presentInfo.pImageIndices = imageIndex;
+		presentInfo.pImageIndices = &imageIndex;
 
 		auto result = vkQueuePresentKHR(Device::GetPresentQueue(), &presentInfo);
 
@@ -356,24 +412,24 @@ namespace Vulture
 	}
 
 	/**
-	 * @brief Acquires next image from swapchain for rendering
+	 * @brief Acquires next image from swapchain for renderin.g
 	 *
-	 * @param imageIndex Changes current image index to next Available image in swapchain
+	 * @param imageIndex Changes current image index to next Available image in swapchain.
 	 *
-	 * @return Returns result of Acquiring image from swapchain
+	 * @return Returns result of Acquiring image from swapchain.
 	*/
-	VkResult Swapchain::AcquireNextImage(uint32_t* imageIndex)
+	VkResult Swapchain::AcquireNextImage(uint32_t& imageIndex)
 	{
 		vkWaitForFences(Device::GetDevice(), 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, UINT64_MAX);
 
-		VkResult result = vkAcquireNextImageKHR(Device::GetDevice(), m_Swapchain, std::numeric_limits<uint64_t>::max(), m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, imageIndex);
+		VkResult result = vkAcquireNextImageKHR(Device::GetDevice(), m_Swapchain, std::numeric_limits<uint64_t>::max(), m_ImageAvailableSemaphores[m_CurrentFrame], VK_NULL_HANDLE, &imageIndex);
 
 		return result;
 	}
 
-	/**
-	 * @brief Creates objects for explicit synchronization
-	*/
+	/*
+	 * @brief Creates synchronization objects for the swap chain images.
+	 */
 	void Swapchain::CreateSyncObjects()
 	{
 		m_ImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);

@@ -12,6 +12,10 @@ namespace Vulture
 
 	const std::vector<const char*> Device::s_ValidationLayers = { "VK_LAYER_KHRONOS_validation" };
 	const std::vector<const char*> Device::s_DeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	std::vector<Extension> Device::s_OptionalExtensions = { 
+		{VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME , false},
+		{VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME, false}
+	};
 
 	/*
 	   *  @brief Callback function for Vulkan to be called by validation layers when needed
@@ -19,20 +23,26 @@ namespace Vulture
 	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
 		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 	{
-		if (messageType == 0x00000001)
+		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
+		{
 			VL_CORE_INFO("Validation Layer: Info\n\t{0}", pCallbackData->pMessage);
-		if (messageType == 0x00000002)
-			VL_CORE_ERROR("Validation Layer: Validation Error\n\t{0}", pCallbackData->pMessage);
-		if (messageType == 0x00000004)
-			VL_CORE_WARN("Validation Layer: Performance Issue (Not Optimal)\n\t{0}", pCallbackData->pMessage);
+		}
+		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+		{
+			VL_CORE_ERROR("{0} Validation Layer: Validation Error\n\t{1}", messageSeverity, pCallbackData->pMessage);
+			VL_CORE_ASSERT(false, ""); // Vulkan error
+		}
+		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+		{
+			VL_CORE_WARN("Validation Layer: Warning\n\t{0}", pCallbackData->pMessage);
+		}
 		return VK_FALSE;
 	}
 
-	/**
-	   *  @brief This is a proxy function.
-	   *  It loads vkCreateDebugUtilsMessengerEXT from memory and then calls it.
-	   *  This is necessary because this function is an extension function, it is not automatically loaded to memory
-	*/
+	/*
+	 * @brief Loads vkCreateDebugUtilsMessengerEXT from memory and then calls it.
+	 * This is necessary because this function is an extension function, it is not automatically loaded to memory
+	 */
 	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
 	{
 		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
@@ -40,11 +50,10 @@ namespace Vulture
 		else { return VK_ERROR_EXTENSION_NOT_PRESENT; }
 	}
 
-	/**
-	   *  @brief This is a proxy function.
-	   *  It loads vkDestroyDebugUtilsMessengerEXT from memory and then calls it.
-	   *  This is necessary because this function is an extension function, it is not automatically loaded to memory
-	*/
+	/*
+	 * @brief Loads vkDestroyDebugUtilsMessengerEXT from memory and then calls it.
+	 * This is necessary because this function is an extension function, it is not automatically loaded to memory
+	 */
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
 	{
 		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
@@ -73,6 +82,11 @@ namespace Vulture
 		vkDestroyInstance(s_Instance, nullptr);
 	}
 
+	/*
+	 * @brief Checks if the required Vulkan validation layers are supported.
+	 *
+	 * @return True if all required validation layers are supported, false otherwise.
+	 */
 	bool Device::CheckValidationLayerSupport()
 	{
 		uint32_t layerCount;
@@ -95,6 +109,11 @@ namespace Vulture
 		return true;
 	}
 
+	/*
+	 * @brief Retrieves the required Vulkan instance extensions for GLFW integration.
+	 *
+	 * @return A vector of const char* containing the required Vulkan extensions.
+	 */
 	std::vector<const char*> Device::GetRequiredGlfwExtensions()
 	{
 		uint32_t glfwExtensionCount = 0;
@@ -107,6 +126,10 @@ namespace Vulture
 		return extensions;
 	}
 
+	/*
+	 * @brief Queries the available Vulkan instance extension properties and verifies that
+	 * all the required extensions for GLFW integration are present.
+	 */
 	void Device::CheckRequiredGlfwExtensions()
 	{
 		uint32_t extensionCount = 0;
@@ -121,10 +144,18 @@ namespace Vulture
 
 		auto requiredExtensions = GetRequiredGlfwExtensions();
 		for (const auto& required : requiredExtensions) {
-			if (available.find(required) == available.end()) { throw std::runtime_error("Missing required GLFW extension"); }
+			if (available.find(required) == available.end()) 
+			{ 
+				VL_CORE_ASSERT(false, "Missing glfw extension: {0}", required);
+			}
 		}
 	}
 
+	/*
+	 * @brief Sets up the Vulkan Debug Utils Messenger for validation layers.
+	 *
+	 * @note If validation layers are not enabled, the function returns without setting up the debug messenger.
+	 */
 	void Device::SetupDebugMessenger()
 	{
 		if (!s_EnableValidationLayers) return;
@@ -138,20 +169,27 @@ namespace Vulture
 		);
 	}
 
-	/**
-	   *  @brief Sets which messages to show by validation layers
-	   *
-	   *  @param createInfo struct to fill
+	/*
+	 * @brief Sets which messages to show by validation layers
+	 *
+	 * @param createInfo struct to fill
 	*/
 	void Device::PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
 	{
 		createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
 		createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 		createInfo.pfnUserCallback = DebugCallback;
 	}
 
+	/*
+	 * @brief Creates the Vulkan instance for the application.
+	 *
+	 * This function creates the Vulkan instance for the application, configuring application and engine information,
+	 * enabling validation layers if requested, and checking for required GLFW extensions. It uses Vulkan API calls
+	 * to create the instance and performs necessary checks for successful creation.
+	 */
 	void Device::CreateInstance()
 	{
 		VL_CORE_ASSERT((s_EnableValidationLayers && CheckValidationLayerSupport()), "Validation layers requested but not available!");
@@ -195,6 +233,13 @@ namespace Vulture
 		CheckRequiredGlfwExtensions();
 	}
 
+	/*
+	 * @brief Finds the Vulkan queue families supported by the physical device.
+	 *
+	 * @param device - The Vulkan physical device for which queue families are being queried.
+	 *
+	 * @return QueueFamilyIndices structure containing the indices of the graphics and present queue families.
+	 */
 	QueueFamilyIndices Device::FindQueueFamilies(VkPhysicalDevice device)
 	{
 		QueueFamilyIndices indices;
@@ -231,21 +276,37 @@ namespace Vulture
 		return indices;
 	}
 
+	/*
+	 * @brief Evaluates the suitability of the specified Vulkan physical device based on criteria
+	 * such as queue families, required extensions, and swap chain support. It returns true if the device
+	 * is deemed suitable, and false otherwise.
+	 *
+	 * @param device - The Vulkan physical device to be evaluated for suitability.
+	 *
+	 * @return True if the device is suitable, false otherwise.
+	 */
 	bool Device::IsDeviceSuitable(VkPhysicalDevice device)
 	{
 		QueueFamilyIndices indices = FindQueueFamilies(device);
 
-		bool extensionSupported = CheckDeviceExtensionSupport(device);
+		bool extensionsSupported = CheckDeviceExtensionSupport(device);
 
 		bool swapChainAdequate = false;
-		if (extensionSupported) {
+		if (extensionsSupported) {
 			SwapchainSupportDetails swapChainSupport = QuerySwapchainSupport(device);
 			swapChainAdequate = !swapChainSupport.Formats.empty() && !swapChainSupport.PresentModes.empty();
 		}
 
-		return indices.IsComplete() && extensionSupported && swapChainAdequate;
+		return indices.IsComplete() && extensionsSupported && swapChainAdequate;
 	}
 
+	/*
+	 * @brief Enumerates the available Vulkan physical devices, assesses their suitability using
+	 * the IsDeviceSuitable function, and selects the most appropriate device based on certain criteria.
+	 * It sets the selected physical device handle in the s_PhysicalDevice member variable.
+	 *
+	 * @note The function prioritizes discrete GPUs over integrated GPUs when both are available.
+	 */
 	void Device::PickPhysicalDevice()
 	{
 		uint32_t deviceCount = 0;
@@ -278,6 +339,13 @@ namespace Vulture
 		VL_CORE_INFO("physical device: {0}", s_Properties.deviceName);
 	}
 
+	/*
+	 * @brief Creates the logical Vulkan device, including the necessary queues, based on the selected
+	 * physical device and provided configuration settings.
+	 *
+	 * @note The function checks for the required queue families using the FindQueueFamilies function.
+	 * @note The function handles the selection of supported device extensions and optional extensions.
+	 */
 	void Device::CreateLogicalDevice()
 	{
 		QueueFamilyIndices indices = FindQueueFamilies(s_PhysicalDevice);
@@ -296,18 +364,29 @@ namespace Vulture
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
+		vkGetPhysicalDeviceFeatures(s_PhysicalDevice, &s_Features);
+
 		VkPhysicalDeviceFeatures deviceFeatures = {};
-		deviceFeatures.samplerAnisotropy = VK_TRUE;
-		deviceFeatures.depthClamp = VK_TRUE;
-		deviceFeatures.imageCubeArray = VK_TRUE;
+
+		std::vector<const char*> extensions;
+		for (auto& extension : s_DeviceExtensions)
+		{
+			extensions.push_back(extension);
+		}
+
+		for (auto& extension : s_OptionalExtensions)
+		{
+			if (extension.supported)
+				extensions.push_back(extension.Name);
+		}
 
 		VkDeviceCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 		createInfo.pEnabledFeatures = &deviceFeatures;
-		createInfo.enabledExtensionCount = (uint32_t)s_DeviceExtensions.size();
-		createInfo.ppEnabledExtensionNames = s_DeviceExtensions.data();
+		createInfo.enabledExtensionCount = (uint32_t)extensions.size();
+		createInfo.ppEnabledExtensionNames = extensions.data();
 
 		if (s_EnableValidationLayers)
 		{
@@ -325,8 +404,23 @@ namespace Vulture
 		vkGetDeviceQueue(s_Device, indices.PresentFamily, 0, &s_PresentQueue);
 	}
 
-	void Device::CreateSurface() { s_Window->CreateWindowSurface(s_Instance, &s_Surface); }
+	/*
+	 * @brief Creates the Vulkan surface for rendering.
+	 */
+	void Device::CreateSurface() 
+	{ 
+		s_Window->CreateWindowSurface(s_Instance, &s_Surface); 
+	}
 
+	/*
+	 * @brief Queries the physical device for its supported device extensions and verifies
+	 * that all the required extensions are present. It updates the support status of optional extensions
+	 * accordingly. The function returns true if all required extensions are supported, and false otherwise.
+	 *
+	 * @param device - The Vulkan physical device for which extension support is being checked.
+	 *
+	 * @return True if all required extensions are supported, false otherwise.
+	 */
 	bool Device::CheckDeviceExtensionSupport(VkPhysicalDevice device)
 	{
 		uint32_t extensionCount;
@@ -338,10 +432,31 @@ namespace Vulture
 		std::set<std::string> requiredExtensions(s_DeviceExtensions.begin(), s_DeviceExtensions.end());
 
 		for (const auto& extension : availableExtensions) { requiredExtensions.erase(extension.extensionName); }
+		for (const auto& extension : availableExtensions) 
+		{
+			Extension ext;
+			ext.Name = extension.extensionName;
+			for (auto& optionalEtension : s_OptionalExtensions)
+			{
+				if (std::string(optionalEtension.Name) == std::string(ext.Name))
+				{
+					optionalEtension.supported = true;
+				}
+			}
+		}
 
 		return requiredExtensions.empty();
 	}
 
+	/*
+	 * @brief Queries the Vulkan physical device for its swap chain support details, including
+	 * capabilities, supported surface formats, and present modes. It returns a SwapchainSupportDetails
+	 * structure containing the obtained information.
+	 *
+	 * @param device - The Vulkan physical device for which swap chain support is being queried.
+	 *
+	 * @return SwapchainSupportDetails structure containing the swap chain support details.
+	 */
 	SwapchainSupportDetails Device::QuerySwapchainSupport(VkPhysicalDevice device)
 	{
 		SwapchainSupportDetails details;
@@ -350,14 +465,16 @@ namespace Vulture
 
 		uint32_t formatCount;
 		vkGetPhysicalDeviceSurfaceFormatsKHR(device, s_Surface, &formatCount, nullptr);
-		if (formatCount != 0) {
+		if (formatCount != 0) 
+		{
 			details.Formats.resize(formatCount);
 			vkGetPhysicalDeviceSurfaceFormatsKHR(device, s_Surface, &formatCount, details.Formats.data());
 		}
 
 		uint32_t presentModeCount;
 		vkGetPhysicalDeviceSurfacePresentModesKHR(device, s_Surface, &presentModeCount, nullptr);
-		if (presentModeCount != 0) {
+		if (presentModeCount != 0) 
+		{
 			details.PresentModes.resize(presentModeCount);
 			vkGetPhysicalDeviceSurfacePresentModesKHR(device, s_Surface, &presentModeCount, details.PresentModes.data());
 		}
@@ -365,6 +482,17 @@ namespace Vulture
 		return details;
 	}
 
+	/*
+	 * @brief Iterates through the provided list of Vulkan formats and checks if they have the
+	 * required properties specified by the tiling and features parameters. It returns the first supported
+	 * format found, or VK_FORMAT_UNDEFINED if none are supported.
+	 *
+	 * @param candidates - The list of Vulkan formats to check for support.
+	 * @param tiling - The desired image tiling mode (VK_IMAGE_TILING_LINEAR or VK_IMAGE_TILING_OPTIMAL).
+	 * @param features - The desired format features.
+	 *
+	 * @return Supported Vulkan format from the candidates with the specified properties.
+	 */
 	VkFormat Device::FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
 	{
 		for (VkFormat format : candidates)
@@ -375,10 +503,15 @@ namespace Vulture
 			if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) { return format; }
 			else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) { return format; }
 		}
-		VL_CORE_ASSERT(false, "failed to find supported format!");
 		return VK_FORMAT_UNDEFINED;
 	}
 
+	/*
+	 * @brief Creates a Vulkan command pool based on the graphics queue family index.
+	 * It sets the command pool creation flags to allow resetting command buffers.
+	 *
+	 * @note The function asserts if the command pool creation fails.
+	 */
 	void Device::CreateCommandPool()
 	{
 		QueueFamilyIndices queueFamilyIndices = FindPhysicalQueueFamilies();
@@ -394,6 +527,18 @@ namespace Vulture
 		);
 	}
 
+	/*
+	 * @brief Iterates through the available memory types on the physical device and checks
+	 * for a suitable type that matches the specified type filter and properties. It returns the index
+	 * of the found memory type.
+	 *
+	 * @param typeFilter - Bit field specifying the memory types that are suitable.
+	 * @param properties - Desired memory properties.
+	 *
+	 * @return Index of the suitable memory type.
+	 *
+	 * @note It asserts if no suitable memory type is found.
+	 */
 	uint32_t Device::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
 	{
 		/*
@@ -426,6 +571,14 @@ namespace Vulture
 		return 0;
 	}
 
+	/*
+	 * @brief Function allocates a command buffer from the specified command pool and begins recording
+	 * commands in it. The command buffer is set to the VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+	 * flag, indicating that it will be used for a single submission.
+	 *
+	 * @param buffer - Vulkan command buffer to be allocated and recorded.
+	 * @param pool - Vulkan command pool from which the command buffer is allocated.
+	 */
 	void Device::BeginSingleTimeCommands(VkCommandBuffer& buffer, VkCommandPool pool)
 	{
 		VkCommandBufferAllocateInfo allocInfo{};
@@ -443,6 +596,14 @@ namespace Vulture
 		vkBeginCommandBuffer(buffer, &beginInfo);
 	}
 
+	/**
+	 * @brief Ends the recording of the specified command buffer and submits it to the specified
+	 * queue for immediate execution. It waits for the queue to become idle before freeing the command buffer.
+	 *
+	 * @param commandBuffer - Vulkan command buffer to be ended, submitted, and freed.
+	 * @param queue - Vulkan queue to which the command buffer is submitted.
+	 * @param pool - Vulkan command pool from which the command buffer was allocated.
+	 */
 	void Device::EndSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool pool)
 	{
 		vkEndCommandBuffer(commandBuffer);
@@ -459,6 +620,7 @@ namespace Vulture
 	}
 
 	VkPhysicalDeviceProperties Device::s_Properties = {};
+	VkPhysicalDeviceFeatures Device::s_Features;
 	VkInstance Device::s_Instance = {};
 	VkDebugUtilsMessengerEXT Device::s_DebugMessenger = {};
 	VkPhysicalDevice Device::s_PhysicalDevice = {};

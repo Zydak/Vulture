@@ -61,7 +61,7 @@ namespace Vulture
 
 		void Bind(VkCommandBuffer commandBuffer);
 
-		static PipelineConfigInfo CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable);
+		static void CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable);
 		void CreatePipeline(PipelineCreateInfo& info);
 
 		inline VkPipelineLayout GetPipelineLayout() { return m_PipelineLayout; }

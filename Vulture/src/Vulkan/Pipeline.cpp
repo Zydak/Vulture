@@ -9,6 +9,18 @@
 
 namespace Vulture
 {
+	enum class ShaderType
+	{
+		Vertex,
+		Fragment,
+		Compute
+	};
+
+	struct ShaderModule
+	{
+		VkShaderModule Module;
+		VkShaderStageFlagBits Type;
+	};
 
 	Pipeline::~Pipeline()
 	{
@@ -16,6 +28,12 @@ namespace Vulture
 		vkDestroyPipelineLayout(Device::GetDevice(), m_PipelineLayout, nullptr);
 	}
 
+	/*
+	 * @brief Reads the contents of a file into a vector of characters.
+	 *
+	 * @param filepath - The path to the file to be read.
+	 * @return A vector of characters containing the file contents.
+	 */
 	std::vector<char> Pipeline::ReadFile(const std::string& filepath)
 	{
 		std::ifstream file(filepath, std::ios::ate | std::ios::binary);    // ate goes to the end of the file so reading filesize is easier and binary avoids text transformation
@@ -23,13 +41,19 @@ namespace Vulture
 
 		uint32_t fileSize = (uint32_t)(file.tellg());    // tellg gets current position in file
 		std::vector<char> buffer(fileSize);
-		file.seekg(0);    // return to the begining of the file
+		file.seekg(0);    // return to the beginning of the file
 		file.read(buffer.data(), fileSize);
 
 		file.close();
 		return buffer;
 	}
 
+	/*
+	 * @brief Creates a Vulkan shader module from the given shader code.
+	 *
+	 * @param code - The vector of characters containing the shader code.
+	 * @param shaderModule - Pointer to the Vulkan shader module to be created.
+	 */
 	void Pipeline::CreateShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule)
 	{
 		VkShaderModuleCreateInfo createInfo{};
@@ -44,6 +68,11 @@ namespace Vulture
 		);
 	}
 
+	/*
+	 * @brief Binds the pipeline to the given Vulkan command buffer.
+	 *
+	 * @param commandBuffer - The Vulkan command buffer to which the pipeline is bound.
+	 */
 	void Pipeline::Bind(VkCommandBuffer commandBuffer)
 	{
 		if (m_PipelineType == PipelineType::Compute)
@@ -52,7 +81,38 @@ namespace Vulture
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
 	}
 
-	PipelineConfigInfo Pipeline::CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable)
+	/*
+	 * @brief Creates a Vulkan pipeline layout using the specified descriptor set layouts and push constant ranges.
+	 *
+	 * @param descriptorSetsLayouts - The descriptor set layouts to be used in the pipeline layout.
+	 * @param pushConstants - The push constant ranges to be used in the pipeline layout.
+	 */
+	void Pipeline::CreatePipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSetsLayouts, VkPushConstantRange* pushConstants)
+	{
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutInfo.setLayoutCount = descriptorSetsLayouts.empty() ? 0 : (uint32_t)descriptorSetsLayouts.size();
+		pipelineLayoutInfo.pSetLayouts = descriptorSetsLayouts.empty() ? nullptr : descriptorSetsLayouts.data();
+		pipelineLayoutInfo.pushConstantRangeCount = (pushConstants == nullptr) ? 0 : 1;
+		pipelineLayoutInfo.pPushConstantRanges = pushConstants;
+		VL_CORE_RETURN_ASSERT(vkCreatePipelineLayout(Device::GetDevice(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout),
+			VK_SUCCESS,
+			"failed to create pipeline layout!"
+		);
+	}
+
+	/**
+	 * @brief Initializes a Vulkan pipeline configuration based on the specified parameters.
+	 *
+	 * @param configInfo - The pipeline configuration information structure to be initialized.
+	 * @param width - The width of the viewport.
+	 * @param height - The height of the viewport.
+	 * @param topology - The primitive topology.
+	 * @param cullMode - The cull mode flags.
+	 * @param depthTestEnable - Flag indicating whether depth testing is enabled.
+	 * @param blendingEnable - Flag indicating whether blending is enabled.
+	 */
+	void Pipeline::CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable)
 	{
 		configInfo.InputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		configInfo.InputAssemblyInfo.topology = topology;
@@ -129,22 +189,7 @@ namespace Vulture
 		configInfo.DepthStencilInfo.stencilTestEnable = VK_FALSE;
 		configInfo.DepthStencilInfo.front = {};
 		configInfo.DepthStencilInfo.back = {};
-
-		return configInfo;
 	}
-
-	enum class ShaderType
-	{
-		Vertex,
-		Fragment,
-		Compute
-	};
-
-	struct ShaderModule
-	{
-		VkShaderModule Module;
-		VkShaderStageFlagBits Type;
-	};
 
 	void Pipeline::CreatePipeline(PipelineCreateInfo& info)
 	{
@@ -288,19 +333,4 @@ namespace Vulture
 			vkDestroyShaderModule(Device::GetDevice(), shaderModules[i].Module, nullptr);
 		}
 	}
-
-	void Pipeline::CreatePipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSetsLayouts, VkPushConstantRange* pushConstants)
-	{
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipelineLayoutInfo.setLayoutCount = descriptorSetsLayouts.empty() ? 0 : (uint32_t)descriptorSetsLayouts.size();
-		pipelineLayoutInfo.pSetLayouts = descriptorSetsLayouts.empty() ? nullptr : descriptorSetsLayouts.data();
-		pipelineLayoutInfo.pushConstantRangeCount = (pushConstants == nullptr) ? 0 : 1;
-		pipelineLayoutInfo.pPushConstantRanges = pushConstants;
-		VL_CORE_RETURN_ASSERT(vkCreatePipelineLayout(Device::GetDevice(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout),
-			VK_SUCCESS, 
-			"failed to create pipeline layout!"
-		);
-	}
-
 }

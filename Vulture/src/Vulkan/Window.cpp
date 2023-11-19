@@ -13,6 +13,11 @@ namespace Vulture
 		VL_CORE_ERROR("{0}", message);
 	}
 
+	/**
+	 * @brief Constructs a Window object with the specified window information.
+	 * 
+	 * @param winInfo - The window information, including width, height, name, and optional icon.
+	 */
 	Window::Window(const WindowInfo& winInfo) : m_Width(winInfo.Width), m_Height(winInfo.Height), m_Name(winInfo.Name)
 	{
 		glfwInit();

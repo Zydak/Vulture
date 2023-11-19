@@ -24,6 +24,12 @@ namespace Vulture
 		bool IsComplete() { return GraphicsFamilyHasValue && PresentFamilyHasValue; }
 	};
 
+	struct Extension
+	{
+		const char* Name;
+		bool supported;
+	};
+
 	class Device
 	{
 	public:
@@ -74,6 +80,7 @@ namespace Vulture
 		static SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device);
 
 		static VkPhysicalDeviceProperties s_Properties;
+		static VkPhysicalDeviceFeatures s_Features;
 		static VkInstance s_Instance;
 		static VkDebugUtilsMessengerEXT s_DebugMessenger;
 		static VkPhysicalDevice s_PhysicalDevice;
@@ -88,6 +95,7 @@ namespace Vulture
 
 		static const std::vector<const char*> s_ValidationLayers;
 		static const std::vector<const char*> s_DeviceExtensions;
+		static std::vector<Extension> s_OptionalExtensions;
 
 #ifdef DIST
 		static const bool s_EnableValidationLayers = false;

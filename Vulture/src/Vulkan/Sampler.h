@@ -16,7 +16,7 @@ namespace Vulture
 	class Sampler
 	{
 	public:
-		Sampler(SamplerInfo samplerInfo, uint32_t mipLevels = 0);
+		Sampler(SamplerInfo samplerInfo);
 		~Sampler();
 
 		inline VkSampler GetSampler() { return m_Sampler; }

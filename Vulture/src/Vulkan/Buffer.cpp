@@ -185,10 +185,10 @@ namespace Vulture
 	/**
 	 * Copies the specified data to the buffer.
 	 *
-	 * @param data Pointer to the data to copy
-	 * @param size Size of the data to copy. Pass VK_WHOLE_SIZE to flush the complete buffer
+	 * @param data - Pointer to the data to copy
+	 * @param size - Size of the data to copy. Pass VK_WHOLE_SIZE to flush the complete buffer
 	 * range.
-	 * @param offset Byte offset from beginning of mapped region
+	 * @param offset - Byte offset from beginning of mapped region
 	 *
 	 */
 	void Buffer::WriteToBuffer(VkCommandBuffer cmdBuffer, void* data, VkDeviceSize size, VkDeviceSize offset)
@@ -204,9 +204,9 @@ namespace Vulture
 	 *
 	 * @note Only required for non-coherent memory
 	 *
-	 * @param size (Optional) Size of the memory range to flush. Pass VK_WHOLE_SIZE to flush the
+	 * @param size (Optional) - Size of the memory range to flush. Pass VK_WHOLE_SIZE to flush the
 	 * complete buffer range.
-	 * @param offset (Optional) Byte offset from beginning
+	 * @param offset (Optional) - Byte offset from beginning
 	 *
 	 * @return VkResult of the flush call
 	 */
@@ -225,9 +225,9 @@ namespace Vulture
 	 *
 	 * @note Only required for non-coherent memory
 	 *
-	 * @param size (Optional) Size of the memory range to invalidate. Pass VK_WHOLE_SIZE to invalidate
+	 * @param size (Optional) - Size of the memory range to invalidate. Pass VK_WHOLE_SIZE to invalidate
 	 * the complete buffer range.
-	 * @param offset (Optional) Byte offset from beginning
+	 * @param offset (Optional) - Byte offset from beginning
 	 *
 	 * @return VkResult of the invalidate call
 	 */
@@ -244,8 +244,8 @@ namespace Vulture
 	/**
 	 * Create a buffer info descriptor
 	 *
-	 * @param size (Optional) Size of the memory range of the descriptor
-	 * @param offset (Optional) Byte offset from beginning
+	 * @param size (Optional) - Size of the memory range of the descriptor
+	 * @param offset (Optional) - Byte offset from beginning
 	 *
 	 * @return VkDescriptorBufferInfo of specified offset and range
 	 */
