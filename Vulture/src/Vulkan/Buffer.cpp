@@ -65,6 +65,7 @@ namespace Vulture
 		: m_InstanceSize(instanceSize), m_InstanceCount(instanceCount), m_UsageFlags(usageFlags),
 		m_MemoryPropertyFlags(memoryPropertyFlags)
 	{
+		m_Allocation = new VmaAllocation();
 		m_AlignmentSize = GetAlignment(instanceSize, minOffsetAlignment);
 		m_BufferSize = m_AlignmentSize * m_InstanceCount;
 
@@ -72,52 +73,20 @@ namespace Vulture
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 		bufferInfo.size = m_BufferSize;
 		bufferInfo.usage = usageFlags;
+		
 		// Just like the images in the swap chain, buffers can also be owned
 		// by a specific queue family or be shared between multiple at the same time.
 		// The buffer will only be used from the graphics queue, so we can stick to exclusive access.
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		VL_CORE_RETURN_ASSERT(vkCreateBuffer(Device::GetDevice(), &bufferInfo, nullptr, &m_Buffer),
-			VK_SUCCESS,
-			"failed to create buffer!"
-		);
-
-		/**
-		 * The VkMemoryRequirements struct has three fields:
-				size: The size of the required amount of memory in bytes, may differ from bufferInfo.size.
-				alignment: The offset in bytes where the buffer begins in the allocated region of memory, depends on bufferInfo.usage and bufferInfo.flags.
-				memoryTypeBits: Bit field of the memory types that are suitable for the buffer.
-
-			Graphics cards can offer different types of memory to allocate from.
-			Each type of memory varies in terms of allowed operations and performance
-			characteristics. We need to combine the requirements of the buffer and
-			our own application requirements to find the right type of memory to use.
-		*/
-
-		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(Device::GetDevice(), m_Buffer, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = Device::FindMemoryType(memRequirements.memoryTypeBits, memoryPropertyFlags);
-
-		VL_CORE_RETURN_ASSERT(vkAllocateMemory(Device::GetDevice(), &allocInfo, nullptr, &m_Memory),
-			VK_SUCCESS,
-			"failed to allocate buffer memory!"
-		);
-
-		/*
-			If memory allocation was successful, then we can now associate this memory with the buffer using vkBindBufferMemory
-		*/
-		vkBindBufferMemory(Device::GetDevice(), m_Buffer, m_Memory, 0);
+		Device::CreateBuffer(bufferInfo, m_Buffer, *m_Allocation, memoryPropertyFlags);
 	}
 
 	Buffer::~Buffer()
 	{
 		Unmap();
-		vkDestroyBuffer(Device::GetDevice(), m_Buffer, nullptr);
-		vkFreeMemory(Device::GetDevice(), m_Memory, nullptr);
+		vmaDestroyBuffer(Device::GetAllocator(), m_Buffer, *m_Allocation);
+		delete m_Allocation;
 	}
 
 	void Buffer::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkQueue queue, VkCommandPool pool)
@@ -143,8 +112,7 @@ namespace Vulture
 	 */
 	VkResult Buffer::Map(VkDeviceSize size, VkDeviceSize offset)
 	{
-		VL_CORE_ASSERT(m_Buffer && m_Memory, "Called map on buffer before create");
-		return vkMapMemory(Device::GetDevice(), m_Memory, offset, size, 0, &m_Mapped);
+		return vmaMapMemory(Device::GetAllocator(), *m_Allocation, &m_Mapped);
 	}
 
 	/**
@@ -154,7 +122,7 @@ namespace Vulture
 	{
 		if (m_Mapped)
 		{
-			vkUnmapMemory(Device::GetDevice(), m_Memory);
+			vmaUnmapMemory(Device::GetAllocator(), *m_Allocation);
 			m_Mapped = nullptr;
 		}
 	}
@@ -212,12 +180,7 @@ namespace Vulture
 	 */
 	VkResult Buffer::Flush(VkDeviceSize size, VkDeviceSize offset)
 	{
-		VkMappedMemoryRange mappedRange = {};
-		mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-		mappedRange.memory = m_Memory;
-		mappedRange.offset = offset;
-		mappedRange.size = size;
-		return vkFlushMappedMemoryRanges(Device::GetDevice(), 1, &mappedRange);
+		return vmaFlushAllocation(Device::GetAllocator(), *m_Allocation, offset, size);;
 	}
 
 	/**
@@ -233,12 +196,7 @@ namespace Vulture
 	 */
 	VkResult Buffer::Invalidate(VkDeviceSize size, VkDeviceSize offset)
 	{
-		VkMappedMemoryRange mappedRange = {};
-		mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-		mappedRange.memory = m_Memory;
-		mappedRange.offset = offset;
-		mappedRange.size = size;
-		return vkInvalidateMappedMemoryRanges(Device::GetDevice(), 1, &mappedRange);
+		return vmaInvalidateAllocation(Device::GetAllocator(), *m_Allocation, offset, size);
 	}
 
 	/**

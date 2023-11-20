@@ -41,6 +41,7 @@ project "Vulture"
         "lib/msdf-atlas-gen/msdfgen/",
         "lib/entt/",
         "lib/vulkanLib/Include/",
+        "lib/vulkanMemoryAllocator/",
         "lib/spdlog/include/"
     }
 

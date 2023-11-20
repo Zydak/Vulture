@@ -28,6 +28,7 @@ project "Sandbox"
         "%{wks.location}/Vulture/lib/msdf-atlas-gen/msdfgen/",
         "%{wks.location}/Vulture/lib/entt/",
         "%{wks.location}/Vulture/lib/vulkanLib/Include/",
+        "%{wks.location}/Vulture/lib/vulkanMemoryAllocator/",
         "%{wks.location}/Vulture/lib/spdlog/include/"
 	}	 
 

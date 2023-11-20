@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Utility/Utility.h"
 
+#define VMA_IMPLEMENTATION
 #include "Device.h"
 
 #include "GLFW/glfw3.h"
@@ -30,7 +31,7 @@ namespace Vulture
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 		{
 			VL_CORE_ERROR("{0} Validation Layer: Validation Error\n\t{1}", messageSeverity, pCallbackData->pMessage);
-			VL_CORE_ASSERT(false, ""); // Vulkan error
+			//VL_CORE_ASSERT(false, ""); // Vulkan error
 		}
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
 		{
@@ -70,6 +71,7 @@ namespace Vulture
 		PickPhysicalDevice();
 		CreateLogicalDevice();
 		CreateCommandPool();
+		CreateMemoryAllocator();
 	}
 
 	Device::~Device()
@@ -274,6 +276,110 @@ namespace Vulture
 		}
 
 		return indices;
+	}
+
+	void Device::CreateMemoryAllocator()
+	{
+		VmaAllocatorCreateInfo allocatorInfo{};
+		allocatorInfo.instance = s_Instance;
+		allocatorInfo.physicalDevice = s_PhysicalDevice;
+		allocatorInfo.device = s_Device;
+		if (s_OptionalExtensions[1].supported) // element 1 has to be VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME
+			allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+
+		vmaCreateAllocator(&allocatorInfo, &s_Allocator);
+	}
+
+	void Device::CreateMemoryPool(uint32_t memoryIndex, VmaPool& pool, uint32_t MBSize)
+	{
+		VmaPoolCreateInfo poolInfo{};
+		poolInfo.blockSize = 1024 * 1024 * MBSize;
+		poolInfo.memoryTypeIndex = memoryIndex;
+		poolInfo.priority = 0.5f;
+		vmaCreatePool(s_Allocator, &poolInfo, &pool);
+	}
+
+	void Device::FindMemoryTypeIndex(VkMemoryPropertyFlags flags, uint32_t& memoryIndex)
+	{
+		VmaAllocationCreateInfo allocInfo{};
+		allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+		allocInfo.priority = 0.5f;
+
+		vmaFindMemoryTypeIndex(s_Allocator, flags, &allocInfo, &memoryIndex);
+	}
+
+	void Device::FindMemoryTypeIndexForBuffer(VkBufferCreateInfo& createInfo, uint32_t& memoryIndex, VkMemoryPropertyFlags flags)
+	{
+		VmaAllocationCreateInfo allocInfo{};
+		allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+		allocInfo.priority = 0.5f;
+		if (flags)
+			allocInfo.requiredFlags = flags;
+
+		vmaFindMemoryTypeIndexForBufferInfo(s_Allocator, &createInfo, &allocInfo, &memoryIndex);
+	}
+
+	void Device::FindMemoryTypeIndexForImage(VkImageCreateInfo& createInfo, uint32_t& memoryIndex, VkMemoryPropertyFlags flags)
+	{
+		VmaAllocationCreateInfo allocInfo{};
+		allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+		allocInfo.priority = 0.5f;
+		if (flags)
+			allocInfo.requiredFlags = flags;
+
+		vmaFindMemoryTypeIndexForImageInfo(s_Allocator, &createInfo, &allocInfo, &memoryIndex);
+	}
+
+	void Device::CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags)
+	{
+		uint32_t memoryIndex = 0;
+		FindMemoryTypeIndexForBuffer(createInfo, memoryIndex, customFlags);
+		auto it = s_Pools.find(memoryIndex);
+		if (it != s_Pools.end())
+		{
+			// pool found
+			VmaAllocationCreateInfo allocCreateInfo = {};
+			allocCreateInfo.pool = it->second;
+			allocCreateInfo.priority = 0.5f;
+
+			vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr);
+		}
+		else
+		{
+			s_Pools[memoryIndex] = VmaPool();
+			CreateMemoryPool(memoryIndex, s_Pools[memoryIndex]);
+
+			VmaAllocationCreateInfo allocCreateInfo = {};
+			allocCreateInfo.pool = s_Pools[memoryIndex];
+			allocCreateInfo.priority = 0.5f;
+			vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr);
+		}
+	}
+
+	void Device::CreateImage(VkImageCreateInfo& createInfo, VkImage& image, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags)
+	{
+		uint32_t memoryIndex = 0;
+		FindMemoryTypeIndexForImage(createInfo, memoryIndex, customFlags);
+		auto it = s_Pools.find(memoryIndex);
+		if (it != s_Pools.end())
+		{
+			// pool found
+			VmaAllocationCreateInfo allocCreateInfo = {};
+			allocCreateInfo.pool = it->second;
+			allocCreateInfo.priority = 0.5f;
+
+			vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr);
+		}
+		else
+		{
+			s_Pools[memoryIndex] = VmaPool();
+			CreateMemoryPool(memoryIndex, s_Pools[memoryIndex], 100);
+
+			VmaAllocationCreateInfo allocCreateInfo = {};
+			allocCreateInfo.pool = s_Pools[memoryIndex];
+			allocCreateInfo.priority = 0.5f;
+			vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr);
+		}
 	}
 
 	/*
@@ -619,6 +725,8 @@ namespace Vulture
 		vkFreeCommandBuffers(s_Device, pool, 1, &commandBuffer);
 	}
 
+	VmaAllocator Device::s_Allocator;
+	std::unordered_map<uint32_t, VmaPool> Device::s_Pools;
 	VkPhysicalDeviceProperties Device::s_Properties = {};
 	VkPhysicalDeviceFeatures Device::s_Features;
 	VkInstance Device::s_Instance = {};

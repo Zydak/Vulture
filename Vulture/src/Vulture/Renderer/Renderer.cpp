@@ -5,6 +5,38 @@
 
 namespace Vulture
 {
+	void Renderer::ImageMemoryBarrier(VkImage image, VkCommandBuffer commandBuffer, VkImageAspectFlagBits aspect,
+		VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount, uint32_t baseLayer)
+	{
+		VkImageMemoryBarrier barrier = {};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = oldLayout;
+		barrier.newLayout = newLayout;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.image = image;
+
+		barrier.subresourceRange.aspectMask = aspect;
+		barrier.subresourceRange.baseMipLevel = 0;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.subresourceRange.baseArrayLayer = baseLayer;
+		barrier.subresourceRange.layerCount = layerCount;
+
+		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		// Add a dependency on the fragment shader stage
+		vkCmdPipelineBarrier(
+			commandBuffer,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			0,
+			0, nullptr,
+			0, nullptr,
+			1, &barrier
+		);
+	}
+
 	void Renderer::Destroy()
 	{
 		s_IsInitialized = false;
@@ -16,14 +48,15 @@ namespace Vulture
 
 	void Renderer::Init(Window& window)
 	{
+		s_RendererSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR));
+		
 		s_IsInitialized = true;
 		s_Window = &window;
 		s_QuadMesh.Init();
 		CreatePool();
+		CreateRenderPass();
 		RecreateSwapchain();
 		CreateCommandBuffers();
-		CreateUniforms();
-		CreatePipeline();
 	}
 
 	void Renderer::Render(Scene& scene)
@@ -36,6 +69,7 @@ namespace Vulture
 			UpdateStorageBuffer();
 
 			GeometryPass();
+			PostProcessPass();
 
 			EndFrame();
 		}
@@ -168,16 +202,18 @@ namespace Vulture
 	void Renderer::GeometryPass()
 	{
 		// Set up clear colors for the render pass
-		std::vector<VkClearValue> clearColors(1, { 0.0f, 0.0f, 0.0f, 0.0f });
-
+		std::vector<VkClearValue> clearColors;
+		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
+		VkClearValue clearVal;
+		clearVal.depthStencil = { 1.0f, 1 };
+		clearColors.push_back(clearVal);
 		// Begin the render pass
 		BeginRenderPass(
 			clearColors,
-			s_Swapchain->GetPresentableFrameBuffer(s_CurrentImageIndex),
-			s_Swapchain->GetSwapchainRenderPass(),
+			s_HDRFramebuffer[s_CurrentFrameIndex]->GetFramebuffer(),
+			s_HDRRenderPass.GetRenderPass(),
 			glm::vec2(s_Swapchain->GetSwapchainExtent().width, s_Swapchain->GetSwapchainExtent().height)
 		);
-
 		// Bind the geometry pipeline
 		s_GeometryPipeline.Bind(GetCurrentCommandBuffer());
 
@@ -208,6 +244,44 @@ namespace Vulture
 		);
 
 		// Bind and draw the quad mesh
+		s_QuadMesh.Bind(GetCurrentCommandBuffer());
+		s_QuadMesh.Draw(GetCurrentCommandBuffer(), static_cast<uint32_t>(s_StorageBuffer.size()));
+
+		// End the render pass
+		EndRenderPass();
+	}
+
+	void Renderer::PostProcessPass()
+	{
+		ImageMemoryBarrier(
+			s_HDRFramebuffer[s_CurrentFrameIndex]->GetColorImage(0),
+			GetCurrentCommandBuffer(),
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			1,
+			0
+		);
+
+		std::vector<VkClearValue> clearColors;
+		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
+		// Begin the render pass
+		BeginRenderPass(
+			clearColors,
+			s_Swapchain->GetPresentableFrameBuffer(s_CurrentImageIndex),
+			s_Swapchain->GetSwapchainRenderPass(),
+			glm::vec2(s_Swapchain->GetSwapchainExtent().width, s_Swapchain->GetSwapchainExtent().height)
+		);
+		// Bind the geometry pipeline
+		s_HDRToPresentablePipeline.Bind(GetCurrentCommandBuffer());
+
+		s_HDRUniforms[s_CurrentFrameIndex]->Bind(
+			0,
+			s_HDRToPresentablePipeline.GetPipelineLayout(),
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			GetCurrentCommandBuffer()
+		);
+
 		s_QuadMesh.Bind(GetCurrentCommandBuffer());
 		s_QuadMesh.Draw(GetCurrentCommandBuffer(), static_cast<uint32_t>(s_StorageBuffer.size()));
 
@@ -276,9 +350,9 @@ namespace Vulture
 		}
 
 		// Recreate other resources dependent on the swapchain, such as uniforms, framebuffers and pipelines
+		CreateFramebuffer();
 		CreateUniforms();
 		CreatePipeline();
-		//CreateFramebuffers();
 	}
 
 	/*
@@ -320,6 +394,15 @@ namespace Vulture
 			s_ObjectsUbos[i]->Resize(0, sizeof(StorageBufferEntry) * 10, Device::GetGraphicsQueue(), Device::GetCommandPool());
 		}
 
+		for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			s_HDRUniforms.push_back(std::make_shared<Uniform>(*s_Pool));
+			s_HDRUniforms[i]->AddImageSampler(0, s_RendererSampler->GetSampler(), s_HDRFramebuffer[i]->GetColorImageView(0),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_FRAGMENT_BIT
+			);
+			s_HDRUniforms[i]->Build();
+		}
+
 		// Create descriptor set layout for atlas
 		auto atlasLayoutBuilder = DescriptorSetLayout::Builder();
 		atlasLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -349,37 +432,172 @@ namespace Vulture
 	 */
 	void Renderer::CreatePipeline()
 	{
-		// Push constant range for the vertex shader
-		VkPushConstantRange range;
-		range.offset = 0;
-		range.size = sizeof(glm::mat4);
-		range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-		// Configure pipeline creation parameters
-		PipelineCreateInfo info{};
-		info.AttributeDesc = Quad::Vertex::GetAttributeDescriptions();
-		info.BindingDesc = Quad::Vertex::GetBindingDescriptions();
-		info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.vert.spv");
-		info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.frag.spv");
-		info.BlendingEnable = true;
-		info.DepthTestEnable = true;
-		info.CullMode = VK_CULL_MODE_BACK_BIT;
-		info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-		info.Width = s_Swapchain->GetWidth();
-		info.Height = s_Swapchain->GetHeight();
-		info.PushConstants = &range;
-		info.RenderPass = s_Swapchain->GetSwapchainRenderPass();
-
-		// Descriptor set layouts for the pipeline
-		std::vector<VkDescriptorSetLayout> layouts
+		// 
+		// Geometry
+		// 
+		
 		{
-			s_ObjectsUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
-			s_AtlasSetLayout->GetDescriptorSetLayout()
-		};
-		info.UniformSetLayouts = layouts;
+			// Push constant range for the vertex shader
+			VkPushConstantRange range;
+			range.offset = 0;
+			range.size = sizeof(glm::mat4);
+			range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
-		// Create the graphics pipeline
-		s_GeometryPipeline.CreatePipeline(info);
+			// Configure pipeline creation parameters
+			PipelineCreateInfo info{};
+			info.AttributeDesc = Quad::Vertex::GetAttributeDescriptions();
+			info.BindingDesc = Quad::Vertex::GetBindingDescriptions();
+			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.vert.spv");
+			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.frag.spv");
+			info.BlendingEnable = true;
+			info.DepthTestEnable = true;
+			info.CullMode = VK_CULL_MODE_BACK_BIT;
+			info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+			info.Width = s_Swapchain->GetWidth();
+			info.Height = s_Swapchain->GetHeight();
+			info.PushConstants = &range;
+			info.RenderPass = s_HDRRenderPass.GetRenderPass();
+
+			// Descriptor set layouts for the pipeline
+			std::vector<VkDescriptorSetLayout> layouts
+			{
+				s_ObjectsUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
+				s_AtlasSetLayout->GetDescriptorSetLayout()
+			};
+			info.UniformSetLayouts = layouts;
+
+			// Create the graphics pipeline
+			s_GeometryPipeline.CreatePipeline(info);
+		}
+
+		//
+		// Geometry To HDR
+		//
+
+		{
+			PipelineCreateInfo info{};
+			info.AttributeDesc = Quad::Vertex::GetAttributeDescriptions();
+			info.BindingDesc = Quad::Vertex::GetBindingDescriptions();
+			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/HDRToPresentable.vert.spv");
+			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/HDRToPresentable.frag.spv");
+			info.BlendingEnable = false;
+			info.DepthTestEnable = false;
+			info.CullMode = VK_CULL_MODE_BACK_BIT;
+			info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+			info.Width = s_Swapchain->GetWidth();
+			info.Height = s_Swapchain->GetHeight();
+			info.PushConstants = nullptr;
+			info.RenderPass = s_Swapchain->GetSwapchainRenderPass();
+
+			// Descriptor set layouts for the pipeline
+			std::vector<VkDescriptorSetLayout> layouts
+			{
+				s_HDRUniforms[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout()
+			};
+			info.UniformSetLayouts = layouts;
+
+			// Create the graphics pipeline
+			s_HDRToPresentablePipeline.CreatePipeline(info);
+		}
+	}
+
+	void Renderer::CreateFramebuffer()
+	{
+		std::vector<FramebufferAttachment> attachments{ FramebufferAttachment::ColorRGBA16, FramebufferAttachment::Depth };
+		for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			s_HDRFramebuffer.push_back(std::make_unique<Framebuffer>(attachments, s_HDRRenderPass.GetRenderPass(), s_Swapchain->GetSwapchainExtent(), Swapchain::FindDepthFormat()));
+		}
+	}
+
+	void Renderer::CreateRenderPass()
+	{
+		VkAttachmentDescription colorAttachment = {};
+		colorAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		VkAttachmentReference colorAttachmentRef = {};
+		colorAttachmentRef.attachment = 0;
+		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentDescription depthAttachment{};
+		depthAttachment.format = Swapchain::FindDepthFormat();
+		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference depthAttachmentRef{};
+		depthAttachmentRef.attachment = 1;
+		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkSubpassDescription subpass = {};
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = 1;
+		subpass.pColorAttachments = &colorAttachmentRef;
+		subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+		VkSubpassDependency dependency1 = {};
+		dependency1.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency1.dstSubpass = 0;
+		dependency1.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency1.srcAccessMask = 0;
+		dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependency1.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		// Dependency from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		VkSubpassDependency dependency2 = {};
+		dependency2.srcSubpass = 0;
+		dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		dependency2.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		// Dependency from VK_IMAGE_LAYOUT_UNDEFINED to VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+		VkSubpassDependency dependency3 = {};
+		dependency3.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency3.dstSubpass = 0;
+		dependency3.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		dependency3.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		dependency3.srcAccessMask = 0;
+		dependency3.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		dependency3.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		// Dependency from VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		VkSubpassDependency dependency4 = {};
+		dependency4.srcSubpass = 0;
+		dependency4.dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependency4.srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		dependency4.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		dependency4.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		dependency4.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		dependency4.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+		std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2, dependency3, dependency4 };
+
+		std::vector<VkAttachmentDescription> attachments = { colorAttachment, depthAttachment };
+		VkRenderPassCreateInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		renderPassInfo.pAttachments = attachments.data();
+		renderPassInfo.subpassCount = 1;
+		renderPassInfo.pSubpasses = &subpass;
+		renderPassInfo.dependencyCount = dependencies.size();
+		renderPassInfo.pDependencies = dependencies.data();
+
+		s_HDRRenderPass.CreateRenderPass(renderPassInfo);
 	}
 
 	/**
@@ -406,6 +624,7 @@ namespace Vulture
 
 	Window* Renderer::s_Window;
 	Scope<DescriptorPool> Renderer::s_Pool;
+
 	Scope<Swapchain> Renderer::s_Swapchain;
 	std::vector<VkCommandBuffer> Renderer::s_CommandBuffers;
 	bool Renderer::s_IsFrameStarted = false;
@@ -413,9 +632,14 @@ namespace Vulture
 	uint32_t Renderer::s_CurrentFrameIndex = 0;
 	Scene* Renderer::s_CurrentSceneRendered;
 	bool Renderer::s_IsInitialized = true;
-	std::vector<Vulture::StorageBufferEntry> Renderer::s_StorageBuffer;
+	std::vector<StorageBufferEntry> Renderer::s_StorageBuffer;
 	Pipeline Renderer::s_GeometryPipeline;
+	Pipeline Renderer::s_HDRToPresentablePipeline;
 	std::vector<std::shared_ptr<Uniform>> Renderer::s_ObjectsUbos;
-	std::shared_ptr<Vulture::DescriptorSetLayout> Renderer::s_AtlasSetLayout;
-	Vulture::Quad Renderer::s_QuadMesh;
+	std::shared_ptr<DescriptorSetLayout> Renderer::s_AtlasSetLayout;
+	Quad Renderer::s_QuadMesh;
+	Scope<Sampler> Renderer::s_RendererSampler;
+	RenderPass Renderer::s_HDRRenderPass;
+	std::vector<Scope<Framebuffer>> Renderer::s_HDRFramebuffer;
+	std::vector<Ref<Uniform>> Renderer::s_HDRUniforms;
 }

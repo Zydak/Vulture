@@ -2,6 +2,7 @@
 #include "pch.h"
 
 #include "Device.h"
+#include <vk_mem_alloc.h>
 
 namespace Vulture
 {
@@ -28,7 +29,7 @@ namespace Vulture
 		inline VkBuffer GetBuffer() const { return m_Buffer; }
 
 		inline void* GetMappedMemory() const { return m_Mapped; }
-		inline VkDeviceMemory GetDeviceMemory() const { return m_Memory; }
+		//inline VkDeviceMemory GetDeviceMemory() const { return (*m_Allocation)->GetMemory(); }
 		inline bool IsMapped() { return m_Mapped; }
 
 		inline uint32_t GetInstanceCount() const { return m_InstanceCount; }
@@ -43,7 +44,7 @@ namespace Vulture
 
 		void* m_Mapped = nullptr;
 		VkBuffer m_Buffer = VK_NULL_HANDLE;
-		VkDeviceMemory m_Memory = VK_NULL_HANDLE;
+		VmaAllocation* m_Allocation;
 
 		VkDeviceSize m_BufferSize;
 		uint32_t m_InstanceCount;

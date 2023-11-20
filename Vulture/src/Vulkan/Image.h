@@ -50,7 +50,7 @@ namespace Vulture
 		
 		inline VkImage GetImage() { return m_Image; }
 		inline VkImageView GetImageView() { return m_ImageView; }
-		inline VkDeviceMemory GetImageMemory() { return m_ImageMemory; }
+		//inline VkDeviceMemory GetImageMemory() { return (*m_Allocation)->GetMemory(); }
 		inline VkBuffer GetBuffer() { return m_Buffer; }
 		inline VkSampler GetSampler() { return m_Sampler->GetSampler(); }
 		inline Size GetImageSize() { return m_Size; }
@@ -58,7 +58,7 @@ namespace Vulture
 
 	private:
 		void CreateImageView(VkFormat format, VkImageAspectFlagBits aspect, int layerCount = 1, VkImageViewType imageType = VK_IMAGE_VIEW_TYPE_2D);
-		void CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, uint32_t mipLevels, int layerCount = 1, ImageType type = ImageType::Image2D);
+		void CreateImage(const ImageInfo& imageInfo);
 		void GenerateMipmaps();
 		void CreateImageSampler(SamplerInfo samplerInfo);
 		Ref<Sampler> m_Sampler;
@@ -66,7 +66,7 @@ namespace Vulture
 		VkImage m_Image;
 		VkImageView m_ImageView;
 		std::vector<VkImageView> m_LayersView; // only for layered images
-		VkDeviceMemory m_ImageMemory;
+		VmaAllocation* m_Allocation;
 
 		VkBuffer m_Buffer;
 		VkDeviceMemory m_BufferMemory;

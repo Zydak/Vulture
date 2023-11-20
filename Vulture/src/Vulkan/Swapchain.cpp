@@ -163,7 +163,7 @@ namespace Vulture
 		VkPresentModeKHR swapchainPresentMode = ChooseSwapPresentMode(presentMode);
 		VkExtent2D extent = ChooseSwapExtent(swapChainSupport.Capabilities);
 
-		uint32_t imageCount = swapChainSupport.Capabilities.minImageCount;
+		uint32_t imageCount = swapChainSupport.Capabilities.minImageCount + 1;
 		if (imageCount < MAX_FRAMES_IN_FLIGHT)
 			imageCount += MAX_FRAMES_IN_FLIGHT - imageCount;
 
@@ -191,8 +191,8 @@ namespace Vulture
 		else
 		{
 			createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-			createInfo.queueFamilyIndexCount = 0;          // Optional
-			createInfo.pQueueFamilyIndices = nullptr;    // Optional
+			createInfo.queueFamilyIndexCount = 0;
+			createInfo.pQueueFamilyIndices = nullptr;
 		}
 
 		createInfo.preTransform = swapChainSupport.Capabilities.currentTransform;
@@ -292,7 +292,7 @@ namespace Vulture
 	 */
 	VkFormat Swapchain::FindDepthFormat()
 	{
-		return Device::FindSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+		return Device::FindSupportedFormat({ VK_FORMAT_D16_UNORM, VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	}
 
 	/*

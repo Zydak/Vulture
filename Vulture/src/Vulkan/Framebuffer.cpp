@@ -24,8 +24,11 @@ namespace Vulture
 		VkRenderPass renderPass, VkExtent2D extent, VkFormat depthFormat, int layers, ImageType type, VkImageUsageFlags customBits)
 		: m_Extent(extent), m_DepthFormat(depthFormat)
 	{
-		for (int i = 0; i < attachmentsFormats.size(); i++) {
-			switch (attachmentsFormats[i]) {
+		for (int i = 0; i < attachmentsFormats.size(); i++) 
+		{
+			m_AttachmentFormats.push_back(attachmentsFormats[i]);
+			switch (attachmentsFormats[i]) 
+			{
 			case FramebufferAttachment::ColorRGBA32: CreateColorAttachment(VK_FORMAT_R32G32B32A32_SFLOAT, layers, type, customBits); break;
 			case FramebufferAttachment::ColorRGBA16: CreateColorAttachment(VK_FORMAT_R16G16B16A16_SFLOAT, layers, type, customBits); break;
 			case FramebufferAttachment::ColorRGBA8: CreateColorAttachment(VK_FORMAT_R8G8B8A8_UNORM, layers, type, customBits); break;

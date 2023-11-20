@@ -34,6 +34,11 @@ namespace Vulture
 		inline VkImageView GetDepthImageView(int index) { return m_DepthAttachments[index].GetImageView(); }
 		inline VkImage GetDepthImage(int index) { return m_DepthAttachments[index].GetImage(); }
 
+		inline uint32_t GetColorAttachmentCount() { return m_ColorAttachments.size(); }
+		inline uint32_t GetDepthAttachmentCount() { return m_DepthAttachments.size(); }
+
+		inline std::vector<FramebufferAttachment> GetDepthAttachmentFormats() { return m_AttachmentFormats; }
+
 	private:
 		void CreateColorAttachment(VkFormat format, int layers, ImageType type, VkImageUsageFlags customBits);
 		void CreateDepthAttachment(int layers, ImageType type, VkImageUsageFlags customBits);
@@ -41,6 +46,7 @@ namespace Vulture
 		VkExtent2D m_Extent;
 
 		std::vector<VkImageView> m_Attachments;
+		std::vector<FramebufferAttachment> m_AttachmentFormats;
 		VkFramebuffer m_Framebuffer;
 		std::vector<Image> m_ColorAttachments;
 		std::vector<Image> m_DepthAttachments;

@@ -23,6 +23,7 @@ namespace Vulture
 
 		void Run();
 	private:
+
 		ApplicationInfo m_ApplicationInfo;
 		Ref<Window> m_Window;
 	};

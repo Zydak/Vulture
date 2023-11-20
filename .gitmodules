@@ -25,3 +25,6 @@
 [submodule "Vulture/lib/entt"]
 	path = Vulture/lib/entt
 	url = https://github.com/Zydak/entt
+[submodule "Vulture/lib/vulkanMemoryAllocator"]
+	path = Vulture/lib/vulkanMemoryAllocator
+	url = https://github.com/Zydak/vulkanMemoryAllocator

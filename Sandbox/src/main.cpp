@@ -11,7 +11,7 @@ public:
 		m_Scene.PackAtlas();
 
 		m_Scene.CreateSprite({ { 0.5f, 0.0f, 0.0f }, glm::vec3(0.0f), glm::vec3(0.5f) }, "assets/Texture.png");
-		m_Scene.CreateSprite({ { -0.5f, 0.0f, 1.0f }, glm::vec3(0.0f, 0.0f, 45.0f), glm::vec3(0.5f) }, "assets/Texture1.png");
+		m_Scene.CreateSprite({ { -0.5f, 0.0f, 0.0f }, glm::vec3(0.0f, 0.0f, 45.0f), glm::vec3(0.5f) }, "assets/Texture1.png");
 	}
 
 	~Sandbox()
@@ -33,5 +33,5 @@ Vulture::Application* Vulture::CreateApplication()
 	appInfo.Name = "Vulture Sandbox";
 	appInfo.WorkingDirectory = "";
 	appInfo.Icon = "assets/Texture.png";
-	return new Sandbox(appInfo, 600, 600);
+	return new Sandbox(appInfo, 1600, 900);
 }

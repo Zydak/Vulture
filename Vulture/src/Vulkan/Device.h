@@ -3,6 +3,7 @@
 
 #include "Window.h"
 #include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 
 namespace Vulture
 {
@@ -51,6 +52,8 @@ namespace Vulture
 		static inline VkQueue GetGraphicsQueue() { return s_GraphicsQueue; }
 		static inline VkQueue GetPresentQueue() { return s_PresentQueue; }
 
+		static inline VmaAllocator GetAllocator() { return s_Allocator; }
+
 		static inline VkPhysicalDeviceProperties GetDeviceProperties() { return s_Properties; }
 
 		static VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
@@ -59,6 +62,8 @@ namespace Vulture
 		static void BeginSingleTimeCommands(VkCommandBuffer& buffer, VkCommandPool pool);
 		static uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
+		static void CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0);
+		static void CreateImage(VkImageCreateInfo& createInfo, VkImage& image, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0);
 	private:
 		Device() {} // make constructor private
 
@@ -66,6 +71,12 @@ namespace Vulture
 		static void CheckRequiredGlfwExtensions();
 		static bool IsDeviceSuitable(VkPhysicalDevice device);
 		static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
+
+		static void CreateMemoryAllocator();
+		static void CreateMemoryPool(uint32_t memoryIndex, VmaPool& pool, uint32_t MBSize = 16);
+		static void FindMemoryTypeIndex(VkMemoryPropertyFlags flags, uint32_t& memoryIndex);
+		static void FindMemoryTypeIndexForBuffer(VkBufferCreateInfo& createInfo, uint32_t& memoryIndex, VkMemoryPropertyFlags flags = 0);
+		static void FindMemoryTypeIndexForImage(VkImageCreateInfo& createInfo, uint32_t& memoryIndex, VkMemoryPropertyFlags flags = 0);
 
 		static void CreateInstance();
 		static void SetupDebugMessenger();
@@ -78,6 +89,9 @@ namespace Vulture
 		static bool CheckValidationLayerSupport();
 		static bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
 		static SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device);
+
+		static VmaAllocator s_Allocator;
+		static std::unordered_map<uint32_t, VmaPool> s_Pools;
 
 		static VkPhysicalDeviceProperties s_Properties;
 		static VkPhysicalDeviceFeatures s_Features;

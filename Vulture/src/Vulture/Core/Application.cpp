@@ -2,10 +2,8 @@
 #include "Application.h"
 #include "Renderer/Renderer.h"
 
-
 namespace Vulture
 {
-
 	Application::Application(const ApplicationInfo& appInfo, float width, float height)
 		: m_ApplicationInfo(appInfo)
 	{
@@ -31,6 +29,8 @@ namespace Vulture
 
 	void Application::Run()
 	{
+		VL_CORE_TRACE("\n\n\n\nMAIN LOOP START\n\n\n\n");
+
 		while (!m_Window->ShouldClose())
 		{
 			m_Window->PollEvents();

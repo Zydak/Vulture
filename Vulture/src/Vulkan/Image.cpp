@@ -18,27 +18,10 @@ namespace Vulture
 	 */
 	Image::Image(const ImageInfo& imageInfo)
 	{
+		m_Allocation = new VmaAllocation();
 		m_Size.Width = imageInfo.width;
 		m_Size.Height = imageInfo.height;
-		CreateImage(imageInfo.width, imageInfo.height, imageInfo.format, imageInfo.tiling, imageInfo.usage, 1, imageInfo.layerCount, imageInfo.type);
-
-		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(Device::GetDevice(), m_Image, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = Device::FindMemoryType(memRequirements.memoryTypeBits, imageInfo.properties);
-
-		VL_CORE_RETURN_ASSERT(vkAllocateMemory(Device::GetDevice(), &allocInfo, nullptr, &m_ImageMemory),
-			VK_SUCCESS, 
-			"failed to allocate image memory!"
-		);
-
-		VL_CORE_RETURN_ASSERT(vkBindImageMemory(Device::GetDevice(), m_Image, m_ImageMemory, 0),
-			VK_SUCCESS,
-			"failed to bind image memory!"
-		);
+		CreateImage(imageInfo);
 
 		if (imageInfo.type == ImageType::Cubemap)
 		{
@@ -60,7 +43,8 @@ namespace Vulture
 		vkDeviceWaitIdle(Device::GetDevice());
 		vkDestroyImage(Device::GetDevice(), m_Image, nullptr);
 		vkDestroyImageView(Device::GetDevice(), m_ImageView, nullptr);
-		vkFreeMemory(Device::GetDevice(), m_ImageMemory, nullptr);
+		vmaDestroyImage(Device::GetAllocator(), m_Image, *m_Allocation);
+		delete m_Allocation;
 
 		for (auto view : m_LayersView)
 		{
@@ -121,42 +105,27 @@ namespace Vulture
 
 	/*
 	 * @brief Creates an image with the specified parameters.
-	 *
-	 * @param width - The width of the image.
-	 * @param height - The height of the image.
-	 * @param format - The format of the image.
-	 * @param tiling - The tiling mode of the image.
-	 * @param usage - The usage flags for the image.
-	 * @param mipLevels - The number of mip levels for the image.
-	 * @param layerCount - The number of layers for the image.
-	 * @param type - The type of the image.
-	 *
-	 * @note The function uses Vulkan API calls to create the image.
-	 * @note It asserts if any of the Vulkan operations fail.
 	 */
-	void Image::CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, uint32_t mipLevels, int layerCount, ImageType type)
+	void Image::CreateImage(const ImageInfo& imageInfo)
 	{
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = width;
-		imageInfo.extent.height = height;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = mipLevels;
-		imageInfo.arrayLayers = layerCount;
-		imageInfo.format = format;
-		imageInfo.tiling = tiling;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = usage;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		if (type == ImageType::Cubemap)
-			imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+		VkImageCreateInfo imageCreateInfo{};
+		imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+		imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+		imageCreateInfo.extent.width = imageInfo.width;
+		imageCreateInfo.extent.height = imageInfo.height;
+		imageCreateInfo.extent.depth = 1;
+		imageCreateInfo.mipLevels = 1;
+		imageCreateInfo.arrayLayers = imageInfo.layerCount;
+		imageCreateInfo.format = imageInfo.format;
+		imageCreateInfo.tiling = imageInfo.tiling;
+		imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		imageCreateInfo.usage = imageInfo.usage;
+		imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+		imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		if (imageInfo.type == ImageType::Cubemap)
+			imageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
-		VL_CORE_RETURN_ASSERT(vkCreateImage(Device::GetDevice(), &imageInfo, nullptr, &m_Image),
-			VK_SUCCESS,
-			"failed to create image!"
-		);
+		Device::CreateImage(imageCreateInfo, m_Image, *m_Allocation, imageInfo.properties);
 	}
 
 	/*
@@ -168,6 +137,7 @@ namespace Vulture
 	 */
 	Image::Image(const std::string& filepath, SamplerInfo samplerInfo)
 	{
+		m_Allocation = new VmaAllocation();
 		int texChannels;
 		stbi_set_flip_vertically_on_load(true);
 		stbi_uc* pixels = stbi_load(filepath.c_str(), &m_Size.Width, &m_Size.Height, &texChannels, STBI_rgb_alpha);
@@ -183,25 +153,16 @@ namespace Vulture
 
 		stbi_image_free(pixels);
 
-		CreateImage(m_Size.Width, m_Size.Height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, m_MipLevels);
-
-		VkMemoryRequirements memRequirements;
-		vkGetImageMemoryRequirements(Device::GetDevice(), m_Image, &memRequirements);
-
-		VkMemoryAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = Device::FindMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-		VL_CORE_RETURN_ASSERT(vkAllocateMemory(Device::GetDevice(), &allocInfo, nullptr, &m_ImageMemory),
-			VK_SUCCESS,
-			"failed to allocate image memory!"
-		);
-
-		VL_CORE_RETURN_ASSERT(vkBindImageMemory(Device::GetDevice(), m_Image, m_ImageMemory, 0),
-			VK_SUCCESS,
-			"failed to bind image memory!"
-		);
+		ImageInfo info;
+		info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		info.format = VK_FORMAT_R8G8B8A8_UNORM;
+		info.height = m_Size.Height;
+		info.width = m_Size.Width;
+		info.layerCount = 1;
+		info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		info.tiling = VK_IMAGE_TILING_OPTIMAL;
+		info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		CreateImage(info);
 
 		VkImageSubresourceRange range{};
 		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;

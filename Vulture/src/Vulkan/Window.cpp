@@ -41,17 +41,17 @@ namespace Vulture
 
 		int width, height, channels;
 		unsigned char* iconData = stbi_load(winInfo.Icon.c_str(), &width, &height, &channels, 0);
-		if (iconData)
-		{
-			GLFWimage icon;
-			icon.width = width;
-			icon.height = height;
-			icon.pixels = iconData;
-
-			glfwSetWindowIcon(m_Window, 1, &icon);
-
-			stbi_image_free(iconData);
-		}
+		//if (iconData)
+		//{
+		//	GLFWimage icon;
+		//	icon.width = width;
+		//	icon.height = height;
+		//	icon.pixels = iconData;
+		//
+		//	glfwSetWindowIcon(m_Window, 1, &icon);
+		//
+		//	stbi_image_free(iconData);
+		//}
 	}
 
 	Window::~Window()
