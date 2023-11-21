@@ -31,6 +31,18 @@ namespace Vulture
 		return entity;
 	}
 
+	Vulture::Entity Scene::CreateCamera()
+	{
+		static bool firstTimeCallingThisFunc = true;
+		Entity entity = CreateEntity();
+		entity.AddComponent<CameraComponent>();
+
+		if (firstTimeCallingThisFunc)
+			entity.GetComponent<CameraComponent>().Main = true;
+
+		return entity;
+	}
+
 	void Scene::DestroyEntity(Entity& entity)
 	{
 		m_Registry.destroy(entity);

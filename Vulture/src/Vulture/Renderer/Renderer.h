@@ -15,6 +15,11 @@ namespace Vulture
 {
 	class Scene;
 
+	struct MainUbo
+	{
+		glm::mat4 ViewProjMatrix;
+	};
+
 	struct StorageBufferEntry
 	{
 		glm::mat4 ModelMatrix;

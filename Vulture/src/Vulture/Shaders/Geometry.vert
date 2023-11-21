@@ -16,15 +16,15 @@ layout(set = 0, binding = 0) readonly buffer ObjectUbo
     Transform ObjectInfos[];
 } Objects;
 
-layout(push_constant) uniform Push
+layout(set = 0, binding = 1) uniform MainUbo
 {
-	mat4 ProjectionViewMatrix;
-} push;
+    mat4 cameraViewProj;
+} mainUbo;
 
 void main()
 {
     vec3 worldPos  = vec3(Objects.ObjectInfos[gl_InstanceIndex].ModelMatrix * vec4(inPos, 1.0));
-    gl_Position = push.ProjectionViewMatrix * vec4(worldPos, 1.0);
+    gl_Position = mainUbo.cameraViewProj * vec4(worldPos, 1.0);
 
     outTextureAtlasOffset = Objects.ObjectInfos[gl_InstanceIndex].TextureAtlasOffset.xy;
     outTexCoords = inTexCoords;

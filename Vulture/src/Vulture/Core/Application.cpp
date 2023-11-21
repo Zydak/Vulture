@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Application.h"
 #include "Renderer/Renderer.h"
+#include "Input.h"
 
 namespace Vulture
 {
@@ -20,6 +21,7 @@ namespace Vulture
 		m_Window = std::make_shared<Window>(winInfo);
 		Device::Init(*m_Window);
 		Renderer::Init(*m_Window);
+		Input::Init(m_Window->GetGLFWwindow());
 	}
 
 	Application::~Application()

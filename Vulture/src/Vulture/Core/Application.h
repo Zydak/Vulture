@@ -22,7 +22,7 @@ namespace Vulture
 		virtual void OnUpdate(double delta) = 0;
 
 		void Run();
-	private:
+	protected:
 
 		ApplicationInfo m_ApplicationInfo;
 		Ref<Window> m_Window;

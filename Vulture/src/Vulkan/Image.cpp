@@ -41,7 +41,6 @@ namespace Vulture
 	Image::~Image()
 	{
 		vkDeviceWaitIdle(Device::GetDevice());
-		vkDestroyImage(Device::GetDevice(), m_Image, nullptr);
 		vkDestroyImageView(Device::GetDevice(), m_ImageView, nullptr);
 		vmaDestroyImage(Device::GetAllocator(), m_Image, *m_Allocation);
 		delete m_Allocation;

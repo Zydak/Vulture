@@ -17,6 +17,7 @@ namespace Vulture
 
 		Entity CreateEntity();
 		Entity CreateSprite(const Transform& transform, const std::string& textureFilepath);
+		Entity CreateCamera();
 		void DestroyEntity(Entity& entity);
 
 		void AddTextureToAtlas(const std::string& filepath);

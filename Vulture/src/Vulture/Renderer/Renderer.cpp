@@ -212,21 +212,10 @@ namespace Vulture
 			clearColors,
 			s_HDRFramebuffer[s_CurrentFrameIndex]->GetFramebuffer(),
 			s_HDRRenderPass.GetRenderPass(),
-			glm::vec2(s_Swapchain->GetSwapchainExtent().width, s_Swapchain->GetSwapchainExtent().height)
+			s_HDRFramebuffer[s_CurrentFrameIndex]->GetExtent()
 		);
 		// Bind the geometry pipeline
 		s_GeometryPipeline.Bind(GetCurrentCommandBuffer());
-
-		// Set up push constants
-		glm::mat4 push{ 1.0f };
-		vkCmdPushConstants(
-			GetCurrentCommandBuffer(),
-			s_GeometryPipeline.GetPipelineLayout(),
-			VK_SHADER_STAGE_VERTEX_BIT,
-			0,
-			sizeof(glm::mat4),
-			&push
-		);
 
 		// Bind UBOs and descriptor sets
 		s_ObjectsUbos[s_CurrentFrameIndex]->Bind(
@@ -253,16 +242,6 @@ namespace Vulture
 
 	void Renderer::PostProcessPass()
 	{
-		ImageMemoryBarrier(
-			s_HDRFramebuffer[s_CurrentFrameIndex]->GetColorImage(0),
-			GetCurrentCommandBuffer(),
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			1,
-			0
-		);
-
 		std::vector<VkClearValue> clearColors;
 		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
 		// Begin the render pass
@@ -314,6 +293,23 @@ namespace Vulture
 		// Write the storage buffer data to the UBO buffer and flush it
 		s_ObjectsUbos[s_CurrentFrameIndex]->GetBuffer(0)->WriteToBuffer(s_StorageBuffer.data(), s_StorageBuffer.size() * sizeof(StorageBufferEntry), 0);
 		s_ObjectsUbos[s_CurrentFrameIndex]->GetBuffer(0)->Flush();
+
+		// get camera matrix of the main camera
+		auto cameraView = s_CurrentSceneRendered->GetRegistry().view<CameraComponent>();
+		MainUbo mainUbo;
+		for (auto cameraEntity : cameraView)
+		{
+			auto& cameraComponent = cameraView.get<CameraComponent>(cameraEntity);
+			if (cameraComponent.Main)
+			{
+				mainUbo.ViewProjMatrix = cameraComponent.GetViewProj();
+				break;
+			}
+		}
+
+		// Write the camera matrix data to the UBO buffer and flush it
+		s_ObjectsUbos[s_CurrentFrameIndex]->GetBuffer(1)->WriteToBuffer(&mainUbo, sizeof(MainUbo), 0);
+		s_ObjectsUbos[s_CurrentFrameIndex]->GetBuffer(1)->Flush();
 	}
 
 	/*
@@ -383,11 +379,14 @@ namespace Vulture
 	void Renderer::CreateUniforms()
 	{
 		s_ObjectsUbos.clear();
+		s_HDRUniforms.clear();
+
 		for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			// Create and initialize uniform buffers
 			s_ObjectsUbos.push_back(std::make_shared<Uniform>(*s_Pool));
 			s_ObjectsUbos[i]->AddStorageBuffer(0, sizeof(StorageBufferEntry), VK_SHADER_STAGE_VERTEX_BIT, true);
+			s_ObjectsUbos[i]->AddUniformBuffer(1, sizeof(MainUbo), VK_SHADER_STAGE_VERTEX_BIT);
 			s_ObjectsUbos[i]->Build();
 
 			// Resize test
@@ -437,12 +436,6 @@ namespace Vulture
 		// 
 		
 		{
-			// Push constant range for the vertex shader
-			VkPushConstantRange range;
-			range.offset = 0;
-			range.size = sizeof(glm::mat4);
-			range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
 			// Configure pipeline creation parameters
 			PipelineCreateInfo info{};
 			info.AttributeDesc = Quad::Vertex::GetAttributeDescriptions();
@@ -455,7 +448,7 @@ namespace Vulture
 			info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 			info.Width = s_Swapchain->GetWidth();
 			info.Height = s_Swapchain->GetHeight();
-			info.PushConstants = &range;
+			info.PushConstants = nullptr;
 			info.RenderPass = s_HDRRenderPass.GetRenderPass();
 
 			// Descriptor set layouts for the pipeline
@@ -550,12 +543,10 @@ namespace Vulture
 		dependency1.srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependency1.dstSubpass = 0;
 		dependency1.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		dependency1.srcAccessMask = 0;
-		dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependency1.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-		// Dependency from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		VkSubpassDependency dependency2 = {};
 		dependency2.srcSubpass = 0;
 		dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
@@ -563,38 +554,17 @@ namespace Vulture
 		dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		dependency2.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-		// Dependency from VK_IMAGE_LAYOUT_UNDEFINED to VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-		VkSubpassDependency dependency3 = {};
-		dependency3.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency3.dstSubpass = 0;
-		dependency3.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		dependency3.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		dependency3.srcAccessMask = 0;
-		dependency3.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		dependency3.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-		// Dependency from VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		VkSubpassDependency dependency4 = {};
-		dependency4.srcSubpass = 0;
-		dependency4.dstSubpass = VK_SUBPASS_EXTERNAL;
-		dependency4.srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-		dependency4.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		dependency4.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		dependency4.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		dependency4.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-		std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2, dependency3, dependency4 };
+		std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
 
 		std::vector<VkAttachmentDescription> attachments = { colorAttachment, depthAttachment };
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+		renderPassInfo.attachmentCount = (uint32_t)attachments.size();
 		renderPassInfo.pAttachments = attachments.data();
 		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = &subpass;
-		renderPassInfo.dependencyCount = dependencies.size();
+		renderPassInfo.dependencyCount = (uint32_t)dependencies.size();
 		renderPassInfo.pDependencies = dependencies.data();
 
 		s_HDRRenderPass.CreateRenderPass(renderPassInfo);

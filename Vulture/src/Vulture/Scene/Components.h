@@ -3,6 +3,10 @@
 #include "glm/glm.hpp"
 #include "../Renderer/Transform.h"
 
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include "glm/gtc/matrix_transform.hpp"
+
 namespace Vulture
 {
 
@@ -96,6 +100,41 @@ namespace Vulture
 			: transform({translation, rotation, scale})
 		{
 
+		}
+	};
+
+	class CameraComponent
+	{
+	public:
+		glm::vec3 Translation{0.0f};
+		glm::mat4 ProjMat{1.0f};
+		glm::mat4 ViewMat{1.0f};
+		bool Main = false;
+
+		CameraComponent() 
+		{
+
+		};
+
+		void SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far, float aspectRatio)
+		{
+			ProjMat = glm::ortho(leftRightBottomTop.x, leftRightBottomTop.y, leftRightBottomTop.z, leftRightBottomTop.w, _near, _far);
+		}
+
+		void SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far)
+		{
+			ProjMat = glm::perspective(glm::radians(fov), aspectRatio, _near, _far);
+		}
+
+		void UpdateViewMatrix()
+		{
+			ViewMat = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			ViewMat = glm::translate(ViewMat, Translation);
+		}
+
+		glm::mat4 GetViewProj()
+		{
+			return ProjMat * ViewMat;
 		}
 	};
 }
