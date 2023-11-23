@@ -53,6 +53,8 @@ namespace Vulture
 			vkDestroySemaphore(Device::GetDevice(), m_ImageAvailableSemaphores[i], nullptr);
 			vkDestroyFence(Device::GetDevice(), m_InFlightFences[i], nullptr);
 		}
+
+		vkDestroyRenderPass(Device::GetDevice(), m_RenderPass, nullptr);
 	}
 
 	/*
@@ -286,7 +288,7 @@ namespace Vulture
 		renderPassInfo.dependencyCount = (uint32_t)dependencies.size();
 		renderPassInfo.pDependencies = dependencies.data();
 
-		m_RenderPass.CreateRenderPass(renderPassInfo);
+		vkCreateRenderPass(Device::GetDevice(), &renderPassInfo, nullptr, &m_RenderPass);
 	}
 
 	/*
@@ -343,7 +345,7 @@ namespace Vulture
 
 				VkFramebufferCreateInfo framebufferInfo = {};
 				framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-				framebufferInfo.renderPass = m_RenderPass.GetRenderPass();
+				framebufferInfo.renderPass = m_RenderPass;
 				framebufferInfo.attachmentCount = (uint32_t)attachments.size();
 				framebufferInfo.pAttachments = attachments.data();
 				framebufferInfo.width = m_SwapchainExtent.width;

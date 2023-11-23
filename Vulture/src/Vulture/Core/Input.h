@@ -134,8 +134,10 @@ namespace Vulture
 	public:
 		static void Init(GLFWwindow* window);
 		static bool IsKeyPressed(int keyCode);
+		static void ResetInput();
 
 	private:
 		static GLFWwindow* s_Window;
+		static std::vector<bool> m_KeysPressed;
 	};
 }

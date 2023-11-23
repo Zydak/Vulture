@@ -4,7 +4,6 @@
 #include "Device.h"
 #include "Image.h"
 #include "Framebuffer.h"
-#include "RenderPass.h"
 
 #include <vulkan/vulkan_core.h>
 
@@ -36,7 +35,7 @@ namespace Vulture
 		Swapchain(const Swapchain&) = delete;
 		Swapchain& operator=(const Swapchain&) = delete;
 
-		inline VkRenderPass GetSwapchainRenderPass() { return m_RenderPass.GetRenderPass(); }
+		inline VkRenderPass GetSwapchainRenderPass() { return m_RenderPass; }
 
 		VkFramebuffer GetPresentableFrameBuffer(int frameIndex);
 
@@ -92,7 +91,7 @@ namespace Vulture
 		VkFormat m_SwapchainDepthFormat;
 		VkExtent2D m_SwapchainExtent;
 
-		RenderPass m_RenderPass{};
+		VkRenderPass m_RenderPass{};
 	};
 
 }

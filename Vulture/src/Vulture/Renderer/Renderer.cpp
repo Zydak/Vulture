@@ -48,31 +48,36 @@ namespace Vulture
 
 	void Renderer::Init(Window& window)
 	{
-		s_RendererSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR));
+		s_RendererSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST));
 		
 		s_IsInitialized = true;
 		s_Window = &window;
 		s_QuadMesh.Init();
 		CreatePool();
-		CreateRenderPass();
 		RecreateSwapchain();
 		CreateCommandBuffers();
 	}
 
-	void Renderer::Render(Scene& scene)
+	/*
+	 * @brief Begins recording a command buffer for rendering. If it returns false, you should
+	 * recreate all resources that are tied to the swapchain (for example framebuffers with the swapchain extent).
+	 *
+	 * @return True if the frame started successfully; false if window was resized.
+	 */
+	bool Renderer::BeginFrame()
 	{
-		s_CurrentSceneRendered = &scene;
-		VL_CORE_ASSERT(s_IsInitialized, "Renderer is not initialized");
+		return BeginFrameInternal();
+	}
 
-		if (BeginFrame())
-		{
-			UpdateStorageBuffer();
-
-			GeometryPass();
-			PostProcessPass();
-
-			EndFrame();
-		}
+	/*
+	 * @brief End recording a command buffer for rendering. If it returns false, you should
+	 * recreate all resources that are tied to the swapchain (for example framebuffers with the swapchain extent).
+	 *
+	 * @return True if the frame ended successfully; false if window was resized.
+	 */
+	bool Renderer::EndFrame()
+	{
+		return EndFrameInternal();
 	}
 
 	/*
@@ -81,7 +86,7 @@ namespace Vulture
 	 *
 	 * @return True if the frame started successfully; false if the swap chain needs recreation.
 	 */
-	bool Renderer::BeginFrame()
+	bool Renderer::BeginFrameInternal()
 	{
 		VL_CORE_ASSERT(!s_IsFrameStarted, "Can't call BeginFrame while already in progress!");
 
@@ -109,10 +114,13 @@ namespace Vulture
 
 	/*
 	 * @brief Finalizes the recorded command buffer, submits it for execution, and presents the swap chain image. 
-	 * If the swap chain is out of date, it may trigger swap chain recreation.
+	 * If the swap chain is out of date, it triggers swap chain recreation and returns false.
+	 * 
+	 * @return True if the frame ended successfully; false if the swap chain needs recreation.
 	 */
-	void Renderer::EndFrame()
+	bool Renderer::EndFrameInternal()
 	{
+		bool retVal = true;
 		auto commandBuffer = GetCurrentCommandBuffer();
 		VL_CORE_ASSERT(s_IsFrameStarted, "Cannot call EndFrame while frame is not in progress");
 
@@ -127,6 +135,7 @@ namespace Vulture
 			// Recreate swap chain or handle window resize
 			s_Window->ResetWindowResizedFlag();
 			RecreateSwapchain();
+			retVal = false;
 		}
 		else
 		{
@@ -136,6 +145,7 @@ namespace Vulture
 		// End the frame and update frame index
 		s_IsFrameStarted = false;
 		s_CurrentFrameIndex = (s_CurrentFrameIndex + 1) % Swapchain::MAX_FRAMES_IN_FLIGHT;
+		return retVal;
 	}
 
 	/*
@@ -196,51 +206,13 @@ namespace Vulture
 		vkCmdEndRenderPass(GetCurrentCommandBuffer());
 	}
 
-	/*
-	 * @brief Renders geometry.
+	/**
+	 * @brief Takes Uniform with single combined image sampler descriptor and copies data
+	 * from the image onto presentable swapchain framebuffer
+	 * 
+	 * @param uniformWithImageSampler - Uniform with single image sampler
 	 */
-	void Renderer::GeometryPass()
-	{
-		// Set up clear colors for the render pass
-		std::vector<VkClearValue> clearColors;
-		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
-		VkClearValue clearVal;
-		clearVal.depthStencil = { 1.0f, 1 };
-		clearColors.push_back(clearVal);
-		// Begin the render pass
-		BeginRenderPass(
-			clearColors,
-			s_HDRFramebuffer[s_CurrentFrameIndex]->GetFramebuffer(),
-			s_HDRRenderPass.GetRenderPass(),
-			s_HDRFramebuffer[s_CurrentFrameIndex]->GetExtent()
-		);
-		// Bind the geometry pipeline
-		s_GeometryPipeline.Bind(GetCurrentCommandBuffer());
-
-		// Bind UBOs and descriptor sets
-		s_ObjectsUbos[s_CurrentFrameIndex]->Bind(
-			0,
-			s_GeometryPipeline.GetPipelineLayout(),
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			GetCurrentCommandBuffer()
-		);
-
-		s_CurrentSceneRendered->GetAtlas().GetAtlasUniform()->Bind(
-			1,
-			s_GeometryPipeline.GetPipelineLayout(),
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			GetCurrentCommandBuffer()
-		);
-
-		// Bind and draw the quad mesh
-		s_QuadMesh.Bind(GetCurrentCommandBuffer());
-		s_QuadMesh.Draw(GetCurrentCommandBuffer(), static_cast<uint32_t>(s_StorageBuffer.size()));
-
-		// End the render pass
-		EndRenderPass();
-	}
-
-	void Renderer::PostProcessPass()
+	void Renderer::FramebufferCopyPass(Uniform* uniformWithImageSampler)
 	{
 		std::vector<VkClearValue> clearColors;
 		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
@@ -254,7 +226,7 @@ namespace Vulture
 		// Bind the geometry pipeline
 		s_HDRToPresentablePipeline.Bind(GetCurrentCommandBuffer());
 
-		s_HDRUniforms[s_CurrentFrameIndex]->Bind(
+		uniformWithImageSampler->Bind(
 			0,
 			s_HDRToPresentablePipeline.GetPipelineLayout(),
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -262,54 +234,10 @@ namespace Vulture
 		);
 
 		s_QuadMesh.Bind(GetCurrentCommandBuffer());
-		s_QuadMesh.Draw(GetCurrentCommandBuffer(), static_cast<uint32_t>(s_StorageBuffer.size()));
+		s_QuadMesh.Draw(GetCurrentCommandBuffer(), 1);
 
 		// End the render pass
 		EndRenderPass();
-	}
-
-	void Renderer::UpdateStorageBuffer()
-	{
-		// Retrieve entities with TransformComponent and SpriteComponent from the current scene
-		auto view = s_CurrentSceneRendered->GetRegistry().view<TransformComponent, SpriteComponent>();
-
-		// Clear the storage buffer
-		s_StorageBuffer.clear();
-
-		// Iterate over entities and update storage buffer entries
-		for (auto entity : view)
-		{
-			const auto& [transformComponent, sprite] = view.get<TransformComponent, SpriteComponent>(entity);
-
-			// Create a storage buffer entry for the entity
-			StorageBufferEntry entry;
-			entry.ModelMatrix = transformComponent.transform.GetMat4();
-			entry.AtlasOffset = glm::vec4(sprite.AtlasOffsets, 1.0f, 1.0f);
-
-			// Add the entry to the storage buffer
-			s_StorageBuffer.push_back(entry);
-		}
-
-		// Write the storage buffer data to the UBO buffer and flush it
-		s_ObjectsUbos[s_CurrentFrameIndex]->GetBuffer(0)->WriteToBuffer(s_StorageBuffer.data(), s_StorageBuffer.size() * sizeof(StorageBufferEntry), 0);
-		s_ObjectsUbos[s_CurrentFrameIndex]->GetBuffer(0)->Flush();
-
-		// get camera matrix of the main camera
-		auto cameraView = s_CurrentSceneRendered->GetRegistry().view<CameraComponent>();
-		MainUbo mainUbo;
-		for (auto cameraEntity : cameraView)
-		{
-			auto& cameraComponent = cameraView.get<CameraComponent>(cameraEntity);
-			if (cameraComponent.Main)
-			{
-				mainUbo.ViewProjMatrix = cameraComponent.GetViewProj();
-				break;
-			}
-		}
-
-		// Write the camera matrix data to the UBO buffer and flush it
-		s_ObjectsUbos[s_CurrentFrameIndex]->GetBuffer(1)->WriteToBuffer(&mainUbo, sizeof(MainUbo), 0);
-		s_ObjectsUbos[s_CurrentFrameIndex]->GetBuffer(1)->Flush();
 	}
 
 	/*
@@ -345,9 +273,7 @@ namespace Vulture
 			VL_CORE_ASSERT(oldSwapchain->CompareSwapFormats(*s_Swapchain), "Swap chain image or depth formats have changed!");
 		}
 
-		// Recreate other resources dependent on the swapchain, such as uniforms, framebuffers and pipelines
-		CreateFramebuffer();
-		CreateUniforms();
+		// Recreate other resources dependent on the swapchain, such as  pipelines
 		CreatePipeline();
 	}
 
@@ -374,42 +300,6 @@ namespace Vulture
 	}
 
 	/*
-	 * @brief Creates and initializes uniform buffers and descriptor set layouts.
-	 */
-	void Renderer::CreateUniforms()
-	{
-		s_ObjectsUbos.clear();
-		s_HDRUniforms.clear();
-
-		for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			// Create and initialize uniform buffers
-			s_ObjectsUbos.push_back(std::make_shared<Uniform>(*s_Pool));
-			s_ObjectsUbos[i]->AddStorageBuffer(0, sizeof(StorageBufferEntry), VK_SHADER_STAGE_VERTEX_BIT, true);
-			s_ObjectsUbos[i]->AddUniformBuffer(1, sizeof(MainUbo), VK_SHADER_STAGE_VERTEX_BIT);
-			s_ObjectsUbos[i]->Build();
-
-			// Resize test
-			s_ObjectsUbos[i]->Resize(0, sizeof(StorageBufferEntry) * 10, Device::GetGraphicsQueue(), Device::GetCommandPool());
-		}
-
-		for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			s_HDRUniforms.push_back(std::make_shared<Uniform>(*s_Pool));
-			s_HDRUniforms[i]->AddImageSampler(0, s_RendererSampler->GetSampler(), s_HDRFramebuffer[i]->GetColorImageView(0),
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_FRAGMENT_BIT
-			);
-			s_HDRUniforms[i]->Build();
-		}
-
-		// Create descriptor set layout for atlas
-		auto atlasLayoutBuilder = DescriptorSetLayout::Builder();
-		atlasLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-		atlasLayoutBuilder.AddBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-		s_AtlasSetLayout = std::make_shared<DescriptorSetLayout>(atlasLayoutBuilder);
-	}
-
-	/*
 	 * @brief Creates the descriptor pool for managing descriptor sets.
 	 */
 	void Renderer::CreatePool()
@@ -431,43 +321,15 @@ namespace Vulture
 	 */
 	void Renderer::CreatePipeline()
 	{
-		// 
-		// Geometry
-		// 
-		
-		{
-			// Configure pipeline creation parameters
-			PipelineCreateInfo info{};
-			info.AttributeDesc = Quad::Vertex::GetAttributeDescriptions();
-			info.BindingDesc = Quad::Vertex::GetBindingDescriptions();
-			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.vert.spv");
-			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.frag.spv");
-			info.BlendingEnable = true;
-			info.DepthTestEnable = true;
-			info.CullMode = VK_CULL_MODE_BACK_BIT;
-			info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-			info.Width = s_Swapchain->GetWidth();
-			info.Height = s_Swapchain->GetHeight();
-			info.PushConstants = nullptr;
-			info.RenderPass = s_HDRRenderPass.GetRenderPass();
-
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
-				s_ObjectsUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
-				s_AtlasSetLayout->GetDescriptorSetLayout()
-			};
-			info.UniformSetLayouts = layouts;
-
-			// Create the graphics pipeline
-			s_GeometryPipeline.CreatePipeline(info);
-		}
-
 		//
 		// Geometry To HDR
 		//
 
 		{
+			auto imageLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
+			imageLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+			auto imageLayout = std::make_shared<Vulture::DescriptorSetLayout>(imageLayoutBuilder);
+
 			PipelineCreateInfo info{};
 			info.AttributeDesc = Quad::Vertex::GetAttributeDescriptions();
 			info.BindingDesc = Quad::Vertex::GetBindingDescriptions();
@@ -485,89 +347,13 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				s_HDRUniforms[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout()
+				imageLayout->GetDescriptorSetLayout()
 			};
 			info.UniformSetLayouts = layouts;
 
 			// Create the graphics pipeline
 			s_HDRToPresentablePipeline.CreatePipeline(info);
 		}
-	}
-
-	void Renderer::CreateFramebuffer()
-	{
-		std::vector<FramebufferAttachment> attachments{ FramebufferAttachment::ColorRGBA16, FramebufferAttachment::Depth };
-		for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			s_HDRFramebuffer.push_back(std::make_unique<Framebuffer>(attachments, s_HDRRenderPass.GetRenderPass(), s_Swapchain->GetSwapchainExtent(), Swapchain::FindDepthFormat()));
-		}
-	}
-
-	void Renderer::CreateRenderPass()
-	{
-		VkAttachmentDescription colorAttachment = {};
-		colorAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-		VkAttachmentReference colorAttachmentRef = {};
-		colorAttachmentRef.attachment = 0;
-		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription depthAttachment{};
-		depthAttachment.format = Swapchain::FindDepthFormat();
-		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentReference depthAttachmentRef{};
-		depthAttachmentRef.attachment = 1;
-		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		VkSubpassDescription subpass = {};
-		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 1;
-		subpass.pColorAttachments = &colorAttachmentRef;
-		subpass.pDepthStencilAttachment = &depthAttachmentRef;
-
-		VkSubpassDependency dependency1 = {};
-		dependency1.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency1.dstSubpass = 0;
-		dependency1.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		dependency1.srcAccessMask = 0;
-		dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-		VkSubpassDependency dependency2 = {};
-		dependency2.srcSubpass = 0;
-		dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
-		dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
-
-		std::vector<VkAttachmentDescription> attachments = { colorAttachment, depthAttachment };
-		VkRenderPassCreateInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = (uint32_t)attachments.size();
-		renderPassInfo.pAttachments = attachments.data();
-		renderPassInfo.subpassCount = 1;
-		renderPassInfo.pSubpasses = &subpass;
-		renderPassInfo.dependencyCount = (uint32_t)dependencies.size();
-		renderPassInfo.pDependencies = dependencies.data();
-
-		s_HDRRenderPass.CreateRenderPass(renderPassInfo);
 	}
 
 	/**
@@ -594,7 +380,6 @@ namespace Vulture
 
 	Window* Renderer::s_Window;
 	Scope<DescriptorPool> Renderer::s_Pool;
-
 	Scope<Swapchain> Renderer::s_Swapchain;
 	std::vector<VkCommandBuffer> Renderer::s_CommandBuffers;
 	bool Renderer::s_IsFrameStarted = false;
@@ -602,14 +387,7 @@ namespace Vulture
 	uint32_t Renderer::s_CurrentFrameIndex = 0;
 	Scene* Renderer::s_CurrentSceneRendered;
 	bool Renderer::s_IsInitialized = true;
-	std::vector<StorageBufferEntry> Renderer::s_StorageBuffer;
-	Pipeline Renderer::s_GeometryPipeline;
 	Pipeline Renderer::s_HDRToPresentablePipeline;
-	std::vector<std::shared_ptr<Uniform>> Renderer::s_ObjectsUbos;
-	std::shared_ptr<DescriptorSetLayout> Renderer::s_AtlasSetLayout;
 	Quad Renderer::s_QuadMesh;
 	Scope<Sampler> Renderer::s_RendererSampler;
-	RenderPass Renderer::s_HDRRenderPass;
-	std::vector<Scope<Framebuffer>> Renderer::s_HDRFramebuffer;
-	std::vector<Ref<Uniform>> Renderer::s_HDRUniforms;
 }

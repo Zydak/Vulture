@@ -4,6 +4,7 @@
 #include "Buffer.h"
 #include "Descriptors.h"
 #include "Device.h"
+#include "Utility/Utility.h"
 
 namespace Vulture
 {

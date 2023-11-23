@@ -360,26 +360,13 @@ namespace Vulture
 	{
 		uint32_t memoryIndex = 0;
 		FindMemoryTypeIndexForImage(createInfo, memoryIndex, customFlags);
-		auto it = s_Pools.find(memoryIndex);
-		if (it != s_Pools.end())
-		{
-			// pool found
-			VmaAllocationCreateInfo allocCreateInfo = {};
-			allocCreateInfo.pool = it->second;
-			allocCreateInfo.priority = 0.5f;
-
-			vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr);
-		}
-		else
-		{
-			s_Pools[memoryIndex] = VmaPool();
-			CreateMemoryPool(memoryIndex, s_Pools[memoryIndex], 100);
-
-			VmaAllocationCreateInfo allocCreateInfo = {};
-			allocCreateInfo.pool = s_Pools[memoryIndex];
-			allocCreateInfo.priority = 0.5f;
-			vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr);
-		}
+		VmaAllocationCreateInfo allocCreateInfo = {};
+		allocCreateInfo.memoryTypeBits = memoryIndex;
+		VL_CORE_RETURN_ASSERT(
+			vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr),
+			VK_SUCCESS,
+			"Couldn't create an image!"
+		);
 	}
 
 	/*

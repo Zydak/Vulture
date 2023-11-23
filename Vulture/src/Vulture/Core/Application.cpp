@@ -37,6 +37,7 @@ namespace Vulture
 		{
 			m_Window->PollEvents();
 
+			Input::ResetInput();
 			OnUpdate(0.0f);
 		}
 

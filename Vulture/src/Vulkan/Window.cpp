@@ -22,7 +22,7 @@ namespace Vulture
 	{
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
 		m_Window = glfwCreateWindow(m_Width, m_Height, m_Name.c_str(), nullptr, nullptr);
 		glfwSetWindowUserPointer(m_Window, this);
@@ -40,18 +40,18 @@ namespace Vulture
 		}
 
 		int width, height, channels;
-		unsigned char* iconData = stbi_load(winInfo.Icon.c_str(), &width, &height, &channels, 0);
-		//if (iconData)
-		//{
-		//	GLFWimage icon;
-		//	icon.width = width;
-		//	icon.height = height;
-		//	icon.pixels = iconData;
-		//
-		//	glfwSetWindowIcon(m_Window, 1, &icon);
-		//
-		//	stbi_image_free(iconData);
-		//}
+		unsigned char* iconData = stbi_load(winInfo.Icon.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+		if (iconData)
+		{
+			GLFWimage icon;
+			icon.width = width;
+			icon.height = height;
+			icon.pixels = iconData;
+		
+			glfwSetWindowIcon(m_Window, 1, &icon);
+		
+			stbi_image_free(iconData);
+		}
 	}
 
 	Window::~Window()

@@ -179,7 +179,7 @@ namespace Vulture
         Image::TransitionImageLayout(m_AtlasTexture->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, range);
 
         // Create a uniform for the texture atlas
-        m_AtlasUniform = std::make_shared<Uniform>(*Renderer::s_Pool);
+        m_AtlasUniform = std::make_shared<Uniform>(Renderer::GetDescriptorPool());
         m_AtlasUniform->AddImageSampler(
             0,
             m_AtlasTexture->GetSampler(),
