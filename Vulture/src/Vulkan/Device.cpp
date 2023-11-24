@@ -30,7 +30,7 @@ namespace Vulture
 		}
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 		{
-			VL_CORE_ERROR("{0} Validation Layer: Validation Error\n\t{1}", messageSeverity, pCallbackData->pMessage);
+			VL_CORE_ERROR("Validation Layer: Validation Error\n\t{0}", pCallbackData->pMessage);
 			//VL_CORE_ASSERT(false, ""); // Vulkan error
 		}
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)

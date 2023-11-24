@@ -3,6 +3,12 @@
 #include "Scene/Scene.h"
 #include "Scene/Components.h"
 
+#ifdef VL_IMGUI
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_vulkan.h>
+#include <imgui.h>
+#endif
+
 namespace Vulture
 {
 	void Renderer::ImageMemoryBarrier(VkImage image, VkCommandBuffer commandBuffer, VkImageAspectFlagBits aspect,
@@ -46,6 +52,13 @@ namespace Vulture
 		s_Swapchain.release();
 	}
 
+	static void CheckVkResult(VkResult err)
+	{
+		if (err == 0) return;
+		fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+		if (err < 0) abort();
+	}
+
 	void Renderer::Init(Window& window)
 	{
 		s_RendererSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST));
@@ -56,6 +69,34 @@ namespace Vulture
 		CreatePool();
 		RecreateSwapchain();
 		CreateCommandBuffers();
+
+#ifdef VL_IMGUI
+		// ImGui Creation
+		ImGui::CreateContext();
+		auto io = ImGui::GetIO();
+		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+		ImGui_ImplGlfw_InitForVulkan(s_Window->GetGLFWwindow(), true);
+		ImGui_ImplVulkan_InitInfo info{};
+		info.Instance = Device::GetInstance();
+		info.PhysicalDevice = Device::GetPhysicalDevice();
+		info.Device = Device::GetDevice();
+		info.Queue = Device::GetGraphicsQueue();
+		info.DescriptorPool = s_Pool->GetDescriptorPool();
+		info.Subpass = 0;
+		info.MinImageCount = 2;
+		info.ImageCount = s_Swapchain->GetImageCount();
+		info.CheckVkResultFn = CheckVkResult;
+		ImGui_ImplVulkan_Init(&info, s_Swapchain->GetSwapchainRenderPass());
+
+		VkCommandBuffer cmdBuffer;
+		Device::BeginSingleTimeCommands(cmdBuffer, Device::GetCommandPool());
+		ImGui_ImplVulkan_CreateFontsTexture(cmdBuffer);
+		Device::EndSingleTimeCommands(cmdBuffer, Device::GetGraphicsQueue(), Device::GetCommandPool());
+
+		vkDeviceWaitIdle(Device::GetDevice());
+		ImGui_ImplVulkan_DestroyFontUploadObjects();
+#endif
 	}
 
 	/*
@@ -79,6 +120,13 @@ namespace Vulture
 	{
 		return EndFrameInternal();
 	}
+
+#ifdef VL_IMGUI
+	void Renderer::RenderImGui(std::function<void()> fn)
+	{
+		s_ImGuiFunction = fn;
+	}
+#endif
 
 	/*
 	 * @brief Acquires the next swap chain image and begins recording a command buffer for rendering. 
@@ -236,6 +284,8 @@ namespace Vulture
 		s_QuadMesh.Bind(GetCurrentCommandBuffer());
 		s_QuadMesh.Draw(GetCurrentCommandBuffer(), 1);
 
+		s_ImGuiFunction();
+
 		// End the render pass
 		EndRenderPass();
 	}
@@ -259,7 +309,7 @@ namespace Vulture
 		// Recreate the swapchain
 		if (s_Swapchain == nullptr)
 		{
-			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::VSync);
+			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::MailBox);
 		}
 		else
 		{
@@ -267,7 +317,7 @@ namespace Vulture
 			std::shared_ptr<Swapchain> oldSwapchain = std::move(s_Swapchain);
 
 			// Create a new swapchain using the old one as a reference
-			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::VSync, oldSwapchain);
+			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::MailBox, oldSwapchain);
 
 			// Check if the swap formats are consistent
 			VL_CORE_ASSERT(oldSwapchain->CompareSwapFormats(*s_Swapchain), "Swap chain image or depth formats have changed!");
@@ -390,4 +440,8 @@ namespace Vulture
 	Pipeline Renderer::s_HDRToPresentablePipeline;
 	Quad Renderer::s_QuadMesh;
 	Scope<Sampler> Renderer::s_RendererSampler;
+
+#ifdef VL_IMGUI
+	std::function<void()> Renderer::s_ImGuiFunction;
+#endif
 }

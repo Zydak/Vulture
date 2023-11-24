@@ -1,6 +1,10 @@
 #include "pch.h"
 #include "SceneRenderer.h"
 
+#include "imgui.h"
+#include <backends/imgui_impl_vulkan.h>
+#include <backends/imgui_impl_glfw.h>
+
 SceneRenderer::SceneRenderer()
 {
 	CreateRenderPasses();
@@ -8,6 +12,9 @@ SceneRenderer::SceneRenderer()
 	CreateFramebuffers();
 	CreateUniforms();
 	CreatePipelines();
+
+	m_StorageBufferTransforms.resize(Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT);
+	Vulture::Renderer::RenderImGui([this](){ImGuiPass(); });
 }
 
 SceneRenderer::~SceneRenderer()
@@ -64,25 +71,41 @@ void SceneRenderer::UpdateStorageBuffer()
 	// Retrieve entities with TransformComponent and SpriteComponent from the current scene
 	auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::TransformComponent, Vulture::SpriteComponent>();
 
-	// Clear the storage buffer
-	m_StorageBuffer.clear();
-
 	// Iterate over entities and update storage buffer entries
+	int i = 0;
 	for (auto entity : view)
 	{
 		const auto& [transformComponent, sprite] = view.get<Vulture::TransformComponent, Vulture::SpriteComponent>(entity);
 
 		// Create a storage buffer entry for the entity
 		StorageBufferEntry entry{};
-		entry.ModelMatrix = transformComponent.transform.GetMat4();
-		entry.AtlasOffset = glm::vec4(sprite.AtlasOffsets, 1.0f, 1.0f);
+		if (i >= m_StorageBufferTransforms[Vulture::Renderer::GetCurrentFrameIndex()].size())
+		{
+			entry.ModelMatrix = transformComponent.transform.GetMat4();
+			entry.AtlasOffset = glm::vec4(sprite.AtlasOffsets, 1.0f, 1.0f);
 
-		// Add the entry to the storage buffer
-		m_StorageBuffer.push_back(entry);
+			// Add the entry to the storage buffer
+			m_StorageBufferTransforms[Vulture::Renderer::GetCurrentFrameIndex()].push_back({transformComponent.transform, entity});
+			m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&entry, sizeof(StorageBufferEntry), i * sizeof(StorageBufferEntry));
+		}
+		else
+		{
+			bool changed;
+			entry.ModelMatrix = transformComponent.transform.GetMat4(m_StorageBufferTransforms[Vulture::Renderer::GetCurrentFrameIndex()][i].Transform, changed);
+
+			if (changed)
+			{
+				entry.AtlasOffset = glm::vec4(sprite.AtlasOffsets, 1.0f, 1.0f);
+
+				m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&entry, sizeof(StorageBufferEntry), i * sizeof(StorageBufferEntry));
+			}
+		}
+		
+		i++;
 	}
 
 	// Write the storage buffer data to the UBO buffer and flush it
-	m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(m_StorageBuffer.data(), m_StorageBuffer.size() * sizeof(StorageBufferEntry), 0);
+	//m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(m_StorageBuffer.data(), m_StorageBuffer.size() * sizeof(StorageBufferEntry), 0);
 	m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
 
 	// get camera matrix of the main camera
@@ -99,8 +122,53 @@ void SceneRenderer::UpdateStorageBuffer()
 	}
 
 	// Write the camera matrix data to the UBO buffer and flush it
-	m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(1)->WriteToBuffer(&mainUbo, sizeof(MainUbo), 0);
-	m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(1)->Flush();
+	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&mainUbo, sizeof(MainUbo), 0);
+	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
+}
+
+void SceneRenderer::UpdateStaticStorageBuffer(Vulture::Scene& scene)
+{
+	m_StaticObjectsCount = 0;
+	m_StaticObjectsUbos = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
+	m_StaticObjectsUbos->AddStorageBuffer(0, sizeof(StorageBufferEntry) * 100, VK_SHADER_STAGE_VERTEX_BIT, true);
+	m_StaticObjectsUbos->Build();
+
+	// Retrieve entities with TransformComponent and SpriteComponent from the current scene
+	auto view = scene.GetRegistry().view<Vulture::StaticTransformComponent, Vulture::SpriteComponent>();
+	VL_CORE_ASSERT(view.size_hint() != 0, "Scenes does not contain any static objects. They probably got deleted by previous UpdateStaticStorageBuffer call");
+
+	// Clear the storage buffer
+	std::vector<StorageBufferEntry> staticStorageBuffer;
+
+	// Iterate over entities and update storage buffer entries
+	for (auto entity : view)
+	{
+		const auto& [transformComponent, sprite] = view.get<Vulture::StaticTransformComponent, Vulture::SpriteComponent>(entity);
+
+		// Create a storage buffer entry for the entity
+		StorageBufferEntry entry{};
+		entry.ModelMatrix = transformComponent.transform.GetMat4();
+		entry.AtlasOffset = glm::vec4(sprite.AtlasOffsets, 1.0f, 1.0f);
+
+		// Add the entry to the storage buffer
+		staticStorageBuffer.push_back(entry);
+		scene.DestroyEntity(Vulture::Entity(entity, &scene));
+		m_StaticObjectsCount++;
+	}
+
+	// Write the storage buffer data to the UBO buffer and flush it
+	m_StaticObjectsUbos->GetBuffer(0)->WriteToBuffer(staticStorageBuffer.data(), staticStorageBuffer.size() * sizeof(StorageBufferEntry), 0);
+	m_StaticObjectsUbos->GetBuffer(0)->Flush();
+}
+
+void SceneRenderer::DestroySprite(entt::entity entity, Vulture::Scene& scene)
+{
+	for (int i = 0; i < m_StorageBufferTransforms.size(); i++)
+	{
+		if (!m_StorageBufferTransforms[i].empty())
+			m_StorageBufferTransforms[i].pop_back();
+	}
+	scene.DestroyEntity(Vulture::Entity(entity, &scene));
 }
 
 void SceneRenderer::GeometryPass()
@@ -123,16 +191,37 @@ void SceneRenderer::GeometryPass()
 		Vulture::Renderer::GetCurrentCommandBuffer()
 	);
 
-	m_CurrentSceneRendered->GetAtlas().GetAtlasUniform()->Bind(
+	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
 		1,
 		m_HDRPass.GetPipeline().GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		Vulture::Renderer::GetCurrentCommandBuffer()
 	);
 
-	// Bind and draw the quad mesh
+	m_CurrentSceneRendered->GetAtlas().GetAtlasUniform()->Bind(
+		2,
+		m_HDRPass.GetPipeline().GetPipelineLayout(),
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		Vulture::Renderer::GetCurrentCommandBuffer()
+	);
+
+	//// Bind and draw the quad mesh
 	Vulture::Renderer::GetQuadMesh().Bind(Vulture::Renderer::GetCurrentCommandBuffer());
-	Vulture::Renderer::GetQuadMesh().Draw(Vulture::Renderer::GetCurrentCommandBuffer(), static_cast<uint32_t>(m_StorageBuffer.size()));
+	Vulture::Renderer::GetQuadMesh().Draw(Vulture::Renderer::GetCurrentCommandBuffer(), static_cast<uint32_t>(m_StorageBufferTransforms[Vulture::Renderer::GetCurrentFrameIndex()].size()));
+
+	if (m_StaticObjectsCount)
+	{
+		// Draw static objects
+		m_StaticObjectsUbos->Bind(
+			0,
+			m_HDRPass.GetPipeline().GetPipelineLayout(),
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			Vulture::Renderer::GetCurrentCommandBuffer()
+		);
+
+		Vulture::Renderer::GetQuadMesh().Bind(Vulture::Renderer::GetCurrentCommandBuffer());
+		Vulture::Renderer::GetQuadMesh().Draw(Vulture::Renderer::GetCurrentCommandBuffer(), static_cast<uint32_t>(m_StaticObjectsCount));
+	}
 
 	// End the render pass
 	m_HDRPass.EndRenderPass();
@@ -208,18 +297,29 @@ void SceneRenderer::CreateRenderPasses()
 void SceneRenderer::CreateUniforms()
 {
 	m_ObjectsUbos.clear();
+	m_MainUbos.clear();
 	m_HDRUniforms.clear();
 
+
+	// Create and initialize uniform buffers
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
 		m_ObjectsUbos.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
 		m_ObjectsUbos[i]->AddStorageBuffer(0, sizeof(StorageBufferEntry), VK_SHADER_STAGE_VERTEX_BIT, true);
-		m_ObjectsUbos[i]->AddUniformBuffer(1, sizeof(MainUbo), VK_SHADER_STAGE_VERTEX_BIT);
 		m_ObjectsUbos[i]->Build();
 
 		// Resize test
-		m_ObjectsUbos[i]->Resize(0, sizeof(StorageBufferEntry) * 10, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetCommandPool());
+		// TODO: automatic resize when needed
+		m_ObjectsUbos[i]->Resize(0, sizeof(StorageBufferEntry) * 33000, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetCommandPool());
+	}
+
+	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		// Create and initialize uniform buffers
+		m_MainUbos.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
+		m_MainUbos[i]->AddUniformBuffer(0, sizeof(MainUbo), VK_SHADER_STAGE_VERTEX_BIT);
+		m_MainUbos[i]->Build();
 	}
 
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
@@ -258,6 +358,7 @@ void SceneRenderer::CreatePipelines()
 	std::vector<VkDescriptorSetLayout> layouts
 	{
 		m_ObjectsUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
+		m_MainUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
 		m_AtlasSetLayout->GetDescriptorSetLayout()
 	};
 	info.UniformSetLayouts = layouts;
@@ -273,4 +374,20 @@ void SceneRenderer::CreateFramebuffers()
 	{
 		m_HDRFramebuffer.push_back(std::make_unique<Vulture::Framebuffer>(attachments, m_HDRPass.GetRenderPass(), Vulture::Renderer::GetSwapchain().GetSwapchainExtent(), Vulture::Swapchain::FindDepthFormat()));
 	}
+}
+
+void SceneRenderer::ImGuiPass()
+{
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	ImGui::Begin("Settings");
+
+	ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.Elapsed());
+	m_Timer.Reset();
+
+	ImGui::End();
+	ImGui::Render();
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), Vulture::Renderer::GetCurrentCommandBuffer());
 }

@@ -11,6 +11,10 @@
 
 #include <vulkan/vulkan.h>
 
+#ifndef VL_IMGUI
+#define VL_IMGUI
+#endif
+
 namespace Vulture
 {
 	class Scene;
@@ -32,6 +36,10 @@ namespace Vulture
 
 		static bool BeginFrame();
 		static bool EndFrame();
+
+#ifdef VL_IMGUI
+		static void RenderImGui(std::function<void()> fn);
+#endif
 
 		static void ImageMemoryBarrier(VkImage image, VkCommandBuffer commandBuffer, VkImageAspectFlagBits aspect,
 			VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount, uint32_t baseLayer);
@@ -70,6 +78,10 @@ namespace Vulture
 		static Scope<Sampler> s_RendererSampler;
 
 		static Pipeline s_HDRToPresentablePipeline;
+
+#ifdef VL_IMGUI
+		static std::function<void()> s_ImGuiFunction;
+#endif
 
 		friend class RenderPass;
 	};

@@ -38,6 +38,7 @@ project "Sandbox"
 	}
 
 	filter "system:windows"
+		defines "WIN"
 		systemversion "latest"
 
 	filter "configurations:Debug"

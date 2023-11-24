@@ -10,4 +10,6 @@ int main()
 {
  	auto app = Vulture::CreateApplication();
  	app->Run();
+
+    delete app;
 }

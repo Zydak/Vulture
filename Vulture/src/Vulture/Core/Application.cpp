@@ -1,4 +1,5 @@
 #include "pch.h"
+#define VL_IMGUI
 #include "Application.h"
 #include "Renderer/Renderer.h"
 #include "Input.h"
@@ -26,19 +27,23 @@ namespace Vulture
 
 	Application::~Application()
 	{
-
+		VL_CORE_INFO("Closing");
 	}
 
 	void Application::Run()
 	{
 		VL_CORE_TRACE("\n\n\n\nMAIN LOOP START\n\n\n\n");
+		Timer timer;
+		double deltaTime = 0.0f;
 
 		while (!m_Window->ShouldClose())
 		{
+			timer.Reset();
 			m_Window->PollEvents();
 
 			Input::ResetInput();
-			OnUpdate(0.0f);
+			OnUpdate(deltaTime);
+			deltaTime = timer.Elapsed();
 		}
 
 		Renderer::Destroy();

@@ -17,11 +17,16 @@ namespace Vulture
 
 		Entity CreateEntity();
 		Entity CreateSprite(const Transform& transform, const std::string& textureFilepath);
+		void CreateStaticSprite(const Transform& transform, const std::string& textureFilepath);
 		Entity CreateCamera();
 		void DestroyEntity(Entity& entity);
 
 		void AddTextureToAtlas(const std::string& filepath);
 		void PackAtlas();
+
+		void InitScripts();
+		void DestroyScripts();
+		void UpdateScripts(double deltaTime);
 
 		inline entt::registry& GetRegistry() { return m_Registry; }
 		inline TextureAtlas& GetAtlas() { return m_Atlas; }

@@ -7,15 +7,26 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "glm/gtc/matrix_transform.hpp"
 
+#include "Entity.h"
+
 namespace Vulture
 {
-
 	class ScriptInterface
 	{
 	public:
+		ScriptInterface() = default;
+		virtual ~ScriptInterface() {}
 		virtual void OnCreate() = 0;
 		virtual void OnDestroy() = 0;
 		virtual void OnUpdate(double deltaTime) = 0;
+
+		template<typename T>
+		T& GetComponent()
+		{
+			return m_Entity.GetComponent<T>();
+		}
+
+		Entity m_Entity;
 	};
 
 	class ScriptComponent
@@ -98,6 +109,25 @@ namespace Vulture
 
 		TransformComponent(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale)
 			: transform({translation, rotation, scale})
+		{
+
+		}
+	};
+
+	class StaticTransformComponent
+	{
+	public:
+		Transform transform;
+		glm::mat4 ModelMatrix;
+
+		StaticTransformComponent(const Transform& transform)
+			: transform(transform)
+		{
+
+		}
+
+		StaticTransformComponent(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale)
+			: transform({ translation, rotation, scale })
 		{
 
 		}

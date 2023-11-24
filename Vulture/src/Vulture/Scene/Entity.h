@@ -9,8 +9,11 @@ namespace Vulture
 	class Entity
 	{
 	public:
+		Entity() {};
 		Entity(entt::entity handle, Scene* scene);
 		~Entity();
+
+		inline entt::entity GetHandle() { return m_Handle; }
 
 		template<typename T, typename... Args>
 		T& AddComponent(Args&&... args)

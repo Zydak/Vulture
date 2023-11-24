@@ -16,7 +16,7 @@ layout(set = 0, binding = 0) readonly buffer ObjectUbo
     Transform ObjectInfos[];
 } Objects;
 
-layout(set = 0, binding = 1) uniform MainUbo
+layout(set = 1, binding = 0) uniform MainUbo
 {
     mat4 cameraViewProj;
 } mainUbo;
