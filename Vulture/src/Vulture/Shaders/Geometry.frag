@@ -16,5 +16,8 @@ void main()
 	vec2 atlasOffset = (inTexCoords / textureSize(uTextureAtlas, 0)) * atlasInfo.TilingSize.x;
 	atlasOffset += (inTextureAtlasOffset / textureSize(uTextureAtlas, 0));
 
-	outFragColor = texture(uTextureAtlas, atlasOffset);
+	vec4 color = texture(uTextureAtlas, atlasOffset);
+	if (color.a == 0)
+		discard;
+	outFragColor = color;
 }

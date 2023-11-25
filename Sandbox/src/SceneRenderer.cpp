@@ -45,7 +45,7 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 void SceneRenderer::RecreateResources()
 {
 	CreateFramebuffers();
-	CreateUniforms();
+	RecreateCreateUniforms();
 	CreatePipelines();
 
 	FixCameraAspectRatio();
@@ -58,11 +58,7 @@ void SceneRenderer::FixCameraAspectRatio()
 	for (auto entity : view)
 	{
 		auto& cameraCp = view.get<Vulture::CameraComponent>(entity);
-		cameraCp.SetPerspectiveMatrix(
-			45.0f,
-			newAspectRatio,
-			0.1f, 100.0f
-		);
+		cameraCp.SetOrthographicMatrix({ -20.0f, 20.0f, -20.0f, 20.0f }, 0.1f, 100.0f, newAspectRatio);
 	}
 }
 
@@ -95,9 +91,14 @@ void SceneRenderer::UpdateStorageBuffer()
 
 			if (changed)
 			{
+				m_StorageBufferTransforms[Vulture::Renderer::GetCurrentFrameIndex()][i].Transform = transformComponent.transform;
 				entry.AtlasOffset = glm::vec4(sprite.AtlasOffsets, 1.0f, 1.0f);
 
 				m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&entry, sizeof(StorageBufferEntry), i * sizeof(StorageBufferEntry));
+			}
+			else
+			{
+
 			}
 		}
 		
@@ -130,7 +131,7 @@ void SceneRenderer::UpdateStaticStorageBuffer(Vulture::Scene& scene)
 {
 	m_StaticObjectsCount = 0;
 	m_StaticObjectsUbos = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
-	m_StaticObjectsUbos->AddStorageBuffer(0, sizeof(StorageBufferEntry) * 100, VK_SHADER_STAGE_VERTEX_BIT, true);
+	m_StaticObjectsUbos->AddStorageBuffer(0, sizeof(StorageBufferEntry) * 1000, VK_SHADER_STAGE_VERTEX_BIT, true);
 	m_StaticObjectsUbos->Build();
 
 	// Retrieve entities with TransformComponent and SpriteComponent from the current scene
@@ -198,7 +199,7 @@ void SceneRenderer::GeometryPass()
 		Vulture::Renderer::GetCurrentCommandBuffer()
 	);
 
-	m_CurrentSceneRendered->GetAtlas().GetAtlasUniform()->Bind(
+	m_CurrentSceneRendered->GetAtlas()->GetAtlasUniform()->Bind(
 		2,
 		m_HDRPass.GetPipeline().GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -296,11 +297,6 @@ void SceneRenderer::CreateRenderPasses()
 
 void SceneRenderer::CreateUniforms()
 {
-	m_ObjectsUbos.clear();
-	m_MainUbos.clear();
-	m_HDRUniforms.clear();
-
-
 	// Create and initialize uniform buffers
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
@@ -336,6 +332,28 @@ void SceneRenderer::CreateUniforms()
 	atlasLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 	atlasLayoutBuilder.AddBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
 	m_AtlasSetLayout = std::make_shared<Vulture::DescriptorSetLayout>(atlasLayoutBuilder);
+}
+
+void SceneRenderer::RecreateCreateUniforms()
+{
+	m_MainUbos.clear();
+	m_HDRUniforms.clear();
+	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		// Create and initialize uniform buffers
+		m_MainUbos.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
+		m_MainUbos[i]->AddUniformBuffer(0, sizeof(MainUbo), VK_SHADER_STAGE_VERTEX_BIT);
+		m_MainUbos[i]->Build();
+	}
+
+	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		m_HDRUniforms.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
+		m_HDRUniforms[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_FRAGMENT_BIT
+		);
+		m_HDRUniforms[i]->Build();
+	}
 }
 
 void SceneRenderer::CreatePipelines()

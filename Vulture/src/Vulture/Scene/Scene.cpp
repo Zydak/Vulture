@@ -22,20 +22,39 @@ namespace Vulture
 		return entity;
 	}
 
-	Entity Scene::CreateSprite(const Transform& transform, const std::string& textureFilepath)
+	/*
+	* @brief Creates a sprite entity by combining a TransformComponent and a SpriteComponent.
+	* The TransformComponent is initialized with the provided 'transform', and the SpriteComponent is
+	* initialized with the texture offset obtained from the entity's 'tileOffset' within the texture atlas.
+	*
+	* @param transform The transformation information for the sprite.
+	* @param tileOffset The offset within the texture atlas to determine the sprite's texture.
+	* @return The created sprite entity.
+	*/
+	Entity Scene::CreateSprite(const Transform& transform, const glm::vec2& tileOffset)
 	{
 		Entity entity = CreateEntity();
 		entity.AddComponent<TransformComponent>(transform);
-		glm::vec2& offset = m_Atlas.GetTextureOffset(textureFilepath);
+		glm::vec2 offset = m_Atlas->GetTextureOffset(tileOffset);
 		entity.AddComponent<SpriteComponent>(offset);
 		return entity;
 	}
 
-	void Scene::CreateStaticSprite(const Transform& transform, const std::string& textureFilepath)
+	/*
+	* @brief Creates a static sprite entity by combining a StaticTransformComponent and a SpriteComponent.
+	* The StaticTransformComponent is initialized with the provided 'transform', and the SpriteComponent is
+	* initialized with the texture offset obtained from the entity's 'tileOffset' within the texture atlas.
+	* Static sprites are suitable for objects that do not change their position, optimizing
+	* performance by avoiding unnecessary recalculations.
+	*
+	* @param transform The transformation information for the static sprite.
+	* @param tileOffset The offset within the texture atlas to determine the static sprite's texture.
+	*/
+	void Scene::CreateStaticSprite(const Transform& transform, const glm::vec2& tileOffset)
 	{
 		Entity entity = CreateEntity();
 		entity.AddComponent<StaticTransformComponent>(transform);
-		glm::vec2& offset = m_Atlas.GetTextureOffset(textureFilepath);
+		glm::vec2 offset = m_Atlas->GetTextureOffset(tileOffset);
 		entity.AddComponent<SpriteComponent>(offset);
 	}
 
@@ -56,9 +75,9 @@ namespace Vulture
 		m_Registry.destroy(entity);
 	}
 
-	void Scene::PackAtlas()
+	void Scene::CreateAtlas(const std::string& filepath)
 	{
-		m_Atlas.PackAtlas();
+		m_Atlas = std::make_shared<TextureAtlas>(filepath);
 	}
 
 	void Scene::InitScripts()
@@ -99,11 +118,6 @@ namespace Vulture
 				scriptComponent.Scripts[i]->OnUpdate(deltaTime);
 			}
 		}
-	}
-
-	void Scene::AddTextureToAtlas(const std::string& filepath)
-	{
-		m_Atlas.AddTexture(filepath);
 	}
 
 }

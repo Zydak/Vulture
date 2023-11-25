@@ -1,10 +1,11 @@
 #pragma once
 #include "pch.h"
-#include "glm/glm.hpp"
 #include "../Renderer/Transform.h"
+
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 
 #include "Entity.h"
@@ -148,7 +149,7 @@ namespace Vulture
 
 		void SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far, float aspectRatio)
 		{
-			ProjMat = glm::ortho(leftRightBottomTop.x, leftRightBottomTop.y, leftRightBottomTop.z, leftRightBottomTop.w, _near, _far);
+			ProjMat = glm::ortho(leftRightBottomTop.x * aspectRatio, leftRightBottomTop.y * aspectRatio, leftRightBottomTop.z, leftRightBottomTop.w, _near, _far);
 		}
 
 		void SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far)

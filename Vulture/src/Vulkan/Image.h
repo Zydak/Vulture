@@ -11,12 +11,6 @@
 namespace Vulture
 {
 
-	struct Size
-	{
-		int Width;
-		int Height;
-	};
-
 	enum class ImageType
 	{
 		Image2D,
@@ -53,7 +47,7 @@ namespace Vulture
 		//inline VkDeviceMemory GetImageMemory() { return (*m_Allocation)->GetMemory(); }
 		inline VkBuffer GetBuffer() { return m_Buffer; }
 		inline VkSampler GetSampler() { return m_Sampler->GetSampler(); }
-		inline Size GetImageSize() { return m_Size; }
+		inline glm::vec2 GetImageSize() { return m_Size; }
 		inline VkImageView GetLayerView(int layer) { return m_LayersView[layer]; }
 
 	private:
@@ -71,7 +65,7 @@ namespace Vulture
 		VkBuffer m_Buffer;
 		VkDeviceMemory m_BufferMemory;
 
-		Size m_Size;
+		glm::vec2 m_Size;
 		uint32_t m_MipLevels = 1;
 	};
 

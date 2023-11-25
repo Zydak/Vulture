@@ -43,7 +43,8 @@ namespace Vulture
 		inline void ResetWindowResizedFlag() { m_Resized = false; }
 		inline void Close() { glfwSetWindowShouldClose(m_Window, GLFW_TRUE); }
 
-		inline VkExtent2D GetExtent() { return { static_cast<uint32_t>(m_Width), static_cast<uint32_t>(m_Height) }; }
+		inline VkExtent2D GetExtent() { return { (uint32_t)m_Width, (uint32_t)m_Height }; }
+		inline float GetAspectRatio() { return { (float)m_Width / (float)m_Height }; }
 		inline std::vector<Monitor>& GetMonitors() { return m_Monitors; }
 		inline std::vector<const char*>& GetMonitorsNames() { return m_MonitorRawNames; }
 		inline int GetMonitorsCount() { return m_MonitorsCount; }

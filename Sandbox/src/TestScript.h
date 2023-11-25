@@ -22,8 +22,8 @@ public:
 	{
 		m_TransformComponent = &GetComponent<Vulture::TransformComponent>();
 		timer += (float)deltaTime;
-		m_TransformComponent->transform.AddRotation({0.0f, 0.0f, 0.5f});
-		m_TransformComponent->transform.SetTranslation(glm::vec3(glm::sin(timer) * 2.0f, glm::cos(timer) * 2.0f, 0.0f) + m_StartingTranslation);
+		m_TransformComponent->transform.AddRotation({0.0f, 0.0f, 5.0f});
+		m_TransformComponent->transform.SetTranslation(glm::vec3(glm::sin(timer) * 12.0f, glm::cos(timer) * 2.0f, 0.0f) + m_StartingTranslation);
 	}
 private:
 	Vulture::TransformComponent* m_TransformComponent;

@@ -34,7 +34,7 @@ namespace Vulture
 	private:
 
 		VkRenderPass m_RenderPass;
-		Pipeline m_Pipeline;
+		Pipeline m_Pipeline{};
 		Framebuffer* m_Target = nullptr;
 	};
 }

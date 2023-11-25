@@ -309,7 +309,7 @@ namespace Vulture
 		// Recreate the swapchain
 		if (s_Swapchain == nullptr)
 		{
-			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::MailBox);
+			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::VSync);
 		}
 		else
 		{
@@ -317,7 +317,7 @@ namespace Vulture
 			std::shared_ptr<Swapchain> oldSwapchain = std::move(s_Swapchain);
 
 			// Create a new swapchain using the old one as a reference
-			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::MailBox, oldSwapchain);
+			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::VSync, oldSwapchain);
 
 			// Check if the swap formats are consistent
 			VL_CORE_ASSERT(oldSwapchain->CompareSwapFormats(*s_Swapchain), "Swap chain image or depth formats have changed!");

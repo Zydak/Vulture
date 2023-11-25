@@ -19,8 +19,8 @@ namespace Vulture
 	Image::Image(const ImageInfo& imageInfo)
 	{
 		m_Allocation = new VmaAllocation();
-		m_Size.Width = imageInfo.width;
-		m_Size.Height = imageInfo.height;
+		m_Size.x = (float)imageInfo.width;
+		m_Size.y = (float)imageInfo.height;
 		CreateImage(imageInfo);
 
 		if (imageInfo.type == ImageType::Cubemap)
@@ -139,9 +139,12 @@ namespace Vulture
 		m_Allocation = new VmaAllocation();
 		int texChannels;
 		stbi_set_flip_vertically_on_load(true);
-		stbi_uc* pixels = stbi_load(filepath.c_str(), &m_Size.Width, &m_Size.Height, &texChannels, STBI_rgb_alpha);
+		int sizeX = (int)m_Size.x, sizeY = (int)m_Size.y;
+		stbi_uc* pixels = stbi_load(filepath.c_str(), &sizeX, &sizeY, &texChannels, STBI_rgb_alpha);
+		m_Size.x = (float)sizeX;
+		m_Size.y = (float)sizeY;
 		//m_MipLevels = static_cast<uint32_t>(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
-		VkDeviceSize imageSize = m_Size.Width * m_Size.Height * 4;
+		VkDeviceSize imageSize = (uint64_t)m_Size.x * (uint64_t)m_Size.y * 4;
 
 		VL_CORE_ASSERT(pixels, "failed to load texture image! " + filepath);
 
@@ -155,8 +158,8 @@ namespace Vulture
 		ImageInfo info;
 		info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		info.format = VK_FORMAT_R8G8B8A8_UNORM;
-		info.height = m_Size.Height;
-		info.width = m_Size.Width;
+		info.height = (uint32_t)m_Size.y;
+		info.width =  (uint32_t)m_Size.x;
 		info.layerCount = 1;
 		info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		info.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -172,7 +175,7 @@ namespace Vulture
 		range.layerCount = 1;
 
 		Image::TransitionImageLayout(m_Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, range);
-		CopyBufferToImage(buffer->GetBuffer(), static_cast<uint32_t>(m_Size.Width), static_cast<uint32_t>(m_Size.Height));
+		CopyBufferToImage(buffer->GetBuffer(), static_cast<uint32_t>(m_Size.x), static_cast<uint32_t>(m_Size.y));
 
 		Image::TransitionImageLayout(m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -208,8 +211,8 @@ namespace Vulture
 		barrier.subresourceRange.layerCount = 1;
 		barrier.subresourceRange.levelCount = 1;
 
-		int32_t mipWidth = m_Size.Width;
-		int32_t mipHeight = m_Size.Height;
+		int32_t mipWidth =  (int32_t)m_Size.x;
+		int32_t mipHeight = (int32_t)m_Size.y;
 
 		for (uint32_t i = 1; i < m_MipLevels; i++)
 		{

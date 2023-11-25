@@ -38,6 +38,7 @@ private:
 
 	void CreateRenderPasses();
 	void CreateUniforms();
+	void RecreateCreateUniforms();
 	void CreatePipelines();
 	void CreateFramebuffers();
 
