@@ -96,10 +96,6 @@ void SceneRenderer::UpdateStorageBuffer()
 
 				m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&entry, sizeof(StorageBufferEntry), i * sizeof(StorageBufferEntry));
 			}
-			else
-			{
-
-			}
 		}
 		
 		i++;

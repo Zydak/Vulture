@@ -120,4 +120,48 @@ namespace Vulture
 		}
 	}
 
+	void Scene::InitSystems()
+	{
+		for (int i = 0; i < m_Systems.size(); i++)
+		{
+			m_Systems[i]->OnCreate();
+		}
+	}
+
+	void Scene::DestroySystems()
+	{
+		for (int i = 0; i < m_Systems.size(); i++)
+		{
+			m_Systems[i]->OnDestroy();
+		}
+	}
+
+	void Scene::UpdateSystems(double deltaTime)
+	{
+		for (int i = 0; i < m_Systems.size(); i++)
+		{
+			m_Systems[i]->OnUpdate(deltaTime);
+		}
+	}
+
+	std::vector<Entity> Scene::CheckCollisionsWith(Entity& mainEntity)
+	{
+		std::vector<Entity> entitiesThatItCollidesWith;
+		VL_CORE_ASSERT(mainEntity.HasComponent<ColliderComponent>() == true, "This entity has no collider!");
+		ColliderComponent& mainCollider = mainEntity.GetComponent<ColliderComponent>();
+		auto view = m_Registry.view<ColliderComponent>();
+		for (auto& entity : view)
+		{
+			if (entity != mainEntity.GetHandle())
+			{
+				ColliderComponent& entityCollider = m_Registry.get<ColliderComponent>(entity);
+				if (mainCollider.CheckCollision(entityCollider))
+				{
+					entitiesThatItCollidesWith.push_back({entity, this});
+				}
+			}
+		}
+
+		return entitiesThatItCollidesWith;
+	}
 }

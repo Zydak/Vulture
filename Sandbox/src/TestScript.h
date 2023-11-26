@@ -9,8 +9,6 @@ public:
 
 	void OnCreate() override
 	{
-		m_TransformComponent = &GetComponent<Vulture::TransformComponent>();
-		m_StartingTranslation = m_TransformComponent->transform.GetTranslation();
 		VL_CORE_TRACE("TEST SCRIPT INITIALIZED");
 	}
 
@@ -20,13 +18,48 @@ public:
 	}
 	void OnUpdate(double deltaTime) override
 	{
-		m_TransformComponent = &GetComponent<Vulture::TransformComponent>();
-		timer += (float)deltaTime;
-		m_TransformComponent->transform.AddRotation({0.0f, 0.0f, 5.0f});
-		m_TransformComponent->transform.SetTranslation(glm::vec3(glm::sin(timer) * 12.0f, glm::cos(timer) * 2.0f, 0.0f) + m_StartingTranslation);
+		auto& transformComponent = GetComponent<Vulture::TransformComponent>();
+		static float walkSpeed = 0.2f; 
+		if (Vulture::Input::IsKeyPressed(VL_KEY_Q))
+		{
+			transformComponent.transform.AddRotation({ 0.0f, 0.0f, -5.0f });
+		}
+		if (Vulture::Input::IsKeyPressed(VL_KEY_E))
+		{
+			transformComponent.transform.AddRotation({0.0f, 0.0f, 5.0f});
+
+		}
+		
+		if (Vulture::Input::IsKeyPressed(VL_KEY_F))
+		{
+			transformComponent.transform.AddTranslation({-walkSpeed, 0.0f, 0.0f});
+			if (!m_Entity.GetScene()->CheckCollisionsWith(m_Entity).empty())
+				transformComponent.transform.AddTranslation({ walkSpeed, 0.0f, 0.0f });
+
+		}
+		if (Vulture::Input::IsKeyPressed(VL_KEY_H))
+		{
+			transformComponent.transform.AddTranslation({ walkSpeed, 0.0f, 0.0f });
+			if (!m_Entity.GetScene()->CheckCollisionsWith(m_Entity).empty())
+				transformComponent.transform.AddTranslation({ -walkSpeed, 0.0f, 0.0f });
+		}
+		if (Vulture::Input::IsKeyPressed(VL_KEY_G))
+		{
+			transformComponent.transform.AddTranslation({ 0.0f, -walkSpeed, 0.0f });
+			auto vec = m_Entity.GetScene()->CheckCollisionsWith(m_Entity);
+			if (!vec.empty())
+			{
+				transformComponent.transform.AddTranslation({ 0.0f, walkSpeed, 0.0f });
+			}
+		}
+		if (Vulture::Input::IsKeyPressed(VL_KEY_T))
+		{
+			transformComponent.transform.AddTranslation({ 0.0f, walkSpeed, 0.0f });
+			if (!m_Entity.GetScene()->CheckCollisionsWith(m_Entity).empty())
+				transformComponent.transform.AddTranslation({ 0.0f, -walkSpeed, 0.0f });
+		}
+	
 	}
 private:
-	Vulture::TransformComponent* m_TransformComponent;
-	glm::vec3 m_StartingTranslation;
-	float timer = 0.0f;
+
 };

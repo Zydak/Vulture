@@ -18,11 +18,10 @@ namespace Vulture
 	{
 		// Vertices for a simple quad
 		const std::vector<Vertex> vertices = {
-			
-			Vertex(glm::vec3(-1.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f)),  // Vertex 1
-			Vertex(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec2(0.0f, 1.0f)), // Vertex 2
-			Vertex(glm::vec3(1.0f, -1.0f, 0.0f), glm::vec2(1.0f, 1.0f)),  // Vertex 3
-			Vertex(glm::vec3(1.0f, 1.0f, 0.0f), glm::vec2(1.0f, 0.0f))    // Vertex 4
+			Vertex(glm::vec3(-1.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f)),  // Vertex 1 Bottom Left
+			Vertex(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec2(0.0f, 1.0f)), // Vertex 2 Top Left
+			Vertex(glm::vec3(1.0f, -1.0f, 0.0f), glm::vec2(1.0f, 1.0f)),  // Vertex 3 Top Right
+			Vertex(glm::vec3(1.0f, 1.0f, 0.0f), glm::vec2(1.0f, 0.0f))    // Vertex 4 Bottom Right
 		};
 
 		const std::vector<uint32_t> indices = {

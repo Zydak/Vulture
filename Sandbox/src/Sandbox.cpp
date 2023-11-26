@@ -70,17 +70,21 @@ void Sandbox::Init()
 	{
 		for (int j = 0; j < 10; j++)
 		{
-			m_Scene.CreateSprite({ { -2.0f * i, -2.0f * j, -20.0f}, glm::vec3(0.0f), glm::vec3(1.0f) }, {0, 0});
+			m_Scene.CreateStaticSprite({ { 2.0f * i, 2.0f * j, -20.0f}, glm::vec3(0.0f), glm::vec3(1.0f) }, {0, 0});
 		}
 	}
-	auto& entity = m_Scene.CreateSprite({ { -7.0f, -10.0f, -10.0f }, glm::vec3(0.0f), glm::vec3(2.0f) }, {1, 0});
+	auto& entity = m_Scene.CreateSprite({ { -2.0f, -10.0f, -10.0f }, glm::vec3(0.0f), glm::vec3(2.0f) }, {1, 0});
+	entity.AddComponent<Vulture::ColliderComponent>(entity);
 	auto& scComponent = entity.AddComponent<Vulture::ScriptComponent>();
 	scComponent.AddScript<TestScript>();
+
+	auto& collider = m_Scene.CreateSprite({ { -7.0f, -10.0f, -10.0f }, glm::vec3(0.0f), glm::vec3(1.0f, 10.0f, 0.0f) }, { 2, 0 });
+	collider.AddComponent<Vulture::ColliderComponent>(collider);
 
 	Vulture::Entity camera = m_Scene.CreateCamera();
 	m_CameraCp = &camera.GetComponent<Vulture::CameraComponent>();
 	//m_CameraCp->SetPerspectiveMatrix(45.0f, 1.0f, 0.1f, 100.0f);
 	m_CameraCp->SetOrthographicMatrix({ -20.0f, 20.0f, -20.0f, 20.0f }, 0.1f, 100.0f, m_Window->GetAspectRatio());
 
-	//m_SceneRenderer.UpdateStaticStorageBuffer(m_Scene);
+	m_SceneRenderer.UpdateStaticStorageBuffer(m_Scene);
 }

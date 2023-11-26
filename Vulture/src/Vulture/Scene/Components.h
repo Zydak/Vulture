@@ -119,7 +119,6 @@ namespace Vulture
 	{
 	public:
 		Transform transform;
-		glm::mat4 ModelMatrix;
 
 		StaticTransformComponent(const Transform& transform)
 			: transform(transform)
@@ -141,6 +140,7 @@ namespace Vulture
 		glm::mat4 ProjMat{1.0f};
 		glm::mat4 ViewMat{1.0f};
 		bool Main = false;
+		float Zoom = 1.0f;
 
 		CameraComponent() 
 		{
@@ -149,12 +149,17 @@ namespace Vulture
 
 		void SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far, float aspectRatio)
 		{
-			ProjMat = glm::ortho(leftRightBottomTop.x * aspectRatio, leftRightBottomTop.y * aspectRatio, leftRightBottomTop.z, leftRightBottomTop.w, _near, _far);
+			ProjMat = glm::ortho(leftRightBottomTop.x * aspectRatio * Zoom, leftRightBottomTop.y * aspectRatio * Zoom, leftRightBottomTop.z * Zoom, leftRightBottomTop.w * Zoom, _near, _far);
 		}
 
 		void SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far)
 		{
 			ProjMat = glm::perspective(glm::radians(fov), aspectRatio, _near, _far);
+		}
+
+		void SetZoom(float zoom)
+		{
+			Zoom = zoom;
 		}
 
 		void UpdateViewMatrix()
@@ -166,6 +171,39 @@ namespace Vulture
 		glm::mat4 GetViewProj()
 		{
 			return ProjMat * ViewMat;
+		}
+	};
+
+	class ColliderComponent
+	{
+	public:
+		Vulture::Entity Entity;
+
+		ColliderComponent(const Vulture::Entity& entity)
+			: Entity(entity)
+		{
+			
+		}
+
+		bool CheckCollision(ColliderComponent& otherCollider)
+		{
+			TransformComponent transform = Entity.GetComponent<TransformComponent>().transform;
+			TransformComponent otherTransform = otherCollider.Entity.GetComponent<TransformComponent>().transform;
+
+			glm::vec2 position = transform.transform.GetTranslation() - transform.transform.GetScale();
+			glm::vec2 size = transform.transform.GetScale() * 2.0f;
+
+			glm::vec2 otherPosition = otherTransform.transform.GetTranslation() - otherTransform.transform.GetScale();
+			glm::vec2 otherSize = otherTransform.transform.GetScale() * 2.0f;
+
+			if (position.x < otherPosition.x + otherSize.x &&
+				position.x + size.x > otherPosition.x &&
+				position.y < otherPosition.y + otherSize.y &&
+				position.y + size.x > otherPosition.y)
+			{
+				return true;
+			}
+			return false;
 		}
 	};
 }

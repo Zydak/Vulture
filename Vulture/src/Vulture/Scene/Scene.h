@@ -4,6 +4,8 @@
 #include "../Renderer/Transform.h"
 #include "../Renderer/TextureAtlas.h"
 
+#include "System.h"
+
 namespace Vulture
 {
 	// forward declaration
@@ -27,12 +29,26 @@ namespace Vulture
 		void DestroyScripts();
 		void UpdateScripts(double deltaTime);
 
+		template<typename T>
+		void AddSystem()
+		{
+			m_Systems.emplace_back(new T());
+		}
+
+		void InitSystems();
+		void DestroySystems();
+		void UpdateSystems(double deltaTime);
+
+		std::vector<Entity> CheckCollisionsWith(Entity& entity);
+
 		inline entt::registry& GetRegistry() { return m_Registry; }
 		inline std::shared_ptr<TextureAtlas> GetAtlas() { return m_Atlas; }
 
 	private:
+		float m_TilingSize = 0;
 		entt::registry m_Registry;
 		Ref<TextureAtlas> m_Atlas;
+		std::vector<SystemInterface*> m_Systems;
 	};
 
 }
