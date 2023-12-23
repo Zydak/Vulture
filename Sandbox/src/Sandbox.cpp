@@ -1,9 +1,11 @@
 #include "pch.h"
 #include "Sandbox.h"
 #include "TestScript.h"
+#include "CameraScript.h"
+#include "TypingScript.h"
 
 Sandbox::Sandbox(Vulture::ApplicationInfo appInfo, float width, float height)
-	: Vulture::Application(appInfo, width, height)
+	: Vulture::Application(appInfo, width, height), m_Scene(m_Window)
 {
 	Init();
 	InitScripts();
@@ -22,29 +24,9 @@ void Sandbox::OnUpdate(double deltaTime)
 		return;
 	}
 
-	if (Vulture::Input::IsKeyPressed(VL_KEY_A))
-	{
-		m_CameraCp->Translation.x += 0.5f;
-	}
-	if (Vulture::Input::IsKeyPressed(VL_KEY_D))
-	{
-		m_CameraCp->Translation.x -= 0.5f;
-	}
-	if (Vulture::Input::IsKeyPressed(VL_KEY_W))
-	{
-		m_CameraCp->Translation.y -= 0.5f;
-	}
-	if (Vulture::Input::IsKeyPressed(VL_KEY_S))
-	{
-		m_CameraCp->Translation.y += 0.5f;
-	}
-
-	m_CameraCp->UpdateViewMatrix();
-
 	UpdateScripts(deltaTime);
 
 	m_SceneRenderer.Render(m_Scene);
-
 }
 
 void Sandbox::InitScripts()
@@ -65,6 +47,18 @@ void Sandbox::DestroyScripts()
 void Sandbox::Init()
 {
 	m_Scene.CreateAtlas("assets/Texture.png");
+	m_Scene.AddFont("assets/Pixel.ttf", "PixelFont");
+	{
+		auto& entity = m_Scene.CreateEntity();
+		entity.AddComponent<Vulture::TextComponent>(std::string("TEST"), m_Scene.GetFontAtlas("PixelFont"), glm::vec4(1.0f), 15, true);
+		entity.AddComponent<Vulture::TransformComponent>(Vulture::Transform({ 3.0f, -10.0f, -8.0f }, glm::vec3(0.0f), glm::vec3(2.0f)));
+		auto& sc = entity.AddComponent<Vulture::ScriptComponent>();
+		sc.AddScript<TypingScript>();
+
+		TypingScript* ts = sc.GetScript<TypingScript>(0);
+		ts->strings.push_back("Vulture");
+		ts->strings.push_back("Engine...");
+	}
 
 	for (int i = 0; i < 10; i++)
 	{
@@ -74,17 +68,16 @@ void Sandbox::Init()
 		}
 	}
 	auto& entity = m_Scene.CreateSprite({ { -2.0f, -10.0f, -10.0f }, glm::vec3(0.0f), glm::vec3(2.0f) }, {1, 0});
-	entity.AddComponent<Vulture::ColliderComponent>(entity);
+	entity.AddComponent<Vulture::ColliderComponent>(entity, "Player");
 	auto& scComponent = entity.AddComponent<Vulture::ScriptComponent>();
 	scComponent.AddScript<TestScript>();
 
 	auto& collider = m_Scene.CreateSprite({ { -7.0f, -10.0f, -10.0f }, glm::vec3(0.0f), glm::vec3(1.0f, 10.0f, 0.0f) }, { 2, 0 });
-	collider.AddComponent<Vulture::ColliderComponent>(collider);
+	collider.AddComponent<Vulture::ColliderComponent>(collider, "Wall");
 
 	Vulture::Entity camera = m_Scene.CreateCamera();
-	m_CameraCp = &camera.GetComponent<Vulture::CameraComponent>();
-	//m_CameraCp->SetPerspectiveMatrix(45.0f, 1.0f, 0.1f, 100.0f);
-	m_CameraCp->SetOrthographicMatrix({ -20.0f, 20.0f, -20.0f, 20.0f }, 0.1f, 100.0f, m_Window->GetAspectRatio());
+	auto& cameraScComponent = camera.AddComponent<Vulture::ScriptComponent>();
+	cameraScComponent.AddScript<CameraScript>();
 
 	m_SceneRenderer.UpdateStaticStorageBuffer(m_Scene);
 }

@@ -12,4 +12,6 @@
 #include "Vulture/src/Vulture/Renderer/TextureAtlas.h"
 #include "Vulture/src/Vulture/Renderer/Renderer.h"
 #include "Vulture/src/Vulture/Renderer/RenderPass.h"
+#include "Vulture/src/Vulture/Renderer/FontAtlas.h"
+#include "Vulture/src/Vulture/Renderer/Text.h"
 #include "Vulture/src/Vulture/Renderer/Transform.h"

@@ -33,29 +33,26 @@ public:
 		if (Vulture::Input::IsKeyPressed(VL_KEY_F))
 		{
 			transformComponent.transform.AddTranslation({-walkSpeed, 0.0f, 0.0f});
-			if (!m_Entity.GetScene()->CheckCollisionsWith(m_Entity).empty())
+			if (!m_Entity.GetScene()->CheckCollisionsWith(m_Entity, "Wall").empty())
 				transformComponent.transform.AddTranslation({ walkSpeed, 0.0f, 0.0f });
 
 		}
 		if (Vulture::Input::IsKeyPressed(VL_KEY_H))
 		{
 			transformComponent.transform.AddTranslation({ walkSpeed, 0.0f, 0.0f });
-			if (!m_Entity.GetScene()->CheckCollisionsWith(m_Entity).empty())
+			if (!m_Entity.GetScene()->CheckCollisionsWith(m_Entity, "Wall").empty())
 				transformComponent.transform.AddTranslation({ -walkSpeed, 0.0f, 0.0f });
 		}
 		if (Vulture::Input::IsKeyPressed(VL_KEY_G))
 		{
 			transformComponent.transform.AddTranslation({ 0.0f, -walkSpeed, 0.0f });
-			auto vec = m_Entity.GetScene()->CheckCollisionsWith(m_Entity);
-			if (!vec.empty())
-			{
+			if (!m_Entity.GetScene()->CheckCollisionsWith(m_Entity, "Wall").empty())
 				transformComponent.transform.AddTranslation({ 0.0f, walkSpeed, 0.0f });
-			}
 		}
 		if (Vulture::Input::IsKeyPressed(VL_KEY_T))
 		{
 			transformComponent.transform.AddTranslation({ 0.0f, walkSpeed, 0.0f });
-			if (!m_Entity.GetScene()->CheckCollisionsWith(m_Entity).empty())
+			if (!m_Entity.GetScene()->CheckCollisionsWith(m_Entity, "Wall").empty())
 				transformComponent.transform.AddTranslation({ 0.0f, -walkSpeed, 0.0f });
 		}
 	

@@ -19,6 +19,11 @@ struct StorageBufferCacheEntry
 	entt::entity Entity;
 };
 
+struct TextPushConstant
+{
+	glm::vec4 Color;
+};
+
 class SceneRenderer
 {
 public:
@@ -35,6 +40,8 @@ private:
 	void RecreateResources();
 	void FixCameraAspectRatio();
 	void UpdateStorageBuffer();
+	void UpdateTextStorageBuffers();
+	void UpdateTextBuffers();
 
 	void CreateRenderPasses();
 	void CreateUniforms();
@@ -46,15 +53,22 @@ private:
 	void GeometryPass();
 
 	Timer m_Timer;
-	Vulture::RenderPass m_HDRPass;
-	std::vector<Vulture::Scope<Vulture::Framebuffer>> m_HDRFramebuffer;
 	Vulture::Scene* m_CurrentSceneRendered;
+	uint32_t m_StaticObjectsCount = 0;
+
+	Vulture::RenderPass m_HDRPass;
+	Vulture::Pipeline m_FontPipeline;
+	std::vector<Vulture::Scope<Vulture::Framebuffer>> m_HDRFramebuffer;
 
 	std::vector<std::vector<StorageBufferCacheEntry>> m_StorageBufferTransforms;
+	std::vector<std::vector<StorageBufferCacheEntry>> m_TextStorageBufferTransforms;
+
 	std::vector<Vulture::Ref<Vulture::Uniform>> m_ObjectsUbos;
 	std::vector<Vulture::Ref<Vulture::Uniform>> m_MainUbos;
+	std::vector<Vulture::Ref<Vulture::Uniform>> m_TextUbos;
 	Vulture::Ref<Vulture::Uniform> m_StaticObjectsUbos;
-	uint32_t m_StaticObjectsCount = 0;
+
 	std::vector<Vulture::Ref<Vulture::Uniform>> m_HDRUniforms;
 	std::shared_ptr<Vulture::DescriptorSetLayout> m_AtlasSetLayout;
+	std::shared_ptr<Vulture::DescriptorSetLayout> m_FontAtlasSetLayout;
 };

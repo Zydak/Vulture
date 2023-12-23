@@ -17,7 +17,6 @@ private:
 	void Init();
 
 	Vulture::Scene m_Scene;
-	Vulture::CameraComponent* m_CameraCp;
 
 	SceneRenderer m_SceneRenderer;
 };

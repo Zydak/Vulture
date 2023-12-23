@@ -55,7 +55,7 @@ namespace Vulture
 	static void CheckVkResult(VkResult err)
 	{
 		if (err == 0) return;
-		fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+		fprintf(stderr, "[Vulkan] Error: VkResult = %d\n", err);
 		if (err < 0) abort();
 	}
 
@@ -65,10 +65,25 @@ namespace Vulture
 		
 		s_IsInitialized = true;
 		s_Window = &window;
-		s_QuadMesh.Init();
 		CreatePool();
 		RecreateSwapchain();
 		CreateCommandBuffers();
+
+		// Vertices for a simple quad
+		const std::vector<Mesh::Vertex> vertices = 
+		{
+			Mesh::Vertex(glm::vec3(-1.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f)),  // Vertex 1 Bottom Left
+			Mesh::Vertex(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec2(0.0f, 1.0f)), // Vertex 2 Top Left
+			Mesh::Vertex(glm::vec3(1.0f, -1.0f, 0.0f), glm::vec2(1.0f, 1.0f)),  // Vertex 3 Top Right
+			Mesh::Vertex(glm::vec3(1.0f, 1.0f, 0.0f), glm::vec2(1.0f, 0.0f))    // Vertex 4 Bottom Right
+		};
+
+		const std::vector<uint32_t> indices = 
+		{
+			0, 1, 2,  // First triangle
+			0, 2, 3   // Second triangle
+		};
+		s_QuadMesh.CreateMesh(vertices, indices);
 
 #ifdef VL_IMGUI
 		// ImGui Creation
@@ -121,12 +136,10 @@ namespace Vulture
 		return EndFrameInternal();
 	}
 
-#ifdef VL_IMGUI
 	void Renderer::RenderImGui(std::function<void()> fn)
 	{
 		s_ImGuiFunction = fn;
 	}
-#endif
 
 	/*
 	 * @brief Acquires the next swap chain image and begins recording a command buffer for rendering. 
@@ -284,8 +297,9 @@ namespace Vulture
 		s_QuadMesh.Bind(GetCurrentCommandBuffer());
 		s_QuadMesh.Draw(GetCurrentCommandBuffer(), 1);
 
+#ifdef VL_IMGUI
 		s_ImGuiFunction();
-
+#endif
 		// End the render pass
 		EndRenderPass();
 	}
@@ -372,7 +386,7 @@ namespace Vulture
 	void Renderer::CreatePipeline()
 	{
 		//
-		// Geometry To HDR
+		// HDR to presentable
 		//
 
 		{
@@ -381,8 +395,8 @@ namespace Vulture
 			auto imageLayout = std::make_shared<Vulture::DescriptorSetLayout>(imageLayoutBuilder);
 
 			PipelineCreateInfo info{};
-			info.AttributeDesc = Quad::Vertex::GetAttributeDescriptions();
-			info.BindingDesc = Quad::Vertex::GetBindingDescriptions();
+			info.AttributeDesc = Mesh::Vertex::GetAttributeDescriptions();
+			info.BindingDesc = Mesh::Vertex::GetBindingDescriptions();
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/HDRToPresentable.vert.spv");
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/HDRToPresentable.frag.spv");
 			info.BlendingEnable = false;
@@ -438,10 +452,8 @@ namespace Vulture
 	Scene* Renderer::s_CurrentSceneRendered;
 	bool Renderer::s_IsInitialized = true;
 	Pipeline Renderer::s_HDRToPresentablePipeline;
-	Quad Renderer::s_QuadMesh;
+	Mesh Renderer::s_QuadMesh;
 	Scope<Sampler> Renderer::s_RendererSampler;
 
-#ifdef VL_IMGUI
 	std::function<void()> Renderer::s_ImGuiFunction;
-#endif
 }

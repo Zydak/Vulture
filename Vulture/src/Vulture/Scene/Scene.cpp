@@ -6,7 +6,8 @@
 namespace Vulture
 {
 
-	Scene::Scene()
+	Scene::Scene(Ref<Window> window)
+		: m_Window(window)
 	{
 
 	}
@@ -144,7 +145,19 @@ namespace Vulture
 		}
 	}
 
-	std::vector<Entity> Scene::CheckCollisionsWith(Entity& mainEntity)
+	void Scene::AddFont(const std::string& fontFilepath, const std::string& fontName)
+	{
+		VL_CORE_ASSERT(m_FontAtlases.find(fontName) == m_FontAtlases.end(), "Font with this name already exists");
+		m_FontAtlases[fontName] = std::make_shared<FontAtlas>(fontFilepath, fontName);
+	}
+
+	Ref<FontAtlas> Scene::GetFontAtlas(const std::string& fontName)
+	{
+		VL_CORE_ASSERT(m_FontAtlases.find(fontName) != m_FontAtlases.end(), "There is no such font");
+		return m_FontAtlases[fontName];
+	}
+
+	std::vector<Entity> Scene::CheckCollisionsWith(Entity& mainEntity, const std::string nameToCheckAgainst)
 	{
 		std::vector<Entity> entitiesThatItCollidesWith;
 		VL_CORE_ASSERT(mainEntity.HasComponent<ColliderComponent>() == true, "This entity has no collider!");
@@ -155,9 +168,12 @@ namespace Vulture
 			if (entity != mainEntity.GetHandle())
 			{
 				ColliderComponent& entityCollider = m_Registry.get<ColliderComponent>(entity);
-				if (mainCollider.CheckCollision(entityCollider))
+				if (entityCollider.ColliderName == nameToCheckAgainst)
 				{
-					entitiesThatItCollidesWith.push_back({entity, this});
+					if (mainCollider.CheckCollision(entityCollider))
+					{
+						entitiesThatItCollidesWith.push_back({ entity, this });
+					}
 				}
 			}
 		}

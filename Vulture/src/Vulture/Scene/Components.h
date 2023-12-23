@@ -1,7 +1,7 @@
 #pragma once
 #include "pch.h"
+#include "../Renderer/Text.h"
 #include "../Renderer/Transform.h"
-
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -9,6 +9,7 @@
 #include "glm/gtc/matrix_transform.hpp"
 
 #include "Entity.h"
+
 
 namespace Vulture
 {
@@ -69,6 +70,27 @@ namespace Vulture
 		std::vector<ScriptInterface*> GetScripts()
 		{
 			return Scripts;
+		}
+
+		/**
+		 * @brief Retrieves script at specified index.
+		 *
+		 * @return T* if specified T exists at scriptIndex, otherwise nullptr.
+		 */
+		template<typename T>
+		T* GetScript(uint32_t scriptIndex)
+		{
+			T* returnVal;
+			try
+			{
+				returnVal = dynamic_cast<T*>(Scripts.at(scriptIndex));
+			}
+			catch (const std::exception&)
+			{
+				returnVal = nullptr;
+			}
+
+			return returnVal;
 		}
 
 		~ScriptComponent()
@@ -178,9 +200,10 @@ namespace Vulture
 	{
 	public:
 		Vulture::Entity Entity;
+		std::string ColliderName;
 
-		ColliderComponent(const Vulture::Entity& entity)
-			: Entity(entity)
+		ColliderComponent(const Vulture::Entity& entity, const std::string name)
+			: Entity(entity), ColliderName(name)
 		{
 			
 		}
@@ -204,6 +227,22 @@ namespace Vulture
 				return true;
 			}
 			return false;
+		}
+	};
+
+	class TextComponent
+	{
+	public:
+		Vulture::Text Text;
+		TextComponent(const std::string& text, Ref<FontAtlas> font, const glm::vec4& color, int maxLetterCount = 0, bool resizable = false, float kerningOffset = 0.0f)
+			: Text(text, font, color, kerningOffset, maxLetterCount, resizable)
+		{
+
+		}
+
+		void ChangeText(const std::string& string, float kerningOffset = 0.0f)
+		{
+			Text.ChangeText(string, kerningOffset);
 		}
 	};
 }

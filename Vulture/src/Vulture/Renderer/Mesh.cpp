@@ -1,55 +1,18 @@
 #include "pch.h"
-#include "Quad.h"
+#include "Mesh.h"
 
 namespace Vulture
 {
-
-	Quad::Quad()
+	void Mesh::CreateMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
 	{
-
-	}
-
-	Quad::~Quad()
-	{
-
-	}
-
-	void Quad::Init()
-	{
-		// Vertices for a simple quad
-		const std::vector<Vertex> vertices = {
-			Vertex(glm::vec3(-1.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f)),  // Vertex 1 Bottom Left
-			Vertex(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec2(0.0f, 1.0f)), // Vertex 2 Top Left
-			Vertex(glm::vec3(1.0f, -1.0f, 0.0f), glm::vec2(1.0f, 1.0f)),  // Vertex 3 Top Right
-			Vertex(glm::vec3(1.0f, 1.0f, 0.0f), glm::vec2(1.0f, 0.0f))    // Vertex 4 Bottom Right
-		};
-
-		const std::vector<uint32_t> indices = {
-			0, 1, 2,  // First triangle
-			0, 2, 3   // Second triangle
-		};
-
 		CreateVertexBuffer(vertices);
 		CreateIndexBuffer(indices);
 	}
 
-	void Quad::Bind(VkCommandBuffer commandBuffer)
+	void Mesh::CreateVertexBuffer(const std::vector<Vertex>& vertices)
 	{
-		VkBuffer buffers[] = { m_VertexBuffer->GetBuffer() };
-		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
-		vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
-	}
-
-	void Quad::Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount)
-	{
-		vkCmdDrawIndexed(commandBuffer, 6, instanceCount, 0, 0, 0);
-	}
-
-	void Quad::CreateVertexBuffer(const std::vector<Vertex>& vertices)
-	{
-		int vertexCount = static_cast<uint32_t>(vertices.size());
-		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertexCount;
+		m_VertexCount = static_cast<uint32_t>(vertices.size());
+		VkDeviceSize bufferSize = sizeof(vertices[0]) * m_VertexCount;
 		uint32_t vertexSize = sizeof(vertices[0]);
 
 		/*
@@ -58,7 +21,7 @@ namespace Vulture
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT is Used to get memory heap that is host coherent.
 			We use this to copy the data into the buffer memory immediately.
 		*/
-		Buffer stagingBuffer(vertexSize, vertexCount, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		Buffer stagingBuffer(vertexSize, m_VertexCount, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 		/*
 			When buffer is created It is time to copy the vertex data to the buffer.
@@ -77,16 +40,18 @@ namespace Vulture
 			for the vertexBuffer, along with the vertex buffer usage flag.
 		*/
 
-		m_VertexBuffer = std::make_shared<Buffer>(vertexSize, vertexCount, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		m_VertexBuffer = std::make_shared<Buffer>(vertexSize, m_VertexCount, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_VertexBuffer->GetBuffer(), bufferSize, Device::GetGraphicsQueue(), Device::GetCommandPool());
 	}
 
-	void Quad::CreateIndexBuffer(const std::vector<uint32_t>& indices)
+	void Mesh::CreateIndexBuffer(const std::vector<uint32_t>& indices)
 	{
-		int indexCount = static_cast<uint32_t>(indices.size());
+		m_IndexCount = static_cast<uint32_t>(indices.size());
+		m_HasIndexBuffer = m_IndexCount > 0;
+		if (!m_HasIndexBuffer) { return; }
 
-		VkDeviceSize bufferSize = sizeof(indices[0]) * indexCount;
+		VkDeviceSize bufferSize = sizeof(indices[0]) * m_IndexCount;
 		uint32_t indexSize = sizeof(indices[0]);
 
 		/*
@@ -95,7 +60,7 @@ namespace Vulture
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT is Used to get memory heap that is host coherent.
 			We use this to copy the data into the buffer memory immediately.
 		*/
-		Buffer stagingBuffer(indexSize, indexCount, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		Buffer stagingBuffer(indexSize, m_IndexCount, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 		/*
 			When buffer is created It is time to copy the index data to the buffer.
@@ -113,12 +78,33 @@ namespace Vulture
 			and the transfer destination flag(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			for the IndexBuffer, along with the IndexBuffer usage flag.
 		*/
-		m_IndexBuffer = std::make_shared<Buffer>(indexSize, indexCount, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		m_IndexBuffer = std::make_shared<Buffer>(indexSize, m_IndexCount, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_IndexBuffer->GetBuffer(), bufferSize, Device::GetGraphicsQueue(), Device::GetCommandPool());
 	}
 
-	std::vector<VkVertexInputBindingDescription> Quad::Vertex::GetBindingDescriptions()
+	/**
+		@brief Binds vertex and index buffers
+	*/
+	void Mesh::Bind(VkCommandBuffer commandBuffer)
+	{
+		VkBuffer buffers[] = { m_VertexBuffer->GetBuffer() };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
+
+		if (m_HasIndexBuffer) { vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32); }
+	}
+
+	void Mesh::Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance)
+	{
+		if (m_HasIndexBuffer) { vkCmdDrawIndexed(commandBuffer, m_IndexCount, instanceCount, 0, 0, firstInstance); }
+		else { vkCmdDraw(commandBuffer, m_VertexCount, instanceCount, 0, firstInstance); }
+	}
+
+	/**
+	 * @brief Specifies how many vertex buffers we wish to bind to our pipeline. In this case there is only one with all data packed inside it
+	*/
+	std::vector<VkVertexInputBindingDescription> Mesh::Vertex::GetBindingDescriptions()
 	{
 		std::vector<VkVertexInputBindingDescription> bindingDescription(1);
 		bindingDescription[0].binding = 0;
@@ -128,7 +114,10 @@ namespace Vulture
 		return bindingDescription;
 	}
 
-	std::vector<VkVertexInputAttributeDescription> Quad::Vertex::GetAttributeDescriptions()
+	/**
+	 * @brief Specifies layout of data inside vertex buffer
+	*/
+	std::vector<VkVertexInputAttributeDescription> Mesh::Vertex::GetAttributeDescriptions()
 	{
 		std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
 		attributeDescriptions.push_back({ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position) });
@@ -137,4 +126,15 @@ namespace Vulture
 		return attributeDescriptions;
 	}
 
+	void Mesh::UpdateVertexBuffer(VkCommandBuffer cmd, int offset, Buffer* buffer, const std::vector<Vertex>& vertices)
+	{
+		vkCmdUpdateBuffer(cmd, buffer->GetBuffer(), offset, sizeof(vertices[0]) * vertices.size(), vertices.data());
+		m_VertexCount += (uint32_t)vertices.size();
+	}
+
+	void Mesh::CreateEmptyBuffers(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags)
+	{
+		m_VertexBuffer = std::make_shared<Buffer>(sizeof(Vertex), vertexCount, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertexBufferFlags);
+		m_IndexBuffer =  std::make_shared<Buffer>(4, indexCount, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indexBufferFlags);
+	}
 }

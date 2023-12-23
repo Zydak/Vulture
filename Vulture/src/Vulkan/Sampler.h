@@ -8,9 +8,9 @@ namespace Vulture
 
 	struct SamplerInfo
 	{
-		VkSamplerAddressMode AddressMode;
-		VkFilter FilterMode;
-		VkSamplerMipmapMode MipmapMode;
+		VkSamplerAddressMode AddressMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		VkFilter FilterMode = VK_FILTER_LINEAR;
+		VkSamplerMipmapMode MipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	};
 
 	class Sampler

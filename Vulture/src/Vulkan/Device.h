@@ -55,6 +55,7 @@ namespace Vulture
 		static inline VmaAllocator GetAllocator() { return s_Allocator; }
 
 		static inline VkPhysicalDeviceProperties GetDeviceProperties() { return s_Properties; }
+		static VkSampleCountFlagBits GetMaxSampleCount();
 
 		static VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 		
@@ -94,7 +95,8 @@ namespace Vulture
 		static std::unordered_map<uint32_t, VmaPool> s_Pools;
 
 		static VkPhysicalDeviceProperties s_Properties;
-		static VkPhysicalDeviceFeatures s_Features;
+		static VkSampleCountFlagBits s_MaxSampleCount;
+		static VkPhysicalDeviceFeatures2 s_Features;
 		static VkInstance s_Instance;
 		static VkDebugUtilsMessengerEXT s_DebugMessenger;
 		static VkPhysicalDevice s_PhysicalDevice;
@@ -107,8 +109,8 @@ namespace Vulture
 
 		static VkCommandPool s_CommandPool;
 
-		static const std::vector<const char*> s_ValidationLayers;
-		static const std::vector<const char*> s_DeviceExtensions;
+		static std::vector<const char*> s_ValidationLayers;
+		static std::vector<const char*> s_DeviceExtensions;
 		static std::vector<Extension> s_OptionalExtensions;
 
 #ifdef DIST

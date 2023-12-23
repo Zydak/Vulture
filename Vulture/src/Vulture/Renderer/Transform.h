@@ -8,7 +8,6 @@
 
 namespace Vulture
 {
-
 	class Transform
 	{
 	public:

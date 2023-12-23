@@ -3,6 +3,7 @@
 #include "pch.h"
 #include "../Renderer/Transform.h"
 #include "../Renderer/TextureAtlas.h"
+#include "../Renderer/FontAtlas.h"
 
 #include "System.h"
 
@@ -14,7 +15,7 @@ namespace Vulture
 	class Scene
 	{
 	public:
-		Scene();
+		Scene(Ref<Window> window);
 		~Scene();
 
 		Entity CreateEntity();
@@ -39,16 +40,22 @@ namespace Vulture
 		void DestroySystems();
 		void UpdateSystems(double deltaTime);
 
-		std::vector<Entity> CheckCollisionsWith(Entity& entity);
+		void AddFont(const std::string& fontFilepath, const std::string& fontName);
+		Ref<FontAtlas> GetFontAtlas(const std::string& fontName);
+
+		std::vector<Entity> CheckCollisionsWith(Entity& entity, const std::string nameToCheckAgainst);
 
 		inline entt::registry& GetRegistry() { return m_Registry; }
 		inline std::shared_ptr<TextureAtlas> GetAtlas() { return m_Atlas; }
+		Ref<Window> GetWindow() const { return m_Window; }
 
 	private:
+		Ref<Window> m_Window;
 		float m_TilingSize = 0;
 		entt::registry m_Registry;
 		Ref<TextureAtlas> m_Atlas;
 		std::vector<SystemInterface*> m_Systems;
+		std::unordered_map<std::string, Ref<FontAtlas>> m_FontAtlases;
 	};
 
 }

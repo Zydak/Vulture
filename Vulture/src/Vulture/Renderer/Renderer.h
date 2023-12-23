@@ -6,13 +6,13 @@
 #include "Vulkan/Descriptors.h"
 #include "Vulkan/Pipeline.h"
 #include "Vulkan/Uniform.h"
-#include "Quad.h"
+#include "Mesh.h"
 #include "RenderPass.h"
 
 #include <vulkan/vulkan.h>
 
 #ifndef VL_IMGUI
-#define VL_IMGUI
+//#define VL_IMGUI
 #endif
 
 namespace Vulture
@@ -32,14 +32,12 @@ namespace Vulture
 		static inline DescriptorPool& GetDescriptorPool() { return *s_Pool; }
 		static inline Sampler& GetSampler() { return *s_RendererSampler; }
 		static inline uint32_t& GetCurrentFrameIndex() { return s_CurrentFrameIndex; }
-		static inline Quad& GetQuadMesh() { return s_QuadMesh; }
+		static inline Mesh& GetQuadMesh() { return s_QuadMesh; }
 
 		static bool BeginFrame();
 		static bool EndFrame();
 
-#ifdef VL_IMGUI
 		static void RenderImGui(std::function<void()> fn);
-#endif
 
 		static void ImageMemoryBarrier(VkImage image, VkCommandBuffer commandBuffer, VkImageAspectFlagBits aspect,
 			VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount, uint32_t baseLayer);
@@ -74,14 +72,12 @@ namespace Vulture
 		static bool s_IsInitialized;
 	private:
 
-		static Quad s_QuadMesh;
+		static Mesh s_QuadMesh;
 		static Scope<Sampler> s_RendererSampler;
 
 		static Pipeline s_HDRToPresentablePipeline;
 
-#ifdef VL_IMGUI
 		static std::function<void()> s_ImGuiFunction;
-#endif
 
 		friend class RenderPass;
 	};

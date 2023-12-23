@@ -7,6 +7,6 @@ Vulture::Application* Vulture::CreateApplication()
 	Vulture::ApplicationInfo appInfo;
 	appInfo.Name = "Vulture Sandbox";
 	appInfo.WorkingDirectory = "";
-	appInfo.Icon = "assets/Texture.png";
+	appInfo.Icon = "assets/Icon.png";
 	return new Sandbox(appInfo, 600, 600);
 }

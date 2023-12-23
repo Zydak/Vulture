@@ -14,6 +14,7 @@ SceneRenderer::SceneRenderer()
 	CreatePipelines();
 
 	m_StorageBufferTransforms.resize(Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT);
+	m_TextStorageBufferTransforms.resize(Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT);
 	Vulture::Renderer::RenderImGui([this](){ImGuiPass(); });
 }
 
@@ -26,9 +27,11 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 {
 	m_CurrentSceneRendered = &scene;
 	UpdateStorageBuffer();
+	UpdateTextStorageBuffers();
 
 	if (Vulture::Renderer::BeginFrame())
 	{
+		UpdateTextBuffers();
 		GeometryPass();
 
 		Vulture::Renderer::FramebufferCopyPass(&(*m_HDRUniforms[Vulture::Renderer::GetCurrentFrameIndex()]));
@@ -123,6 +126,87 @@ void SceneRenderer::UpdateStorageBuffer()
 	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
 }
 
+void SceneRenderer::UpdateTextStorageBuffers()
+{
+	// Retrieve entities with TransformComponent and SpriteComponent from the current scene
+	auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::TransformComponent, Vulture::TextComponent>();
+
+	// Iterate over entities and update storage buffer entries
+	int i = 0;
+	for (auto entity : view)
+	{
+		const auto& [transformComponent, text] = view.get<Vulture::TransformComponent, Vulture::TextComponent>(entity);
+
+		// Create a storage buffer entry for the entity
+		glm::mat4 entry{};
+		entry = transformComponent.transform.GetMat4();
+
+		// Add the entry to the storage buffer
+		m_TextUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&entry, sizeof(glm::mat4), i * sizeof(glm::mat4));
+
+		i++;
+	}
+
+	// Write the storage buffer data to the UBO buffer and flush it
+	m_TextUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
+}
+
+void SceneRenderer::UpdateTextBuffers()
+{
+	auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::TextComponent>();
+
+	for (auto& entity : view) 
+	{
+		auto& textComponent = m_CurrentSceneRendered->GetRegistry().get<Vulture::TextComponent>(entity);
+
+		if (textComponent.Text.IsResizable()) 
+		{
+			textComponent.Text.UploadToBuffer(Vulture::Renderer::GetCurrentFrameIndex(), Vulture::Renderer::GetCurrentCommandBuffer());
+
+			// Memory barrier to synchronize transfer to vertex and index buffer
+			VkBufferMemoryBarrier bufferMemoryBarrier = {};
+			bufferMemoryBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+			bufferMemoryBarrier.pNext = nullptr;
+			bufferMemoryBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+			bufferMemoryBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+			bufferMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			bufferMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+			bufferMemoryBarrier.offset = 0;
+			bufferMemoryBarrier.size = VK_WHOLE_SIZE;
+
+			// Vertex Buffer
+			bufferMemoryBarrier.buffer = textComponent.Text.GetTextMesh(Vulture::Renderer::GetCurrentFrameIndex()).GetVertexBuffer()->GetBuffer();  // Adjust accordingly
+			vkCmdPipelineBarrier(
+				Vulture::Renderer::GetCurrentCommandBuffer(),
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+				0,
+				0,
+				nullptr,
+				1,
+				&bufferMemoryBarrier,
+				0,
+				nullptr
+			);
+
+			// Index Buffer
+			bufferMemoryBarrier.buffer = textComponent.Text.GetTextMesh(Vulture::Renderer::GetCurrentFrameIndex()).GetIndexBuffer()->GetBuffer();  // Adjust accordingly
+			vkCmdPipelineBarrier(
+				Vulture::Renderer::GetCurrentCommandBuffer(),
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+				0,
+				0,
+				nullptr,
+				1,
+				&bufferMemoryBarrier,
+				0,
+				nullptr
+			);
+		}
+	}
+}
+
 void SceneRenderer::UpdateStaticStorageBuffer(Vulture::Scene& scene)
 {
 	m_StaticObjectsCount = 0;
@@ -202,7 +286,7 @@ void SceneRenderer::GeometryPass()
 		Vulture::Renderer::GetCurrentCommandBuffer()
 	);
 
-	//// Bind and draw the quad mesh
+	// Bind and draw the quad mesh
 	Vulture::Renderer::GetQuadMesh().Bind(Vulture::Renderer::GetCurrentCommandBuffer());
 	Vulture::Renderer::GetQuadMesh().Draw(Vulture::Renderer::GetCurrentCommandBuffer(), static_cast<uint32_t>(m_StorageBufferTransforms[Vulture::Renderer::GetCurrentFrameIndex()].size()));
 
@@ -218,6 +302,50 @@ void SceneRenderer::GeometryPass()
 
 		Vulture::Renderer::GetQuadMesh().Bind(Vulture::Renderer::GetCurrentCommandBuffer());
 		Vulture::Renderer::GetQuadMesh().Draw(Vulture::Renderer::GetCurrentCommandBuffer(), static_cast<uint32_t>(m_StaticObjectsCount));
+	}
+
+	// Text
+	m_FontPipeline.Bind(Vulture::Renderer::GetCurrentCommandBuffer());
+	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
+		0,
+		m_FontPipeline.GetPipelineLayout(),
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		Vulture::Renderer::GetCurrentCommandBuffer()
+	);
+
+	m_TextUbos[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
+		1,
+		m_FontPipeline.GetPipelineLayout(),
+		VK_PIPELINE_BIND_POINT_GRAPHICS,
+		Vulture::Renderer::GetCurrentCommandBuffer()
+	);
+
+	glm::vec4 color(1.0f);
+	vkCmdPushConstants(
+		Vulture::Renderer::GetCurrentCommandBuffer(),
+		m_FontPipeline.GetPipelineLayout(),
+		VK_SHADER_STAGE_VERTEX_BIT,
+		0,
+		sizeof(glm::vec4),
+		&color
+	);
+
+	auto textView = m_CurrentSceneRendered->GetRegistry().view<Vulture::TransformComponent, Vulture::TextComponent>();
+	int i = 0;
+	for (auto& entity : textView)
+	{
+		auto& textCp = m_CurrentSceneRendered->GetRegistry().get<Vulture::TextComponent>(entity);
+
+		textCp.Text.GetFontAtlas()->GetUniform()->Bind(
+			2,
+			m_FontPipeline.GetPipelineLayout(),
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			Vulture::Renderer::GetCurrentCommandBuffer()
+		);
+
+		textCp.Text.GetTextMesh(Vulture::Renderer::GetCurrentFrameIndex()).Bind(Vulture::Renderer::GetCurrentCommandBuffer());
+		textCp.Text.GetTextMesh(Vulture::Renderer::GetCurrentFrameIndex()).Draw(Vulture::Renderer::GetCurrentCommandBuffer(), 1, 0);
+		i++;
 	}
 
 	// End the render pass
@@ -309,6 +437,18 @@ void SceneRenderer::CreateUniforms()
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
+		m_TextUbos.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
+		m_TextUbos[i]->AddStorageBuffer(0, sizeof(glm::mat4), VK_SHADER_STAGE_VERTEX_BIT, true);
+		m_TextUbos[i]->Build();
+
+		// Resize test
+		// TODO: automatic resize when needed
+		m_TextUbos[i]->Resize(0, sizeof(glm::mat4) * 100, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetCommandPool());
+	}
+
+	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		// Create and initialize uniform buffers
 		m_MainUbos.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
 		m_MainUbos[i]->AddUniformBuffer(0, sizeof(MainUbo), VK_SHADER_STAGE_VERTEX_BIT);
 		m_MainUbos[i]->Build();
@@ -328,6 +468,10 @@ void SceneRenderer::CreateUniforms()
 	atlasLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 	atlasLayoutBuilder.AddBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
 	m_AtlasSetLayout = std::make_shared<Vulture::DescriptorSetLayout>(atlasLayoutBuilder);
+
+	auto fontAtlasLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
+	fontAtlasLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+	m_FontAtlasSetLayout = std::make_shared<Vulture::DescriptorSetLayout>(fontAtlasLayoutBuilder);
 }
 
 void SceneRenderer::RecreateCreateUniforms()
@@ -354,30 +498,70 @@ void SceneRenderer::RecreateCreateUniforms()
 
 void SceneRenderer::CreatePipelines()
 {
-	// Configure pipeline creation parameters
-	Vulture::PipelineCreateInfo info{};
-	info.AttributeDesc = Vulture::Quad::Vertex::GetAttributeDescriptions();
-	info.BindingDesc =	 Vulture::Quad::Vertex::GetBindingDescriptions();
-	info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.vert.spv");
-	info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.frag.spv");
-	info.BlendingEnable = true;
-	info.DepthTestEnable = true;
-	info.CullMode = VK_CULL_MODE_BACK_BIT;
-	info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
-	info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
-	info.PushConstants = nullptr;
+	// Main Geometry Pipeline
 
-	// Descriptor set layouts for the pipeline
-	std::vector<VkDescriptorSetLayout> layouts
 	{
-		m_ObjectsUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
-		m_MainUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
-		m_AtlasSetLayout->GetDescriptorSetLayout()
-	};
-	info.UniformSetLayouts = layouts;
+		// Configure pipeline creation parameters
+		Vulture::PipelineCreateInfo info{};
+		info.AttributeDesc = Vulture::Mesh::Vertex::GetAttributeDescriptions();
+		info.BindingDesc = Vulture::Mesh::Vertex::GetBindingDescriptions();
+		info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.vert.spv");
+		info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.frag.spv");
+		info.BlendingEnable = true;
+		info.DepthTestEnable = true;
+		info.CullMode = VK_CULL_MODE_BACK_BIT;
+		info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
+		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
+		info.PushConstants = nullptr;
 
-	m_HDRPass.CreatePipeline(info);
+		// Descriptor set layouts for the pipeline
+		std::vector<VkDescriptorSetLayout> layouts
+		{
+			m_ObjectsUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
+			m_MainUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
+			m_AtlasSetLayout->GetDescriptorSetLayout()
+		};
+		info.UniformSetLayouts = layouts;
+
+		m_HDRPass.CreatePipeline(info);
+	}
+
+
+	// Font Pipeline
+
+	{
+		VkPushConstantRange range;
+		range.offset = 0;
+		range.size = sizeof(TextPushConstant);
+		range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		// Configure pipeline creation parameters
+		Vulture::PipelineCreateInfo info{};
+		info.AttributeDesc = Vulture::Mesh::Vertex::GetAttributeDescriptions();
+		info.BindingDesc = Vulture::Mesh::Vertex::GetBindingDescriptions();
+		info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Font.vert.spv");
+		info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Font.frag.spv");
+		info.BlendingEnable = true;
+		info.DepthTestEnable = true;
+		info.CullMode = VK_CULL_MODE_NONE;
+		info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
+		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
+		info.PushConstants = &range;
+		info.RenderPass = m_HDRPass.GetRenderPass();
+
+		// Descriptor set layouts for the pipeline
+		std::vector<VkDescriptorSetLayout> layouts
+		{
+			m_MainUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
+			m_TextUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
+			m_FontAtlasSetLayout->GetDescriptorSetLayout()
+		};
+		info.UniformSetLayouts = layouts;
+
+		m_FontPipeline.CreatePipeline(info);
+	}
 }
 
 void SceneRenderer::CreateFramebuffers()

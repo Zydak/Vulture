@@ -10,11 +10,13 @@
 
 namespace Vulture
 {
-
-	const std::vector<const char*> Device::s_ValidationLayers = { "VK_LAYER_KHRONOS_validation" };
-	const std::vector<const char*> Device::s_DeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-	std::vector<Extension> Device::s_OptionalExtensions = { 
-		{VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME , false},
+	std::vector<const char*> Device::s_ValidationLayers = { "VK_LAYER_KHRONOS_validation" };
+	std::vector<const char*> Device::s_DeviceExtensions =
+	{
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+	};
+	std::vector<Extension> Device::s_OptionalExtensions = {
+		{VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME, false},
 		{VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME, false}
 	};
 
@@ -198,11 +200,11 @@ namespace Vulture
 
 		VkApplicationInfo appInfo{};
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		appInfo.pApplicationName = "SpaceSim";
+		appInfo.pApplicationName = "Vulture";
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.pEngineName = "No Engine";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_0;
+		appInfo.apiVersion = VK_API_VERSION_1_2;
 
 		VkInstanceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -429,6 +431,7 @@ namespace Vulture
 		VL_CORE_ASSERT(s_PhysicalDevice != VK_NULL_HANDLE, "failed to find a suitable GPU!");
 
 		vkGetPhysicalDeviceProperties(s_PhysicalDevice, &s_Properties);
+		s_MaxSampleCount = GetMaxSampleCount();
 		VL_CORE_INFO("physical device: {0}", s_Properties.deviceName);
 	}
 
@@ -457,9 +460,17 @@ namespace Vulture
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
-		vkGetPhysicalDeviceFeatures(s_PhysicalDevice, &s_Features);
+		// Enable features
+		s_Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 
-		VkPhysicalDeviceFeatures deviceFeatures = {};
+		VkPhysicalDeviceMemoryPriorityFeaturesEXT memoryPriorityFeatures{};
+		memoryPriorityFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PRIORITY_FEATURES_EXT;
+
+		s_Features.pNext = &memoryPriorityFeatures;
+
+		vkGetPhysicalDeviceFeatures2(s_PhysicalDevice, &s_Features);
+
+		memoryPriorityFeatures.memoryPriority = VK_TRUE;
 
 		std::vector<const char*> extensions;
 		for (auto& extension : s_DeviceExtensions)
@@ -477,9 +488,10 @@ namespace Vulture
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
-		createInfo.pEnabledFeatures = &deviceFeatures;
+		createInfo.pEnabledFeatures = nullptr;
 		createInfo.enabledExtensionCount = (uint32_t)extensions.size();
 		createInfo.ppEnabledExtensionNames = extensions.data();
+		createInfo.pNext = &s_Features;
 
 		if (s_EnableValidationLayers)
 		{
@@ -573,6 +585,20 @@ namespace Vulture
 		}
 
 		return details;
+	}
+
+	VkSampleCountFlagBits Device::GetMaxSampleCount()
+	{
+		VkSampleCountFlags counts = s_Properties.limits.framebufferColorSampleCounts & s_Properties.limits.framebufferDepthSampleCounts;
+
+		if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+		if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+		if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+		if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+		if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+		if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+		return VK_SAMPLE_COUNT_1_BIT;
 	}
 
 	/*
@@ -715,7 +741,8 @@ namespace Vulture
 	VmaAllocator Device::s_Allocator;
 	std::unordered_map<uint32_t, VmaPool> Device::s_Pools;
 	VkPhysicalDeviceProperties Device::s_Properties = {};
-	VkPhysicalDeviceFeatures Device::s_Features;
+	VkSampleCountFlagBits Device::s_MaxSampleCount;
+	VkPhysicalDeviceFeatures2 Device::s_Features;
 	VkInstance Device::s_Instance = {};
 	VkDebugUtilsMessengerEXT Device::s_DebugMessenger = {};
 	VkPhysicalDevice Device::s_PhysicalDevice = {};
