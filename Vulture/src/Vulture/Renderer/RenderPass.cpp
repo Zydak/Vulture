@@ -69,7 +69,7 @@ namespace Vulture
 		// Begin the render pass for the current command buffer
 		vkCmdBeginRenderPass(Renderer::GetCurrentCommandBuffer(), &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-		m_Pipeline.Bind(Renderer::GetCurrentCommandBuffer());
+		m_Pipeline.Bind(Renderer::GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS);
 	}
 
 	void RenderPass::EndRenderPass()

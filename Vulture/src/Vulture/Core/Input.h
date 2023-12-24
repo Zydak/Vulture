@@ -127,8 +127,6 @@
 
 namespace Vulture
 {
-
-
 	class Input
 	{
 	public:

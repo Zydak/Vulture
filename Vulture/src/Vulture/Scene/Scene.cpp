@@ -3,9 +3,11 @@
 #include "Entity.h"
 #include "Components.h"
 
+
+#include "../Renderer/AccelerationStructure.h"
+
 namespace Vulture
 {
-
 	Scene::Scene(Ref<Window> window)
 		: m_Window(window)
 	{
@@ -14,7 +16,8 @@ namespace Vulture
 
 	Scene::~Scene()
 	{
-
+		if (m_AccelerationStructure)
+			delete m_AccelerationStructure;
 	}
 
 	Entity Scene::CreateEntity()
@@ -59,6 +62,14 @@ namespace Vulture
 		entity.AddComponent<SpriteComponent>(offset);
 	}
 
+	Vulture::Entity Scene::CreateMesh(std::string filepath)
+	{
+		auto entity = CreateEntity();
+		auto& mesh = entity.AddComponent<MeshComponent>();
+		mesh.Mesh.CreateMesh(filepath);
+		return entity;
+	}
+
 	Vulture::Entity Scene::CreateCamera()
 	{
 		static bool firstTimeCallingThisFunc = true;
@@ -79,6 +90,12 @@ namespace Vulture
 	void Scene::CreateAtlas(const std::string& filepath)
 	{
 		m_Atlas = std::make_shared<TextureAtlas>(filepath);
+	}
+
+	void Scene::InitAccelerationStructure()
+	{
+		m_AccelerationStructure = new AccelerationStructure();
+		m_AccelerationStructure->Init(*this);
 	}
 
 	void Scene::InitScripts()

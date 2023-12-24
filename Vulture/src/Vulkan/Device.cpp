@@ -63,9 +63,22 @@ namespace Vulture
 		if (func != nullptr) { func(instance, debugMessenger, pAllocator); }
 	}
 
-	void Device::Init(Window& window)
+	void Device::Init(Window& window, bool rayTracingSupport)
 	{
 		Device::s_Window = &window;
+		s_RayTracingSupport = rayTracingSupport;
+
+		if (s_RayTracingSupport)
+		{
+			s_DeviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
+		}
 
 		CreateInstance();
 		SetupDebugMessenger();
@@ -288,6 +301,8 @@ namespace Vulture
 		allocatorInfo.device = s_Device;
 		if (s_OptionalExtensions[1].supported) // element 1 has to be VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME
 			allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+		if (s_RayTracingSupport)
+			allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
 		vmaCreateAllocator(&allocatorInfo, &s_Allocator);
 	}
@@ -430,9 +445,13 @@ namespace Vulture
 
 		VL_CORE_ASSERT(s_PhysicalDevice != VK_NULL_HANDLE, "failed to find a suitable GPU!");
 
-		vkGetPhysicalDeviceProperties(s_PhysicalDevice, &s_Properties);
+		s_Properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		s_Properties.pNext = &s_RayTracingProperties;
+		s_RayTracingProperties.pNext = &s_AccelerationStructureProperties;
+		vkGetPhysicalDeviceProperties2(s_PhysicalDevice, &s_Properties);
+
 		s_MaxSampleCount = GetMaxSampleCount();
-		VL_CORE_INFO("physical device: {0}", s_Properties.deviceName);
+		VL_CORE_INFO("physical device: {0}", s_Properties.properties.deviceName);
 	}
 
 	/*
@@ -466,11 +485,47 @@ namespace Vulture
 		VkPhysicalDeviceMemoryPriorityFeaturesEXT memoryPriorityFeatures{};
 		memoryPriorityFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PRIORITY_FEATURES_EXT;
 
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = {};
+		accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingFeatures = {};
+		rayTracingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+
+		VkPhysicalDeviceBufferDeviceAddressFeaturesKHR deviceAddressFeatures = {};
+		deviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
+
+		VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalarBlockLayoutFeatures = {};
+		scalarBlockLayoutFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT;
+
 		s_Features.pNext = &memoryPriorityFeatures;
+
+		if (s_RayTracingSupport)
+		{
+			memoryPriorityFeatures.pNext = &accelerationStructureFeatures;
+			accelerationStructureFeatures.pNext = &rayTracingFeatures;
+			rayTracingFeatures.pNext = &deviceAddressFeatures;
+			deviceAddressFeatures.pNext = &scalarBlockLayoutFeatures;
+		}
 
 		vkGetPhysicalDeviceFeatures2(s_PhysicalDevice, &s_Features);
 
-		memoryPriorityFeatures.memoryPriority = VK_TRUE;
+		if (s_RayTracingSupport)
+		{
+			if (!accelerationStructureFeatures.accelerationStructure)
+				VL_CORE_ASSERT(false, "acceleration structures not supported!");
+
+			if (!rayTracingFeatures.rayTracingPipeline)
+				VL_CORE_ASSERT(false, "Ray Tracing Pipeline not supported!");
+
+			if (!deviceAddressFeatures.bufferDeviceAddress)
+				VL_CORE_ASSERT(false, "Device address not supported!");
+
+			if (!scalarBlockLayoutFeatures.scalarBlockLayout)
+				VL_CORE_ASSERT(false, "Scalar block layout not supported!");
+		}
+
+		if (!memoryPriorityFeatures.memoryPriority)
+			VL_CORE_ASSERT(false, "memory priority not supported!");
 
 		std::vector<const char*> extensions;
 		for (auto& extension : s_DeviceExtensions)
@@ -589,7 +644,7 @@ namespace Vulture
 
 	VkSampleCountFlagBits Device::GetMaxSampleCount()
 	{
-		VkSampleCountFlags counts = s_Properties.limits.framebufferColorSampleCounts & s_Properties.limits.framebufferDepthSampleCounts;
+		VkSampleCountFlags counts = s_Properties.properties.limits.framebufferColorSampleCounts & s_Properties.properties.limits.framebufferDepthSampleCounts;
 
 		if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
 		if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
@@ -740,7 +795,8 @@ namespace Vulture
 
 	VmaAllocator Device::s_Allocator;
 	std::unordered_map<uint32_t, VmaPool> Device::s_Pools;
-	VkPhysicalDeviceProperties Device::s_Properties = {};
+	bool Device::s_RayTracingSupport;
+	VkPhysicalDeviceProperties2 Device::s_Properties = {};
 	VkSampleCountFlagBits Device::s_MaxSampleCount;
 	VkPhysicalDeviceFeatures2 Device::s_Features;
 	VkInstance Device::s_Instance = {};
@@ -752,5 +808,77 @@ namespace Vulture
 	VkQueue Device::s_GraphicsQueue = {};
 	VkQueue Device::s_PresentQueue = {};
 	VkCommandPool Device::s_CommandPool = {};
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR Device::s_RayTracingProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR Device::s_AccelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
 
+	// loaded functions
+	VkResult Device::vkCreateAccelerationStructureKHR(VkDevice device, VkAccelerationStructureCreateInfoKHR* createInfo, VkAccelerationStructureKHR* structure)
+	{
+		auto func = (PFN_vkCreateAccelerationStructureKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCreateAccelerationStructureKHR");
+		if (func != nullptr) { return func(device, createInfo, nullptr, structure); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	void Device::vkDestroyAccelerationStructureKHR(VkDevice device, VkAccelerationStructureKHR structure)
+	{
+		auto func = (PFN_vkDestroyAccelerationStructureKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkDestroyAccelerationStructureKHR");
+		if (func != nullptr) { return func(device, structure, nullptr); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	void Device::vkCmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer, uint32_t infoCount, const VkAccelerationStructureBuildGeometryInfoKHR* pInfos, const VkAccelerationStructureBuildRangeInfoKHR* const* ppBuildRangeInfos)
+	{
+		auto func = (PFN_vkCmdBuildAccelerationStructuresKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdBuildAccelerationStructuresKHR");
+		if (func != nullptr) { return func(commandBuffer, infoCount, pInfos, ppBuildRangeInfos); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	void Device::vkCmdWriteAccelerationStructuresPropertiesKHR(VkCommandBuffer commandBuffer, uint32_t accelerationStructureCount, const VkAccelerationStructureKHR* pAccelerationStructures, VkQueryType queryType, VkQueryPool queryPool, uint32_t firstQuery)
+	{
+		auto func = (PFN_vkCmdWriteAccelerationStructuresPropertiesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdWriteAccelerationStructuresPropertiesKHR");
+		if (func != nullptr) { return func(commandBuffer, accelerationStructureCount, pAccelerationStructures, queryType, queryPool, firstQuery); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	void Device::vkCmdCopyAccelerationStructureKHR(VkCommandBuffer commandBuffer, const VkCopyAccelerationStructureInfoKHR* pInfo)
+	{
+		auto func = (PFN_vkCmdCopyAccelerationStructureKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdCopyAccelerationStructureKHR");
+		if (func != nullptr) { return func(commandBuffer, pInfo); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	void Device::vkGetAccelerationStructureBuildSizesKHR(VkDevice device, VkAccelerationStructureBuildTypeKHR buildType, const VkAccelerationStructureBuildGeometryInfoKHR* pBuildInfo, const uint32_t* pMaxPrimitiveCounts, VkAccelerationStructureBuildSizesInfoKHR* pSizeInfo)
+	{
+		auto func = (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetAccelerationStructureBuildSizesKHR");
+		if (func != nullptr) { return func(device, buildType, pBuildInfo, pMaxPrimitiveCounts, pSizeInfo); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	VkResult Device::vkCreateRayTracingPipelinesKHR(VkDevice device, VkDeferredOperationKHR deferredOperation, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkRayTracingPipelineCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines)
+	{
+		auto func = (PFN_vkCreateRayTracingPipelinesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCreateRayTracingPipelinesKHR");
+		if (func != nullptr) { return func(device, deferredOperation, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	VkDeviceAddress Device::vkGetAccelerationStructureDeviceAddressKHR(VkDevice device, const VkAccelerationStructureDeviceAddressInfoKHR* pInfo)
+	{
+		auto func = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetAccelerationStructureDeviceAddressKHR");
+		if (func != nullptr) { return func(device, pInfo); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	VkResult Device::vkGetRayTracingShaderGroupHandlesKHR(VkDevice device, VkPipeline pipeline, uint32_t firstGroup, uint32_t groupCount, size_t dataSize, void* pData)
+	{
+		auto func = (PFN_vkGetRayTracingShaderGroupHandlesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetRayTracingShaderGroupHandlesKHR");
+		if (func != nullptr) { return func(device, pipeline, firstGroup, groupCount, dataSize, pData); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	void Device::vkCmdTraceRaysKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, uint32_t width, uint32_t height, uint32_t depth)
+	{
+		auto func = (PFN_vkCmdTraceRaysKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdTraceRaysKHR");
+		if (func != nullptr) { return func(commandBuffer, pRaygenShaderBindingTable, pMissShaderBindingTable, pHitShaderBindingTable, pCallableShaderBindingTable, width, height, depth); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
 }

@@ -1,7 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Sandbox", "Sandbox\Sandbox.vcxproj", "{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "2D", "2D\2D.vcxproj", "{FB705900-E7FC-870B-50AB-880B3C56880B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PathTracer", "PathTracer\PathTracer.vcxproj", "{F350D6BB-DF08-1809-4810-F16434E7B2F9}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Vulture", "Vulture\Vulture.vcxproj", "{FC8A9FF8-686A-1E94-7182-A96ADDE084F5}"
 EndProject
@@ -30,18 +32,30 @@ Global
 		Release|Windows = Release|Windows
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Debug|Linux.ActiveCfg = Debug Linux|x64
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Debug|Linux.Build.0 = Debug Linux|x64
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Debug|Windows.ActiveCfg = Debug Windows|x64
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Debug|Windows.Build.0 = Debug Windows|x64
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Dist|Linux.ActiveCfg = Dist Linux|x64
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Dist|Linux.Build.0 = Dist Linux|x64
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Dist|Windows.ActiveCfg = Dist Windows|x64
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Dist|Windows.Build.0 = Dist Windows|x64
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Release|Linux.ActiveCfg = Release Linux|x64
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Release|Linux.Build.0 = Release Linux|x64
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Release|Windows.ActiveCfg = Release Windows|x64
-		{F4C124E3-60A1-A37E-69B9-2E55D5170AE0}.Release|Windows.Build.0 = Release Windows|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Debug|Linux.ActiveCfg = Debug Linux|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Debug|Linux.Build.0 = Debug Linux|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Debug|Windows.ActiveCfg = Debug Windows|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Debug|Windows.Build.0 = Debug Windows|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Dist|Linux.ActiveCfg = Dist Linux|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Dist|Linux.Build.0 = Dist Linux|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Dist|Windows.ActiveCfg = Dist Windows|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Dist|Windows.Build.0 = Dist Windows|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Release|Linux.ActiveCfg = Release Linux|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Release|Linux.Build.0 = Release Linux|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Release|Windows.ActiveCfg = Release Windows|x64
+		{FB705900-E7FC-870B-50AB-880B3C56880B}.Release|Windows.Build.0 = Release Windows|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Debug|Linux.ActiveCfg = Debug Linux|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Debug|Linux.Build.0 = Debug Linux|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Debug|Windows.ActiveCfg = Debug Windows|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Debug|Windows.Build.0 = Debug Windows|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Dist|Linux.ActiveCfg = Dist Linux|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Dist|Linux.Build.0 = Dist Linux|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Dist|Windows.ActiveCfg = Dist Windows|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Dist|Windows.Build.0 = Dist Windows|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Release|Linux.ActiveCfg = Release Linux|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Release|Linux.Build.0 = Release Linux|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Release|Windows.ActiveCfg = Release Windows|x64
+		{F350D6BB-DF08-1809-4810-F16434E7B2F9}.Release|Windows.Build.0 = Release Windows|x64
 		{FC8A9FF8-686A-1E94-7182-A96ADDE084F5}.Debug|Linux.ActiveCfg = Debug Linux|x64
 		{FC8A9FF8-686A-1E94-7182-A96ADDE084F5}.Debug|Linux.Build.0 = Debug Linux|x64
 		{FC8A9FF8-686A-1E94-7182-A96ADDE084F5}.Debug|Windows.ActiveCfg = Debug Windows|x64

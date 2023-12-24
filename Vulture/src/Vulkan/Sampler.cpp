@@ -23,7 +23,7 @@ namespace Vulture
 		samplerCreateInfo.minLod = 0;
 		samplerCreateInfo.maxLod = VK_LOD_CLAMP_NONE;
 		samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-		samplerCreateInfo.maxAnisotropy = Device::GetDeviceProperties().limits.maxSamplerAnisotropy;
+		samplerCreateInfo.maxAnisotropy = Device::GetDeviceProperties().properties.limits.maxSamplerAnisotropy;
 		samplerCreateInfo.anisotropyEnable = VK_FALSE;
 		samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
 		samplerCreateInfo.compareEnable = VK_FALSE;

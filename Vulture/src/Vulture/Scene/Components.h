@@ -93,6 +93,8 @@ namespace Vulture
 			return returnVal;
 		}
 
+		inline uint32_t GetScriptCount() const { return (uint32_t)Scripts.size(); }
+
 		~ScriptComponent()
 		{
 			for (auto& script : Scripts)
@@ -244,5 +246,16 @@ namespace Vulture
 		{
 			Text.ChangeText(string, kerningOffset);
 		}
+	};
+
+	class MeshComponent
+	{
+	public:
+		Vulture::Mesh Mesh;
+
+		MeshComponent() = default;
+		~MeshComponent() = default;
+
+	private:
 	};
 }

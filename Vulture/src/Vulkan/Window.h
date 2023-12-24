@@ -28,7 +28,7 @@ namespace Vulture
 
 	class Window {
 	public:
-		Window(const WindowInfo& winInfo);
+		Window(WindowInfo& winInfo);
 		~Window();
 
 		Window(const Window&) = delete;

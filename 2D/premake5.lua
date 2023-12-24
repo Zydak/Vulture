@@ -1,4 +1,4 @@
-project "Sandbox"
+project "2D"
 	architecture "x86_64"
 	kind "ConsoleApp"
 	language "C++"
@@ -29,7 +29,8 @@ project "Sandbox"
         "%{wks.location}/Vulture/lib/entt/",
         "%{wks.location}/Vulture/lib/vulkanLib/Include/",
         "%{wks.location}/Vulture/lib/vulkanMemoryAllocator/",
-        "%{wks.location}/Vulture/lib/spdlog/include/"
+        "%{wks.location}/Vulture/lib/spdlog/include/",
+        "%{wks.location}/Vulture/lib/tinyobjloader/",
 	}	 
 
 	links

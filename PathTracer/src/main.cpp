@@ -5,8 +5,8 @@
 Vulture::Application* Vulture::CreateApplication()
 {
 	Vulture::ApplicationInfo appInfo;
-	appInfo.Name = "Vulture Sandbox";
+	appInfo.Name = "PathTracer Sandbox";
 	appInfo.WorkingDirectory = "";
-	appInfo.Icon = "assets/Icon.png";
+	appInfo.RayTracingSupport = true;
 	return new Sandbox(appInfo, 600, 600);
 }

@@ -5,4 +5,5 @@ workspace "Vulture"
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 	
 include "Vulture"
-include "Sandbox"
+include "2D"
+include "PathTracer"

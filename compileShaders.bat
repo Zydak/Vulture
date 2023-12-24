@@ -1,19 +1,14 @@
 @echo off
 
 set GLSLC=glslc.exe
-set SHADERS_FOLDER=Vulture\src\Vulture\Shaders
-set SPIRV_FOLDER=Vulture\src\Vulture\Shaders\spv
 
-for /r "%SHADERS_FOLDER%" %%f in (*.vert) do (
-    %GLSLC% "%%f" -o "%SPIRV_FOLDER%\%%~nf.vert.spv"
-)
+for %%f in (*.vert *.frag *.rchit *.rmiss *.rgen *.comp) do (
+    set SHADER_PATH=%CD%
+    set SPIRV_FOLDER=%SHADER_PATH%\spv
 
-for /r "%SHADERS_FOLDER%" %%f in (*.frag) do (
-    %GLSLC% "%%f" -o "%SPIRV_FOLDER%\%%~nf.frag.spv"
-)
-
-for /r "%SHADERS_FOLDER%" %%f in (*.comp) do (
-    %GLSLC% "%%f" -o "%SPIRV_FOLDER%\%%~nf.comp.spv"
+    if not exist "%SPIRV_FOLDER%" mkdir "%SPIRV_FOLDER%"
+    
+    %GLSLC% "%%f" --target-env=vulkan1.2 -o "%SPIRV_FOLDER%\%%~nf.spv"
 )
 
 PAUSE

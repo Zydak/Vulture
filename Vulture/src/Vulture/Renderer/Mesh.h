@@ -12,17 +12,19 @@ namespace Vulture
 		struct Vertex
 		{
 			glm::vec3 position;
+			glm::vec3 normal;
 			glm::vec2 texCoord;
 
 			static std::vector<VkVertexInputBindingDescription> GetBindingDescriptions();
 			static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
 
-			bool operator==(const Vertex& other) const { return position == other.position && texCoord == other.texCoord; }
+			bool operator==(const Vertex& other) const { return position == other.position && normal == other.normal && texCoord == other.texCoord; }
 		};
 
 		Mesh() = default;
 		~Mesh() = default;
 		void CreateMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+		void CreateMesh(const std::string& filepath);
 
 		Mesh(const Mesh&) = delete;
 		Mesh& operator=(const Mesh&) = delete;

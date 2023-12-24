@@ -12,7 +12,8 @@ namespace Vulture
 	enum class BindingType
 	{
 		Image,
-		Buffer
+		Buffer,
+		AccelerationStructure,
 	};
 
 	struct Binding
@@ -20,6 +21,7 @@ namespace Vulture
 		BindingType Type;
 		VkDescriptorImageInfo ImageInfo{};
 		VkDescriptorBufferInfo BufferInfo{};
+		VkWriteDescriptorSetAccelerationStructureKHR AccelInfo{};
 	};
 
 	class Uniform
@@ -36,7 +38,8 @@ namespace Vulture
 		inline DescriptorPool& GetPool() { return m_Pool; }
 
 		void AddImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout, VkShaderStageFlagBits stage, VkDescriptorType type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-		void AddUniformBuffer(uint32_t binding, uint32_t bufferSize, VkShaderStageFlagBits stage);
+		void AddAccelerationStructure(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR asInfo);
+		void AddUniformBuffer(uint32_t binding, uint32_t bufferSize, VkShaderStageFlags stage);
 		void AddStorageBuffer(uint32_t binding, uint32_t bufferSize, VkShaderStageFlagBits stage, bool resizable = false);
 		void Build();
 		void Resize(uint32_t binding, uint32_t newSize, VkQueue queue, VkCommandPool pool);

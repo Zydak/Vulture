@@ -28,3 +28,6 @@
 [submodule "Vulture/lib/vulkanMemoryAllocator"]
 	path = Vulture/lib/vulkanMemoryAllocator
 	url = https://github.com/Zydak/vulkanMemoryAllocator
+[submodule "Vulture/lib/tinyobjloader"]
+	path = Vulture/lib/tinyobjloader
+	url = https://github.com/Zydak/tinyobjloader

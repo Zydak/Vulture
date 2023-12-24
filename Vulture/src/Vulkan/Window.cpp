@@ -18,7 +18,7 @@ namespace Vulture
 	 * 
 	 * @param winInfo - The window information, including width, height, name, and optional icon.
 	 */
-	Window::Window(const WindowInfo& winInfo) : m_Width(winInfo.Width), m_Height(winInfo.Height), m_Name(winInfo.Name)
+	Window::Window(WindowInfo& winInfo) : m_Width(winInfo.Width), m_Height(winInfo.Height), m_Name(winInfo.Name)
 	{
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -40,6 +40,10 @@ namespace Vulture
 		}
 
 		int width, height, channels;
+		if (winInfo.Icon == "")
+		{
+			winInfo.Icon = "../Vulture/assets/Icon.png";
+		}
 		unsigned char* iconData = stbi_load(winInfo.Icon.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 		if (iconData)
 		{

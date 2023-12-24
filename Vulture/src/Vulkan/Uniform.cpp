@@ -40,6 +40,18 @@ namespace Vulture
 		m_Bindings[binding] = bin;
 	}
 
+	// TODO description
+	void Uniform::AddAccelerationStructure(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR asInfo)
+	{
+		VL_CORE_ASSERT(m_Bindings.count(binding) == 0, "Binding already in use!");
+		m_SetBuilder.AddBinding(binding, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+
+		Binding bin;
+		bin.AccelInfo = asInfo;
+		bin.Type = BindingType::AccelerationStructure;
+		m_Bindings[binding] = bin;
+	}
+
 	/*
 	 * @brief Adds a descriptor for a uniform buffer to the uniform.
 	 *
@@ -47,7 +59,7 @@ namespace Vulture
 	 * @param bufferSize - The size of the uniform buffer.
 	 * @param stage - The shader stage where the uniform buffer will be used.
 	 */
-	void Uniform::AddUniformBuffer(uint32_t binding, uint32_t bufferSize, VkShaderStageFlagBits stage)
+	void Uniform::AddUniformBuffer(uint32_t binding, uint32_t bufferSize, VkShaderStageFlags stage)
 	{
 		VL_CORE_ASSERT(m_Bindings.count(binding) == 0, "Binding already in use!");
 		VkBufferUsageFlags bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
@@ -115,6 +127,10 @@ namespace Vulture
 				writer.WriteBuffer(i, &m_Bindings[i].BufferInfo);
 			} break;
 
+			case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR: {
+				writer.WriteAs(i, &m_Bindings[i].AccelInfo);
+			} break;
+
 			default: VL_CORE_ASSERT(false, "Binding Type not supported!"); break;
 			}
 		}
@@ -158,6 +174,10 @@ namespace Vulture
 
 			case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
 				writer.WriteBuffer(i, &m_Bindings[i].BufferInfo);
+			} break;
+
+			case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR: {
+				writer.WriteAs(i, &m_Bindings[i].AccelInfo);
 			} break;
 
 			default: VL_CORE_ASSERT(false, "Binding Type not supported!"); break;

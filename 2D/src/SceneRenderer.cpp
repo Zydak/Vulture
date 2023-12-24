@@ -48,7 +48,7 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 void SceneRenderer::RecreateResources()
 {
 	CreateFramebuffers();
-	RecreateCreateUniforms();
+	RecreateUniforms();
 	CreatePipelines();
 
 	FixCameraAspectRatio();
@@ -305,7 +305,7 @@ void SceneRenderer::GeometryPass()
 	}
 
 	// Text
-	m_FontPipeline.Bind(Vulture::Renderer::GetCurrentCommandBuffer());
+	m_FontPipeline.Bind(Vulture::Renderer::GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS);
 	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
 		0,
 		m_FontPipeline.GetPipelineLayout(),
@@ -474,7 +474,7 @@ void SceneRenderer::CreateUniforms()
 	m_FontAtlasSetLayout = std::make_shared<Vulture::DescriptorSetLayout>(fontAtlasLayoutBuilder);
 }
 
-void SceneRenderer::RecreateCreateUniforms()
+void SceneRenderer::RecreateUniforms()
 {
 	m_MainUbos.clear();
 	m_HDRUniforms.clear();
@@ -505,8 +505,8 @@ void SceneRenderer::CreatePipelines()
 		Vulture::PipelineCreateInfo info{};
 		info.AttributeDesc = Vulture::Mesh::Vertex::GetAttributeDescriptions();
 		info.BindingDesc = Vulture::Mesh::Vertex::GetBindingDescriptions();
-		info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.vert.spv");
-		info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Geometry.frag.spv");
+		info.ShaderFilepaths.push_back("src/shaders/spv/Geometry.vert.spv");
+		info.ShaderFilepaths.push_back("src/shaders/spv/Geometry.frag.spv");
 		info.BlendingEnable = true;
 		info.DepthTestEnable = true;
 		info.CullMode = VK_CULL_MODE_BACK_BIT;
@@ -531,7 +531,7 @@ void SceneRenderer::CreatePipelines()
 	// Font Pipeline
 
 	{
-		VkPushConstantRange range;
+		VkPushConstantRange range{};
 		range.offset = 0;
 		range.size = sizeof(TextPushConstant);
 		range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
@@ -540,11 +540,11 @@ void SceneRenderer::CreatePipelines()
 		Vulture::PipelineCreateInfo info{};
 		info.AttributeDesc = Vulture::Mesh::Vertex::GetAttributeDescriptions();
 		info.BindingDesc = Vulture::Mesh::Vertex::GetBindingDescriptions();
-		info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Font.vert.spv");
-		info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Font.frag.spv");
+		info.ShaderFilepaths.push_back("src/shaders/spv/Font.vert.spv");
+		info.ShaderFilepaths.push_back("src/shaders/spv/Font.frag.spv");
 		info.BlendingEnable = true;
 		info.DepthTestEnable = true;
-		info.CullMode = VK_CULL_MODE_NONE;
+		info.CullMode = VK_CULL_MODE_FRONT_BIT; // it's front bit for some reason
 		info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
 		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();

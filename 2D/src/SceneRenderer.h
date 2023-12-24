@@ -45,7 +45,7 @@ private:
 
 	void CreateRenderPasses();
 	void CreateUniforms();
-	void RecreateCreateUniforms();
+	void RecreateUniforms();
 	void CreatePipelines();
 	void CreateFramebuffers();
 

@@ -7,7 +7,6 @@
 
 namespace Vulture
 {
-
 	struct SwapchainSupportDetails
 	{
 		VkSurfaceCapabilitiesKHR Capabilities;      // min/max number of images
@@ -34,7 +33,7 @@ namespace Vulture
 	class Device
 	{
 	public:
-		static void Init(Window& window);
+		static void Init(Window& window, bool rayTracingSupport);
 		~Device();
 
 		Device(const Device&) = delete;
@@ -51,10 +50,12 @@ namespace Vulture
 		static inline VkCommandPool GetCommandPool() { return s_CommandPool; }
 		static inline VkQueue GetGraphicsQueue() { return s_GraphicsQueue; }
 		static inline VkQueue GetPresentQueue() { return s_PresentQueue; }
+		static inline VkPhysicalDeviceAccelerationStructurePropertiesKHR GetAccelerationProperties() { return s_AccelerationStructureProperties; }
 
 		static inline VmaAllocator GetAllocator() { return s_Allocator; }
 
-		static inline VkPhysicalDeviceProperties GetDeviceProperties() { return s_Properties; }
+		static inline VkPhysicalDeviceProperties2 GetDeviceProperties() { return s_Properties; }
+		static inline VkPhysicalDeviceRayTracingPipelinePropertiesKHR GetRayTracingProperties() { return s_RayTracingProperties; }
 		static VkSampleCountFlagBits GetMaxSampleCount();
 
 		static VkFormat FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
@@ -65,6 +66,15 @@ namespace Vulture
 
 		static void CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0);
 		static void CreateImage(VkImageCreateInfo& createInfo, VkImage& image, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0);
+
+		//TODO description
+		template <class integral>
+		static VkDeviceSize GetAlignment(integral x, size_t a)
+		{
+			return integral((x + (integral(a) - 1)) & ~integral(a - 1));
+		}
+
+		static inline bool IsRayTracingSupported() { return s_RayTracingSupport; }
 	private:
 		Device() {} // make constructor private
 
@@ -93,8 +103,8 @@ namespace Vulture
 
 		static VmaAllocator s_Allocator;
 		static std::unordered_map<uint32_t, VmaPool> s_Pools;
-
-		static VkPhysicalDeviceProperties s_Properties;
+		static bool s_RayTracingSupport;
+		static VkPhysicalDeviceProperties2 s_Properties;
 		static VkSampleCountFlagBits s_MaxSampleCount;
 		static VkPhysicalDeviceFeatures2 s_Features;
 		static VkInstance s_Instance;
@@ -112,12 +122,26 @@ namespace Vulture
 		static std::vector<const char*> s_ValidationLayers;
 		static std::vector<const char*> s_DeviceExtensions;
 		static std::vector<Extension> s_OptionalExtensions;
+		static VkPhysicalDeviceRayTracingPipelinePropertiesKHR s_RayTracingProperties;
+		static VkPhysicalDeviceAccelerationStructurePropertiesKHR s_AccelerationStructureProperties;
 
 #ifdef DIST
 		static const bool s_EnableValidationLayers = false;
 #else
 		static const bool s_EnableValidationLayers = true;
 #endif
-	};
 
+	public:
+		// loaded functions
+		static VkResult vkCreateAccelerationStructureKHR(VkDevice device, VkAccelerationStructureCreateInfoKHR* createInfo, VkAccelerationStructureKHR* structure);
+		static void vkDestroyAccelerationStructureKHR(VkDevice device, VkAccelerationStructureKHR structure);
+		static void vkCmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer, uint32_t infoCount, const VkAccelerationStructureBuildGeometryInfoKHR* pInfos, const VkAccelerationStructureBuildRangeInfoKHR* const* ppBuildRangeInfos);
+		static void vkCmdWriteAccelerationStructuresPropertiesKHR(VkCommandBuffer commandBuffer, uint32_t accelerationStructureCount, const VkAccelerationStructureKHR* pAccelerationStructures, VkQueryType queryType, VkQueryPool queryPool, uint32_t firstQuery);
+		static void vkCmdCopyAccelerationStructureKHR(VkCommandBuffer commandBuffer, const VkCopyAccelerationStructureInfoKHR* pInfo);
+		static void vkGetAccelerationStructureBuildSizesKHR(VkDevice device, VkAccelerationStructureBuildTypeKHR buildType, const VkAccelerationStructureBuildGeometryInfoKHR* pBuildInfo, const uint32_t* pMaxPrimitiveCounts, VkAccelerationStructureBuildSizesInfoKHR* pSizeInfo);
+		static VkResult vkCreateRayTracingPipelinesKHR(VkDevice device, VkDeferredOperationKHR deferredOperation, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkRayTracingPipelineCreateInfoKHR* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines);
+		static VkDeviceAddress vkGetAccelerationStructureDeviceAddressKHR(VkDevice device,const VkAccelerationStructureDeviceAddressInfoKHR* pInfo);
+		static VkResult vkGetRayTracingShaderGroupHandlesKHR(VkDevice device, VkPipeline pipeline, uint32_t firstGroup, uint32_t groupCount, size_t dataSize, void* pData);
+		static void vkCmdTraceRaysKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, uint32_t width, uint32_t height, uint32_t depth);
+	};
 }

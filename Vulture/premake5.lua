@@ -42,7 +42,8 @@ project "Vulture"
         "lib/entt/",
         "lib/vulkanLib/Include/",
         "lib/vulkanMemoryAllocator/",
-        "lib/spdlog/include/"
+        "lib/spdlog/include/",
+        "lib/tinyobjloader/",
     }
 
     links

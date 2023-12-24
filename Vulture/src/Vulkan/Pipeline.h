@@ -50,6 +50,20 @@ namespace Vulture
 		VkRenderPass RenderPass;
 	};
 
+	struct RayTracingPipelineCreateInfo
+	{
+		std::vector<std::string> ShaderFilepaths;
+		VkPushConstantRange* PushConstants;
+		std::vector<VkDescriptorSetLayout> UniformSetLayouts;
+	};
+
+	enum RayTracingStages
+	{
+		eRaygen,
+		eMiss,
+		eClosestHit
+	};
+
 	class Pipeline
 	{
 	public:
@@ -59,10 +73,11 @@ namespace Vulture
 		Pipeline(const Pipeline&) = delete;
 		Pipeline& operator=(const Pipeline&) = delete;
 
-		void Bind(VkCommandBuffer commandBuffer);
+		void Bind(VkCommandBuffer commandBuffer, VkPipelineBindPoint bindPoint);
 
 		static void CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable);
 		void CreatePipeline(PipelineCreateInfo& info);
+		void CreateRayTracingPipeline(std::vector<VkRayTracingShaderGroupCreateInfoKHR>& rtShaderGroups, RayTracingPipelineCreateInfo& info);
 
 		inline VkPipelineLayout GetPipelineLayout() { return m_PipelineLayout; }
 		inline VkPipeline GetPipeline() { return m_Pipeline; }

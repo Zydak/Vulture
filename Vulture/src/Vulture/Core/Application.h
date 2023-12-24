@@ -8,9 +8,10 @@ namespace Vulture
 {
 	struct ApplicationInfo
 	{
-		std::string WorkingDirectory;
-		std::string Name;
-		std::string Icon;
+		std::string WorkingDirectory = "";
+		std::string Name = "";
+		std::string Icon = "";
+		bool RayTracingSupport = false;
 	};
 
 	class Application

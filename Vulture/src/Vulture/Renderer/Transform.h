@@ -1,6 +1,7 @@
 #pragma once
 #include "pch.h"
 
+#include <vulkan/vulkan.h>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -13,6 +14,14 @@ namespace Vulture
 	public:
 		Transform(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale);
 		~Transform();
+
+		VkTransformMatrixKHR GetKhrMat()
+		{
+			glm::mat4            temp = glm::transpose(GetMat4());
+			VkTransformMatrixKHR out_matrix;
+			memcpy(&out_matrix, &temp, sizeof(VkTransformMatrixKHR));
+			return out_matrix;
+		};
 
 		glm::mat4 GetMat4() 
 		{

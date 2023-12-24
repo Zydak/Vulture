@@ -74,6 +74,7 @@ namespace Vulture
 		DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPool& pool);
 
 		void WriteBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo);
+		void WriteAs(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR* asInfo);
 		void WriteImage(uint32_t binding, VkDescriptorImageInfo* imageInfo);
 
 		bool Build(VkDescriptorSet& set);

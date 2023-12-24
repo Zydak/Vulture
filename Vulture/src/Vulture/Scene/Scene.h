@@ -11,6 +11,7 @@ namespace Vulture
 {
 	// forward declaration
 	class Entity;
+	class AccelerationStructure;
 
 	class Scene
 	{
@@ -19,12 +20,18 @@ namespace Vulture
 		~Scene();
 
 		Entity CreateEntity();
+		void DestroyEntity(Entity& entity);
+		Entity CreateCamera();
+
 		Entity CreateSprite(const Transform& transform, const glm::vec2& tileOffset);
 		void CreateStaticSprite(const Transform& transform, const glm::vec2& tileOffset);
-		Entity CreateCamera();
-		void DestroyEntity(Entity& entity);
+
+		Entity CreateMesh(std::string filepath);
 
 		void CreateAtlas(const std::string& filepath);
+
+		void InitAccelerationStructure();
+		AccelerationStructure* GetAccelerationStructure() { return m_AccelerationStructure; }
 
 		void InitScripts();
 		void DestroyScripts();
@@ -50,8 +57,8 @@ namespace Vulture
 		Ref<Window> GetWindow() const { return m_Window; }
 
 	private:
+		AccelerationStructure* m_AccelerationStructure = nullptr;
 		Ref<Window> m_Window;
-		float m_TilingSize = 0;
 		entt::registry m_Registry;
 		Ref<TextureAtlas> m_Atlas;
 		std::vector<SystemInterface*> m_Systems;

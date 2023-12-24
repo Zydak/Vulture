@@ -103,6 +103,15 @@ namespace Vulture
 		Device::EndSingleTimeCommands(commandBuffer, queue, pool);
 	}
 
+	VkDeviceAddress Buffer::GetDeviceAddress() const
+	{
+		VkBufferDeviceAddressInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+		info.buffer = m_Buffer;
+
+		return vkGetBufferDeviceAddress(Device::GetDevice(), &info);
+	}
+
 	/**
 	 * Map a memory range of this buffer. If successful, mapped points to the specified buffer range.
 	 *

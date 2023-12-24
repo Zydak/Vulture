@@ -15,3 +15,4 @@
 #include "Vulture/src/Vulture/Renderer/FontAtlas.h"
 #include "Vulture/src/Vulture/Renderer/Text.h"
 #include "Vulture/src/Vulture/Renderer/Transform.h"
+#include "Vulture/src/Vulture/Renderer/AccelerationStructure.h"

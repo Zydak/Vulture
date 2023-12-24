@@ -176,6 +176,25 @@ namespace Vulture
 		m_Writes.push_back(write);
 	}
 
+	// TODO description
+	void DescriptorWriter::WriteAs(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR* asInfo)
+	{
+		VL_CORE_ASSERT(m_SetLayout.m_Bindings.count(binding) == 1, "Layout does not contain specified binding : {0}", binding);
+
+		auto& bindingDescription = m_SetLayout.m_Bindings[binding];
+
+		VL_CORE_ASSERT(bindingDescription.descriptorCount == 1, "Writing multiple descriptors is not supported for now. descriptorCount = {0}", bindingDescription.descriptorCount);
+
+		VkWriteDescriptorSet write{};
+		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write.descriptorType = bindingDescription.descriptorType;
+		write.dstBinding = binding;
+		write.descriptorCount = 1;
+		write.pNext = asInfo;
+
+		m_Writes.push_back(write);
+	}
+
 	/*
 	 * @brief Writes image descriptor information to a specified binding in a Vulkan descriptor set.
 	 * 
