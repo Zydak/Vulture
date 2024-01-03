@@ -6,6 +6,10 @@
 
 #include <glm/gtx/hash.hpp>
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 template <typename T, typename... Rest> void HashCombine(std::uint32_t& seed, const T& v, const Rest&... rest) 
 {
 	seed ^= std::hash<T> {}(v)+0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -29,6 +33,8 @@ namespace Vulture
 {
 	void Mesh::CreateMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
 	{
+		Assimp::Importer importer;
+		const aiScene* scene = importer.ReadFile("assets/cube.obj", aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals);
 		CreateVertexBuffer(vertices);
 		CreateIndexBuffer(indices);
 	}

@@ -2,6 +2,7 @@ include "lib/glfw"
 include "lib/imgui"
 include "lib/spdlog"
 include "lib/msdf-atlas-gen"
+include "lib/assimp"
 
 project "Vulture"
 	architecture "x86_64"
@@ -44,6 +45,7 @@ project "Vulture"
         "lib/vulkanMemoryAllocator/",
         "lib/spdlog/include/",
         "lib/tinyobjloader/",
+        "lib/assimp/include/",
     }
 
     links
@@ -54,7 +56,8 @@ project "Vulture"
         "msdfgen",
         "msdfgenfreetype",
         "vulkan-1",
-        "spdlog"
+        "spdlog",
+        "assimp"
     }
 
     filter "platforms:Windows"

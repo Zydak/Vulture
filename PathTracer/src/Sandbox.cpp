@@ -42,12 +42,9 @@ void Sandbox::Init()
 	Vulture::Entity camera = m_Scene.CreateCamera();
 	auto& cameraScComponent = camera.AddComponent<Vulture::ScriptComponent>();
 	cameraScComponent.AddScript<CameraScript>();
-	
-	auto& entity = m_Scene.CreateEntity();
-	auto& mesh = entity.AddComponent<Vulture::MeshComponent>();
-	auto& transform = entity.AddComponent<Vulture::TransformComponent>(glm::vec3(0.0f, 0.0f, -10.0f), glm::vec3(45.0f, 30.0f, 0.0f), glm::vec3(1.0f));
-	mesh.Mesh.CreateMesh("assets/cube.obj");
-	//mesh.Mesh.CreateMesh(vertices, indices);
+
+	// create cube mesh
+	m_Scene.CreateMesh("assets/cube.obj", Vulture::Transform(glm::vec3(0.0f, 0.0f, -10.0f), glm::vec3(45.0f, 30.0f, 0.0f), glm::vec3(1.0f)));
 
 	m_Scene.InitAccelerationStructure();
 	m_SceneRenderer.CreateRayTracingUniforms(m_Scene);

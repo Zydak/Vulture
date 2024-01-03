@@ -19,7 +19,7 @@ layout(buffer_reference, scalar) buffer Vertices {Vertex v[]; };
 layout(buffer_reference, scalar) buffer Indices {int i[]; };
 
 layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
-layout(set = 0, binding = 2, scalar) buffer MeshAdresses_ { MeshAdresses i[]; } _meshAdresses;
+layout(set = 0, binding = 2, scalar) buffer MeshAdressesUbo { MeshAdresses i[]; } meshAdresses;
 
 void main() 
 {

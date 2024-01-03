@@ -62,10 +62,11 @@ namespace Vulture
 		entity.AddComponent<SpriteComponent>(offset);
 	}
 
-	Vulture::Entity Scene::CreateMesh(std::string filepath)
+	Vulture::Entity Scene::CreateMesh(std::string filepath, Transform transform)
 	{
 		auto entity = CreateEntity();
 		auto& mesh = entity.AddComponent<MeshComponent>();
+		auto& transformComp = entity.AddComponent<TransformComponent>(transform);
 		mesh.Mesh.CreateMesh(filepath);
 		return entity;
 	}
