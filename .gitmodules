@@ -31,3 +31,6 @@
 [submodule "Vulture/lib/tinyobjloader"]
 	path = Vulture/lib/tinyobjloader
 	url = https://github.com/Zydak/tinyobjloader
+[submodule "Vulture/lib/assimp"]
+	path = Vulture/lib/assimp
+	url = https://github.com/Zydak/assimp
