@@ -1,101 +1,74 @@
 #include "pch.h"
 #include "Mesh.h"
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader.h"
-
-#include <glm/gtx/hash.hpp>
-
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-
-template <typename T, typename... Rest> void HashCombine(std::uint32_t& seed, const T& v, const Rest&... rest) 
-{
-	seed ^= std::hash<T> {}(v)+0x9e3779b9 + (seed << 6) + (seed >> 2);
-	(HashCombine(seed, rest), ...);
-};
-
-namespace std 
-{
-	template <> struct hash<Vulture::Mesh::Vertex> 
-	{
-		uint32_t operator()(Vulture::Mesh::Vertex const& vertex) const 
-		{
-			uint32_t seed = 0;
-			HashCombine(seed, vertex.position);
-			return seed;
-		}
-	};
-}
-
 namespace Vulture
 {
 	void Mesh::CreateMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
 	{
-		Assimp::Importer importer;
-		const aiScene* scene = importer.ReadFile("assets/cube.obj", aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenNormals);
 		CreateVertexBuffer(vertices);
 		CreateIndexBuffer(indices);
 	}
 
-	void Mesh::CreateMesh(const std::string& filepath)
+	void Mesh::CreateMesh(aiMesh* mesh, const aiScene* scene)
 	{
-		tinyobj::attrib_t attrib;
-		std::vector<tinyobj::shape_t> shapes;
-		std::vector<tinyobj::material_t> materials;
-		std::string warn, err;
-		std::string mtlPath = filepath;
-		uint32_t lastSlashPos = (uint32_t)mtlPath.find_last_of('/');
-		if (lastSlashPos != std::string::npos)
-		{
-			// Erase everything after the last '/'
-			mtlPath.erase(lastSlashPos);
-		}
-		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath.c_str(), mtlPath.c_str()))
-		{
-			VL_CORE_WARN(warn + err);
-		}
-		std::cout << warn << std::endl;
-
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
 
-		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-		for (const auto& shape : shapes) {
-			for (const auto& index : shape.mesh.indices) {
-				Vertex vertex{};
+		// vertices
+		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+		{
+			Vertex vertex;
+			glm::vec3 vector;
 
-				if (index.vertex_index >= 0) {
-					vertex.position = {
-						attrib.vertices[3 * index.vertex_index + 0],
-						attrib.vertices[3 * index.vertex_index + 1],
-						attrib.vertices[3 * index.vertex_index + 2],
-					};
-				}
+			// positions
+			vector.x = mesh->mVertices[i].x;
+			vector.y = mesh->mVertices[i].y;
+			vector.z = mesh->mVertices[i].z;
+			vertex.Position = vector;
 
-				if (index.texcoord_index >= 0)
-				{
-					vertex.texCoord = {
-						attrib.texcoords[2 * index.texcoord_index + 0], 1.0f - attrib.texcoords[2 * index.texcoord_index + 1],
-					};
-				}
-
-				if (index.normal_index >= 0) {
-					vertex.normal = {
-						attrib.normals[3 * index.normal_index + 0],
-						attrib.normals[3 * index.normal_index + 1],
-						attrib.normals[3 * index.normal_index + 2],
-					};
-				}
-
-				// Check if vertex is in hash map already, if yes just add it do indices. We're saving a lot of memory this way
-				if (uniqueVertices.count(vertex) == 0) {
-					uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-					vertices.push_back(vertex);
-				}
-				indices.push_back(uniqueVertices[vertex]);
+			// normals
+			if (mesh->HasNormals())
+			{
+				vector.x = mesh->mNormals[i].x;
+				vector.y = mesh->mNormals[i].y;
+				vector.z = mesh->mNormals[i].z;
+				vertex.Normal = vector;
 			}
+
+			// texture coordinates
+			if (mesh->mTextureCoords[0]) // does the mesh contain texture coordinates
+			{
+				glm::vec2 vec;
+				// a vertex can contain up to 8 different texture coordinates. We thus make the assumption that we won't 
+				// use models where a vertex can have multiple texture coordinates so we always take the first set (0).
+				vec.x = mesh->mTextureCoords[0][i].x;
+				vec.y = mesh->mTextureCoords[0][i].y;
+				vertex.TexCoord = vec;
+
+				// tangent
+				vector.x = mesh->mTangents[i].x;
+				vector.y = mesh->mTangents[i].y;
+				vector.z = mesh->mTangents[i].z;
+				vertex.Tangent = vector;
+
+				// bitangent
+				vector.x = mesh->mBitangents[i].x;
+				vector.y = mesh->mBitangents[i].y;
+				vector.z = mesh->mBitangents[i].z;
+				vertex.Bitangent = vector;
+			}
+			else
+				vertex.TexCoord = glm::vec2(0.0f, 0.0f);
+
+			vertices.push_back(vertex);
+		}
+
+		// indices
+		for (unsigned int i = 0; i < mesh->mNumFaces; i++)
+		{
+			aiFace face = mesh->mFaces[i];
+			for (unsigned int j = 0; j < face.mNumIndices; j++)
+				indices.push_back(face.mIndices[j]);
 		}
 
 		CreateVertexBuffer(vertices);
@@ -219,9 +192,11 @@ namespace Vulture
 	std::vector<VkVertexInputAttributeDescription> Mesh::Vertex::GetAttributeDescriptions()
 	{
 		std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
-		attributeDescriptions.push_back({ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position) });
-		attributeDescriptions.push_back({ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal) });
-		attributeDescriptions.push_back({ 2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, texCoord) });
+		attributeDescriptions.push_back({ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Position) });
+		attributeDescriptions.push_back({ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Normal) });
+		attributeDescriptions.push_back({ 2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Tangent) });
+		attributeDescriptions.push_back({ 3, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Bitangent) });
+		attributeDescriptions.push_back({ 4, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, TexCoord) });
 
 		return attributeDescriptions;
 	}

@@ -198,20 +198,24 @@ namespace Vulture
 	void AccelerationStructure::CreateTopLevelAS(Scene& scene)
 	{
 		std::vector<VkAccelerationStructureInstanceKHR> tlas;
-		auto view = scene.GetRegistry().view<MeshComponent, TransformComponent>();
-		int i = 0;
+		auto view = scene.GetRegistry().view<ModelComponent, TransformComponent>();
+		int meshCount = 0;
 		for (auto& entity : view)
 		{
-			const auto& [meshComponent, transformComponent] = view.get<MeshComponent, TransformComponent>(entity);
-			VkAccelerationStructureInstanceKHR rayInst{};
-			rayInst.transform = transformComponent.transform.GetKhrMat();
-			rayInst.instanceCustomIndex = i;
-			rayInst.accelerationStructureReference = GetBlasDeviceAddress(i);
-			rayInst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-			rayInst.mask = 0xFF;
-			rayInst.instanceShaderBindingTableRecordOffset = 0;
-			tlas.emplace_back(rayInst);
-			i++;
+			const auto& [modelComponent, transformComponent] = view.get<ModelComponent, TransformComponent>(entity);
+
+			for (int i = 0; i < (int)modelComponent.Model.GetMeshCount(); i++)
+			{
+				VkAccelerationStructureInstanceKHR rayInst{};
+				rayInst.transform = transformComponent.transform.GetKhrMat();
+				rayInst.instanceCustomIndex = meshCount;
+				rayInst.accelerationStructureReference = GetBlasDeviceAddress(meshCount);
+				rayInst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+				rayInst.mask = 0xFF;
+				rayInst.instanceShaderBindingTableRecordOffset = 0;
+				tlas.emplace_back(rayInst);
+				meshCount++;
+			}
 		}
 
 		//VL_CORE_ASSERT(m_tlas.accel == VK_NULL_HANDLE || update, "Cannot call buildTlas twice except to update");
@@ -250,14 +254,17 @@ namespace Vulture
 		// BLAS - Storing each primitive in a geometry
 		std::vector<BlasInput> allBlas;
 
-		auto view = scene.GetRegistry().view<MeshComponent, TransformComponent>();
+		auto view = scene.GetRegistry().view<ModelComponent, TransformComponent>();
 		for (auto entity : view)
 		{
-			MeshComponent& meshComponent = view.get<MeshComponent>(entity);
+			ModelComponent& modelComponent = view.get<ModelComponent>(entity);
 
-			BlasInput blas = MeshToGeometry(meshComponent.Mesh);
+			for (int i = 0; i < (int)modelComponent.Model.GetMeshCount(); i++)
+			{
+				BlasInput blas = MeshToGeometry(modelComponent.Model.GetMesh(i));
 
-			allBlas.emplace_back(blas);
+				allBlas.emplace_back(blas);
+			}
 		}
 
 		uint32_t     nbBlas = static_cast<uint32_t>(allBlas.size());

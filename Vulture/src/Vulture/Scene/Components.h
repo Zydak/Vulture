@@ -2,6 +2,7 @@
 #include "pch.h"
 #include "../Renderer/Text.h"
 #include "../Renderer/Transform.h"
+#include "../Renderer/Model.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -161,6 +162,7 @@ namespace Vulture
 	{
 	public:
 		glm::vec3 Translation{0.0f};
+		glm::vec3 Rotation{0.0f};
 		glm::mat4 ProjMat{1.0f};
 		glm::mat4 ViewMat{1.0f};
 		bool Main = false;
@@ -189,7 +191,15 @@ namespace Vulture
 		void UpdateViewMatrix()
 		{
 			ViewMat = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			ViewMat = glm::rotate(ViewMat, glm::radians(Rotation.x), glm::vec3(0.0f, 1.0f, 0.0f));
+			ViewMat = glm::rotate(ViewMat, glm::radians(Rotation.y), glm::vec3(1.0f, 0.0f, 0.0f));
+			ViewMat = glm::rotate(ViewMat, glm::radians(Rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 			ViewMat = glm::translate(ViewMat, Translation);
+		}
+
+		void UpdateViewMatrixCustom(const glm::mat4 mat)
+		{
+			ViewMat = mat;
 		}
 
 		glm::mat4 GetViewProj()
@@ -248,13 +258,18 @@ namespace Vulture
 		}
 	};
 
-	class MeshComponent
+	class ModelComponent
 	{
 	public:
-		Vulture::Mesh Mesh;
+		Vulture::Model Model;
 
-		MeshComponent() = default;
-		~MeshComponent() = default;
+		ModelComponent(const std::string filepath)
+			: Model(filepath)
+		{
+
+		}
+
+		~ModelComponent() = default;
 
 	private:
 	};

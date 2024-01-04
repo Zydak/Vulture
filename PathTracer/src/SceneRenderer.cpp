@@ -5,6 +5,8 @@
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
 
+#include "CameraScript.h"
+
 SceneRenderer::SceneRenderer()
 {
 	CreateRenderPasses();
@@ -45,7 +47,17 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 {
 	PushConstantRay pcRay{};
 	pcRay.ClearColor = clearColor;
-	pcRay.LightPosition = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+	if (m_CircleLight)
+	{
+		double time = glfwGetTime();
+		pcRay.LightPosition.x = 10.0f * (float)cos(time);
+		pcRay.LightPosition.z = 10.0f * (float)sin(time);
+	}
+	else
+	{
+		pcRay.LightPosition = glm::vec4(0.0f, 0.0f, 10.0f, 1.0f);
+	}
 
 	m_RtPipeline.Bind(Vulture::Renderer::GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 	m_RayTracingUniforms[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
@@ -99,55 +111,169 @@ void SceneRenderer::FixCameraAspectRatio()
 
 void SceneRenderer::CreateRenderPasses()
 {
-	VkAttachmentDescription colorAttachment = {};
-	colorAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
-	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	// HDR Pass
+	{
+		VkAttachmentDescription colorAttachment = {};
+		colorAttachment.format = VK_FORMAT_R16G16B16A16_UNORM;
+		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	VkAttachmentReference colorAttachmentRef = {};
-	colorAttachmentRef.attachment = 0;
-	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		VkAttachmentReference colorAttachmentRef = {};
+		colorAttachmentRef.attachment = 0;
+		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colorAttachmentRef;
-	subpass.pDepthStencilAttachment = nullptr;
+		VkSubpassDescription subpass = {};
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = 1;
+		subpass.pColorAttachments = &colorAttachmentRef;
+		subpass.pDepthStencilAttachment = nullptr;
 
-	VkSubpassDependency dependency1 = {};
-	dependency1.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency1.dstSubpass = 0;
-	dependency1.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-	dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-	dependency1.srcAccessMask = 0;
-	dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		VkSubpassDependency dependency1 = {};
+		dependency1.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency1.dstSubpass = 0;
+		dependency1.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		dependency1.srcAccessMask = 0;
+		dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-	VkSubpassDependency dependency2 = {};
-	dependency2.srcSubpass = 0;
-	dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
-	dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		VkSubpassDependency dependency2 = {};
+		dependency2.srcSubpass = 0;
+		dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-	std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
+		std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
 
-	std::vector<VkAttachmentDescription> attachments = { colorAttachment };
-	VkRenderPassCreateInfo renderPassInfo = {};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = (uint32_t)attachments.size();
-	renderPassInfo.pAttachments = attachments.data();
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-	renderPassInfo.dependencyCount = (uint32_t)dependencies.size();
-	renderPassInfo.pDependencies = dependencies.data();
+		std::vector<VkAttachmentDescription> attachments = { colorAttachment };
+		VkRenderPassCreateInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassInfo.attachmentCount = (uint32_t)attachments.size();
+		renderPassInfo.pAttachments = attachments.data();
+		renderPassInfo.subpassCount = 1;
+		renderPassInfo.pSubpasses = &subpass;
+		renderPassInfo.dependencyCount = (uint32_t)dependencies.size();
+		renderPassInfo.pDependencies = dependencies.data();
 
-	m_HDRPass.CreateRenderPass(renderPassInfo);
+		m_HDRPass.CreateRenderPass(renderPassInfo);
+	}
+
+	// GBuffer Pass
+	{
+		VkAttachmentDescription albedoAttachment = {};
+		albedoAttachment.format = VK_FORMAT_R8G8B8A8_UNORM;
+		albedoAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		albedoAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		albedoAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		albedoAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		albedoAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		albedoAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		albedoAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		VkAttachmentReference albedoAttachmentRef = {};
+		albedoAttachmentRef.attachment = 0;
+		albedoAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentDescription roughnessAttachment = {};
+		roughnessAttachment.format = VK_FORMAT_R8_UNORM;
+		roughnessAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		roughnessAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		roughnessAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		roughnessAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		roughnessAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		roughnessAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		roughnessAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		VkAttachmentReference roughnessAttachmentRef = {};
+		roughnessAttachmentRef.attachment = 1;
+		roughnessAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentDescription metallnessAttachment = {};
+		metallnessAttachment.format = VK_FORMAT_R8_UNORM;
+		metallnessAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		metallnessAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		metallnessAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		metallnessAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		metallnessAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		metallnessAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		metallnessAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		VkAttachmentReference metallnessAttachmentRef = {};
+		metallnessAttachmentRef.attachment = 2;
+		metallnessAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentDescription normalAttachment = {};
+		normalAttachment.format = VK_FORMAT_R8G8B8A8_UNORM;
+		normalAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		normalAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		normalAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		normalAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		normalAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		normalAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		normalAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		VkAttachmentReference normalAttachmentRef = {};
+		normalAttachmentRef.attachment = 3;
+		normalAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentDescription depthAttachment = {};
+		depthAttachment.format = Vulture::Swapchain::FindDepthFormat();
+		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference depthAttachmentRef = {};
+		depthAttachmentRef.attachment = 4;
+		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+
+		std::vector<VkAttachmentReference> references { albedoAttachmentRef, roughnessAttachmentRef, metallnessAttachmentRef, normalAttachmentRef };
+
+		VkSubpassDescription subpass = {};
+		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		subpass.colorAttachmentCount = 4;
+		subpass.pColorAttachments = references.data();
+		subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+		VkSubpassDependency dependency1 = {};
+		dependency1.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency1.dstSubpass = 0;
+		dependency1.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		dependency1.srcAccessMask = 0;
+		dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+		VkSubpassDependency dependency2 = {};
+		dependency2.srcSubpass = 0;
+		dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
+
+		std::vector<VkAttachmentDescription> attachments { albedoAttachment, roughnessAttachment, metallnessAttachment, normalAttachment, depthAttachment };
+		VkRenderPassCreateInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassInfo.attachmentCount = (uint32_t)attachments.size();
+		renderPassInfo.pAttachments = attachments.data();
+		renderPassInfo.subpassCount = 1;
+		renderPassInfo.pSubpasses = &subpass;
+		renderPassInfo.dependencyCount = (uint32_t)dependencies.size();
+		renderPassInfo.pDependencies = dependencies.data();
+
+		m_GBufferPass.CreateRenderPass(renderPassInfo);
+	}
 }
 
 void SceneRenderer::CreateUniforms()
@@ -179,7 +305,7 @@ void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 		m_RayTracingUniforms[i]->AddAccelerationStructure(0, asInfo);
 		m_RayTracingUniforms[i]->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
 			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_RAYGEN_BIT_KHR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-		m_RayTracingUniforms[i]->AddStorageBuffer(2, sizeof(MeshAdresses) * 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
+		m_RayTracingUniforms[i]->AddStorageBuffer(2, sizeof(MeshAdresses) * 100, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
 
 		m_RayTracingUniforms[i]->Build();
 	}
@@ -195,19 +321,26 @@ void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		std::vector<MeshAdresses> meshAddresses;
-		auto meshView = scene.GetRegistry().view<Vulture::MeshComponent, Vulture::TransformComponent>();
-		for (auto& entity : meshView)
+		auto modelView = scene.GetRegistry().view<Vulture::ModelComponent, Vulture::TransformComponent>();
+		uint32_t size = 0;
+		for (auto& entity : modelView)
 		{
-			auto& [meshComp, transformComp] = scene.GetRegistry().get<Vulture::MeshComponent, Vulture::TransformComponent>(entity);
-			MeshAdresses adr{};
-			adr.VertexAddress = meshComp.Mesh.GetVertexBuffer()->GetDeviceAddress();
-			adr.IndexAddress = meshComp.Mesh.GetIndexBuffer()->GetDeviceAddress();
+			auto& [modelComp, transformComp] = scene.GetRegistry().get<Vulture::ModelComponent, Vulture::TransformComponent>(entity);
+			for (int i = 0; i < (int)modelComp.Model.GetMeshCount(); i++)
+			{
+				MeshAdresses adr{};
+				adr.VertexAddress = modelComp.Model.GetMesh(i).GetVertexBuffer()->GetDeviceAddress();
+				adr.IndexAddress = modelComp.Model.GetMesh(i).GetIndexBuffer()->GetDeviceAddress();
 
-			meshAddresses.push_back(adr);
-			m_RayTracingUniforms[i]->GetBuffer(2)->WriteToBuffer(&adr, sizeof(MeshAdresses), 0);
+				meshAddresses.push_back(adr);
+			}
+			size = sizeof(MeshAdresses) * modelComp.Model.GetMeshCount();
+			m_RayTracingUniforms[i]->GetBuffer(2)->WriteToBuffer(meshAddresses.data(), size, 0);
 		}
+		if (!size)
+			VL_CORE_ASSERT(false, "No meshes found?");
 
-		m_RayTracingUniforms[i]->GetBuffer(2)->Flush(sizeof(MeshAdresses), 0);
+		m_RayTracingUniforms[i]->GetBuffer(2)->Flush(size, 0);
 	}
 
 	CreateRayTracingPipeline();
@@ -341,11 +474,25 @@ void SceneRenderer::CreateShaderBindingTable()
 void SceneRenderer::CreateFramebuffers()
 {
 	m_HDRFramebuffer.clear();
-	std::vector<Vulture::FramebufferAttachment> attachments{ Vulture::FramebufferAttachment::ColorRGBA16 };
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	m_GBufferFramebuffer.clear();
+
+	// HDR
 	{
-		m_HDRFramebuffer.push_back(std::make_unique<Vulture::Framebuffer>(attachments, m_HDRPass.GetRenderPass(), Vulture::Renderer::GetSwapchain().GetSwapchainExtent(), Vulture::Swapchain::FindDepthFormat(), 1, Vulture::ImageType::Image2D, VK_IMAGE_USAGE_STORAGE_BIT));
-		Vulture::Image::TransitionImageLayout(m_HDRFramebuffer[i]->GetColorImage(0), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		std::vector<Vulture::FramebufferAttachment> attachments{ Vulture::FramebufferAttachment::ColorRGBA16 };
+		for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			m_HDRFramebuffer.push_back(std::make_unique<Vulture::Framebuffer>(attachments, m_HDRPass.GetRenderPass(), Vulture::Renderer::GetSwapchain().GetSwapchainExtent(), Vulture::Swapchain::FindDepthFormat(), 1, Vulture::ImageType::Image2D, VK_IMAGE_USAGE_STORAGE_BIT));
+			Vulture::Image::TransitionImageLayout(m_HDRFramebuffer[i]->GetColorImage(0), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		}
+	}
+
+	// GBuffer
+	{
+		std::vector<Vulture::FramebufferAttachment> attachments{ Vulture::FramebufferAttachment::ColorRGBA8, Vulture::FramebufferAttachment::ColorR8, Vulture::FramebufferAttachment::ColorR8, Vulture::FramebufferAttachment::ColorRGBA8, Vulture::FramebufferAttachment::Depth };
+		for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			m_GBufferFramebuffer.push_back(std::make_unique<Vulture::Framebuffer>(attachments, m_GBufferPass.GetRenderPass(), Vulture::Renderer::GetSwapchain().GetSwapchainExtent(), Vulture::Swapchain::FindDepthFormat(), 1, Vulture::ImageType::Image2D));
+		}
 	}
 }
 
@@ -363,6 +510,10 @@ void SceneRenderer::UpdateUniformData()
 		}
 	}
 	GlobalUbo ubo{};
+	if (camComp == nullptr)
+	{
+		VL_CORE_ASSERT(false, "No main camera found!");
+	}
 	ubo.ProjInverse = glm::inverse(camComp->ProjMat);
 	ubo.ViewInverse = glm::inverse(camComp->ViewMat);
 	ubo.ViewProjectionMat = camComp->GetViewProj();
@@ -381,6 +532,36 @@ void SceneRenderer::ImGuiPass()
 
 	ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.Elapsed());
 	m_Timer.Reset();
+
+	ImGui::Separator();
+	auto cameraView = m_CurrentSceneRendered->GetRegistry().view<Vulture::CameraComponent>();
+	for (auto& entity : cameraView)
+	{
+		Vulture::CameraComponent& comp = m_CurrentSceneRendered->GetRegistry().get<Vulture::CameraComponent>(entity);
+		if (comp.Main)
+		{
+			ImGui::Text("Camera");
+			
+			Vulture::ScriptComponent* scComp;
+			scComp = m_CurrentSceneRendered->GetRegistry().try_get<Vulture::ScriptComponent>(entity);
+			if (scComp)
+			{
+				CameraScript* camScript = scComp->GetScript<CameraScript>(0);
+				if (camScript)
+				{
+					if (ImGui::Checkbox("Orbit Camera", &camScript->orbitCamera) && camScript->orbitCamera == false)
+					{
+						comp.Translation = glm::vec3(0.0f, 0.0f, -10.0f);
+					}
+				}
+			}
+
+			break;
+		}
+	}
+
+	ImGui::Separator();
+	ImGui::Checkbox("Orbiting light", &m_CircleLight);
 
 	ImGui::End();
 	ImGui::Render();

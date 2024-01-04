@@ -31,6 +31,7 @@ project "2D"
         "%{wks.location}/Vulture/lib/vulkanMemoryAllocator/",
         "%{wks.location}/Vulture/lib/spdlog/include/",
         "%{wks.location}/Vulture/lib/tinyobjloader/",
+        "%{wks.location}/Vulture/lib/assimp/include/",
 	}	 
 
 	links

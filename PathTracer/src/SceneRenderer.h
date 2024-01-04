@@ -47,6 +47,7 @@ private:
 
 	void ImGuiPass();
 
+	std::vector<Vulture::Ref<Vulture::Framebuffer>> m_GBufferFramebuffer;
 	std::vector<Vulture::Ref<Vulture::Framebuffer>> m_HDRFramebuffer;
 	std::vector<Vulture::Ref<Vulture::Uniform>> m_HDRUniforms;
 
@@ -64,5 +65,10 @@ private:
 
 	Timer m_Timer;
 	Vulture::RenderPass m_HDRPass;
+	Vulture::RenderPass m_GBufferPass;
 	Vulture::Scene* m_CurrentSceneRendered;
+
+
+	// temporary stuff
+	bool m_CircleLight = false;
 };

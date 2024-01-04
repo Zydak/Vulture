@@ -23,7 +23,7 @@ layout(set = 0, binding = 2, scalar) buffer MeshAdressesUbo { MeshAdresses i[]; 
 
 void main() 
 {
-    MeshAdresses meshAdresses = _meshAdresses.i[gl_InstanceCustomIndexEXT];
+    MeshAdresses meshAdresses = meshAdresses.i[gl_InstanceCustomIndexEXT];
     Indices indices = Indices(meshAdresses.IndexBuffer);
     Vertices vertices = Vertices(meshAdresses.VertexBuffer);
     

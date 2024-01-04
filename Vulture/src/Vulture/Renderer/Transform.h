@@ -27,8 +27,8 @@ namespace Vulture
 		{
 			ModelMatrix = glm::mat4{ 1.0f };
 			ModelMatrix = glm::translate(ModelMatrix, m_Translation);
-			ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.x), glm::vec3(0.0f, 1.0f, 0.0f));
-			ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.y), glm::vec3(1.0f, 0.0f, 0.0f));
+			ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+			ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
 			ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 			ModelMatrix = glm::scale(ModelMatrix, m_Scale);
 
@@ -41,8 +41,8 @@ namespace Vulture
 			{
 				ModelMatrix = glm::mat4{ 1.0f };
 				ModelMatrix = glm::translate(ModelMatrix, m_Translation);
-				ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.x), glm::vec3(0.0f, 1.0f, 0.0f));
-				ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.y), glm::vec3(1.0f, 0.0f, 0.0f));
+				ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+				ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
 				ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 				ModelMatrix = glm::scale(ModelMatrix, m_Scale);
 			}
@@ -57,8 +57,8 @@ namespace Vulture
 			{
 				ModelMatrix = glm::mat4{ 1.0f };
 				ModelMatrix = glm::translate(ModelMatrix, m_Translation);
-				ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.x), glm::vec3(0.0f, 1.0f, 0.0f));
-				ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.y), glm::vec3(1.0f, 0.0f, 0.0f));
+				ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+				ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
 				ModelMatrix = glm::rotate(ModelMatrix, glm::radians(m_Rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 				ModelMatrix = glm::scale(ModelMatrix, m_Scale);
 				changed = true;

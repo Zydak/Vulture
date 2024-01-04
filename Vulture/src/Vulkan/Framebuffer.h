@@ -14,9 +14,12 @@ namespace Vulture
 		Depth,
 		ColorRGBA8,
 		ColorRGBA16,
+		ColorRGB8,
+		ColorRGB16,
 		ColorRGBA32,
 		ColorRG16,
 		ColorRG32,
+		ColorR8,
 	};
 
 	class Framebuffer

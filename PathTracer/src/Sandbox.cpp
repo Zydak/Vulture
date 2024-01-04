@@ -44,7 +44,7 @@ void Sandbox::Init()
 	cameraScComponent.AddScript<CameraScript>();
 
 	// create cube mesh
-	m_Scene.CreateMesh("assets/cube.obj", Vulture::Transform(glm::vec3(0.0f, 0.0f, -10.0f), glm::vec3(45.0f, 30.0f, 0.0f), glm::vec3(1.0f)));
+	m_Scene.CreateModel("assets/ship.gltf", Vulture::Transform(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(20.0f, 45.0f, 0.0f), glm::vec3(0.1f)));
 
 	m_Scene.InitAccelerationStructure();
 	m_SceneRenderer.CreateRayTracingUniforms(m_Scene);

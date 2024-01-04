@@ -26,7 +26,7 @@ namespace Vulture
 		Entity CreateSprite(const Transform& transform, const glm::vec2& tileOffset);
 		void CreateStaticSprite(const Transform& transform, const glm::vec2& tileOffset);
 
-		Entity CreateMesh(std::string filepath, Transform transform);
+		Entity CreateModel(std::string filepath, Transform transform);
 
 		void CreateAtlas(const std::string& filepath);
 

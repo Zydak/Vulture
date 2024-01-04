@@ -165,29 +165,29 @@ namespace Vulture
 
 			{
 				Mesh::Vertex vertex{};
-				vertex.position = glm::vec3(pl, pb, 0.0f);
-				vertex.texCoord = glm::vec2(al, ab);
+				vertex.Position = glm::vec3(pl, pb, 0.0f);
+				vertex.TexCoord = glm::vec2(al, ab);
 				vertices.push_back(vertex);
 			}
 
 			{
 				Mesh::Vertex vertex{};
-				vertex.position = glm::vec3(pl, pt, 0.0f);
-				vertex.texCoord = glm::vec2(al, at);
+				vertex.Position = glm::vec3(pl, pt, 0.0f);
+				vertex.TexCoord = glm::vec2(al, at);
 				vertices.push_back(vertex);
 			}
 
 			{
 				Mesh::Vertex vertex{};
-				vertex.position = glm::vec3(pr, pt, 0.0f);
-				vertex.texCoord = glm::vec2(ar, at);
+				vertex.Position = glm::vec3(pr, pt, 0.0f);
+				vertex.TexCoord = glm::vec2(ar, at);
 				vertices.push_back(vertex);
 			}
 
 			{
 				Mesh::Vertex vertex{};
-				vertex.position = glm::vec3(pr, pb, 0.0f);
-				vertex.texCoord = glm::vec2(ar, ab);
+				vertex.Position = glm::vec3(pr, pb, 0.0f);
+				vertex.TexCoord = glm::vec2(ar, ab);
 				vertices.push_back(vertex);
 			}
 

@@ -142,7 +142,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>WIN;DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;..\Vulture\lib\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -159,7 +159,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;..\Vulture\lib\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -176,7 +176,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>WIN;RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;..\Vulture\lib\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -197,7 +197,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;..\Vulture\lib\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -218,7 +218,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>WIN;DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;..\Vulture\lib\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -239,7 +239,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>DIST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\Vulture\src;..\Vulture\src\Vulture;..;..\Vulture\lib;..\Vulture\lib\glfw\include;..\Vulture\lib\imgui;..\Vulture\lib\stbimage;..\Vulture\lib\glm;..\Vulture\lib\msdf-atlas-gen;..\Vulture\lib\msdf-atlas-gen\msdfgen;..\Vulture\lib\entt;..\Vulture\lib\vulkanLib\Include;..\Vulture\lib\vulkanMemoryAllocator;..\Vulture\lib\spdlog\include;..\Vulture\lib\tinyobjloader;..\Vulture\lib\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>

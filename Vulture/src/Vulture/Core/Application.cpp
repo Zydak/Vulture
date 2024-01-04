@@ -1,5 +1,4 @@
 #include "pch.h"
-#define VL_IMGUI
 #include "Application.h"
 #include "Renderer/Renderer.h"
 #include "Input.h"

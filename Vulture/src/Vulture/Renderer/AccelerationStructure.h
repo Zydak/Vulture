@@ -40,6 +40,7 @@ namespace Vulture
 		void CreateTopLevelAS(Scene& scene);
 		void CreateBottomLevelAS(Scene& scene);
 		BlasInput MeshToGeometry(Mesh& mesh);
+
 		void CmdCreateBlas(
 			VkCommandBuffer cmdBuf,
 			std::vector<uint32_t> indices,

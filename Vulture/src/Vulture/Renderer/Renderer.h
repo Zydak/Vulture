@@ -12,7 +12,7 @@
 #include <vulkan/vulkan.h>
 
 #ifndef VL_IMGUI
-//#define VL_IMGUI
+#define VL_IMGUI
 #endif
 
 namespace Vulture
