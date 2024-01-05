@@ -219,9 +219,7 @@ namespace Vulture
 		}
 
 		//VL_CORE_ASSERT(m_tlas.accel == VK_NULL_HANDLE || update, "Cannot call buildTlas twice except to update");
-		uint32_t instanceCount = static_cast<uint32_t>(tlas.size());
-
-		// Create a buffer holding the actual instance data (matrices++) for use by the AS builder
+		uint32_t instanceCount = (uint32_t)tlas.size();
 
 		Ref<Buffer> stagingBuffer = std::make_shared<Buffer>(instanceCount * sizeof(VkAccelerationStructureInstanceKHR), 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment);
 		stagingBuffer->Map();

@@ -40,7 +40,6 @@ namespace Vulture
 			timer.Reset();
 			m_Window->PollEvents();
 
-			Input::ResetInput();
 			OnUpdate(deltaTime);
 			deltaTime = timer.Elapsed();
 		}

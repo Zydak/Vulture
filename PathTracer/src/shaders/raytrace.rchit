@@ -12,6 +12,7 @@
 hitAttributeEXT vec2 attribs;
 
 layout(location = 0) rayPayloadInEXT hitPayload prd;
+layout(location = 1) rayPayloadEXT float shadow;
 
 layout(push_constant) uniform _PushConstantRay { PushConstantRay pcRay; };
 
@@ -51,6 +52,38 @@ void main()
     float lightDistance     = length(lDir);
     float lightIntensity    = 80.0f / (lightDistance * lightDistance);
     vec3  L                 = normalize(lDir);
+
+    float dotProduct = dot(worldNrm, L);
+
+    if (dotProduct > 0.0f)
+	{
+		shadow = 0.0f;
+		
+        float tMin   = 0.001;
+        float tMax   = lightDistance;
+        vec3  origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+        vec3  rayDir = L;
+        uint  flags = gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT;
+
+        traceRayEXT(topLevelAS,  // acceleration structure
+            flags,       // rayFlags
+            0xFF,        // cullMask
+            0,           // sbtRecordOffset
+            0,           // sbtRecordStride
+            1,           // missIndex
+            origin,      // ray origin
+            tMin,        // ray min range
+            rayDir,      // ray direction
+            tMax,        // ray max range
+            1            // payload (location = 1)
+        );
+	}
+
+    vec3 ambient = vec3(0.05f);
+
+    vec3 Lo = clamp(vec3(1.0f) * dotProduct * lightIntensity * shadow, 0.0f, 1.0f);
+
+    vec3 color = Lo + ambient;
     
-    prd.hitValue = vec3(1.0f) * dot(worldNrm, L) * lightIntensity;
+    prd.hitValue = color;
 }

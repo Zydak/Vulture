@@ -2,6 +2,8 @@
 #include "pch.h"
 #include "glfw/glfw3.h"
 
+#include "glm/glm.hpp"
+
 #define VL_KEY_SPACE              32
 #define VL_KEY_APOSTROPHE         39  /* ' */
 #define VL_KEY_COMMA              44  /* , */
@@ -132,10 +134,10 @@ namespace Vulture
 	public:
 		static void Init(GLFWwindow* window);
 		static bool IsKeyPressed(int keyCode);
-		static void ResetInput();
+		static bool IsMousePressed(int mouseButton);
+		static glm::vec2 GetMousePosition();
 
 	private:
 		static GLFWwindow* s_Window;
-		static std::vector<bool> m_KeysPressed;
 	};
 }

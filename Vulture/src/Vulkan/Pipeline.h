@@ -59,9 +59,10 @@ namespace Vulture
 
 	enum RayTracingStages
 	{
-		eRaygen,
-		eMiss,
-		eClosestHit
+		Raygen,
+		Miss,
+		MissShadow,
+		ClosestHit
 	};
 
 	class Pipeline

@@ -334,7 +334,7 @@ namespace Vulture
 	void Pipeline::CreateRayTracingPipeline(std::vector<VkRayTracingShaderGroupCreateInfoKHR>& rtShaderGroups, RayTracingPipelineCreateInfo& info)
 	{
 		// All stages
-		std::array<VkPipelineShaderStageCreateInfo, 3> stages{};
+		std::array<VkPipelineShaderStageCreateInfo, 4> stages{};
 		VkPipelineShaderStageCreateInfo stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
 		stage.pName = "main";  // All the same entry point
 		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -344,7 +344,7 @@ namespace Vulture
 			auto code = ReadFile("src/shaders/spv/raytrace.rgen.spv");
 			CreateShaderModule(code, &stage.module);
 			stage.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-			stages[RayTracingStages::eRaygen] = stage;
+			stages[RayTracingStages::Raygen] = stage;
 		}
 
 		// Miss
@@ -352,7 +352,15 @@ namespace Vulture
 			auto code = ReadFile("src/shaders/spv/raytrace.rmiss.spv");
 			CreateShaderModule(code, &stage.module);
 			stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
-			stages[RayTracingStages::eMiss] = stage;
+			stages[RayTracingStages::Miss] = stage;
+		}
+
+		// Miss Shadow
+		{
+			auto code = ReadFile("src/shaders/spv/raytraceShadow.rmiss.spv");
+			CreateShaderModule(code, &stage.module);
+			stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
+			stages[RayTracingStages::MissShadow] = stage;
 		}
 
 		// Hit Group - Closest Hit
@@ -360,7 +368,7 @@ namespace Vulture
 			auto code = ReadFile("src/shaders/spv/raytrace.rchit.spv");
 			CreateShaderModule(code, &stage.module);
 			stage.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-			stages[RayTracingStages::eClosestHit] = stage;
+			stages[RayTracingStages::ClosestHit] = stage;
 		}
 
 		// Shader groups
@@ -372,18 +380,23 @@ namespace Vulture
 
 		// Ray gen
 		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-		group.generalShader = RayTracingStages::eRaygen;
+		group.generalShader = RayTracingStages::Raygen;
 		rtShaderGroups.push_back(group);
 
 		// Miss
 		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-		group.generalShader = RayTracingStages::eMiss;
+		group.generalShader = RayTracingStages::Miss;
+		rtShaderGroups.push_back(group);
+
+		// Miss Shadow
+		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+		group.generalShader = RayTracingStages::MissShadow;
 		rtShaderGroups.push_back(group);
 
 		// closest hit shader
 		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 		group.generalShader = VK_SHADER_UNUSED_KHR;
-		group.closestHitShader = RayTracingStages::eClosestHit;
+		group.closestHitShader = RayTracingStages::ClosestHit;
 		rtShaderGroups.push_back(group);
 
 		// create layout

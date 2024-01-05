@@ -7,31 +7,25 @@ namespace Vulture
 	void Input::Init(GLFWwindow* window)
 	{
 		s_Window = window;
-		m_KeysPressed.resize(349);
 	}
 
 	bool Input::IsKeyPressed(int keyCode)
 	{
-		if (m_KeysPressed[keyCode] != true)
-		{
-			m_KeysPressed[keyCode] = true;
-			return glfwGetKey(s_Window, keyCode);
-		}
-		else
-		{
-			return false;
-		}
+		return glfwGetKey(s_Window, keyCode);
 	}
 
-	void Input::ResetInput()
+	bool Input::IsMousePressed(int mouseButton)
 	{
-		for (int i = 0; i < m_KeysPressed.size(); i++)
-		{
-			m_KeysPressed[i] = false;
-		}
+		return glfwGetMouseButton(s_Window, mouseButton);
+	}
+
+	glm::vec2 Input::GetMousePosition()
+	{
+		double x, y;
+		glfwGetCursorPos(s_Window, &x, &y);
+		return glm::vec2(x, y);
 	}
 
 	GLFWwindow* Input::s_Window;
-	std::vector<bool> Input::m_KeysPressed;
 
 }

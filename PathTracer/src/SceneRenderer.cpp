@@ -334,9 +334,9 @@ void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 
 				meshAddresses.push_back(adr);
 			}
-			size = sizeof(MeshAdresses) * modelComp.Model.GetMeshCount();
-			m_RayTracingUniforms[i]->GetBuffer(2)->WriteToBuffer(meshAddresses.data(), size, 0);
+			size += sizeof(MeshAdresses) * modelComp.Model.GetMeshCount();
 		}
+		m_RayTracingUniforms[i]->GetBuffer(2)->WriteToBuffer(meshAddresses.data(), size, 0);
 		if (!size)
 			VL_CORE_ASSERT(false, "No meshes found?");
 
@@ -401,16 +401,15 @@ void SceneRenderer::CreateRayTracingPipeline()
 
 void SceneRenderer::CreateShaderBindingTable()
 {
-	uint32_t missCount{ 1 };
+	uint32_t missCount{ 2 };
 	uint32_t hitCount{ 1 };
 	auto     handleCount = 1 + missCount + hitCount;
 	uint32_t handleSize = Vulture::Device::GetRayTracingProperties().shaderGroupHandleSize;
 
-	// The SBT (buffer) need to have starting groups to be aligned and handles in the group to be aligned.
 	uint32_t handleSizeAligned = (uint32_t)Vulture::Device::GetAlignment(handleSize, Vulture::Device::GetRayTracingProperties().shaderGroupHandleAlignment);
 
 	m_RgenRegion.stride = Vulture::Device::GetAlignment(handleSizeAligned, Vulture::Device::GetRayTracingProperties().shaderGroupBaseAlignment);
-	m_RgenRegion.size = m_RgenRegion.stride;  // The size member of pRayGenShaderBindingTable must be equal to its stride member
+	m_RgenRegion.size = m_RgenRegion.stride;
 	
 	m_MissRegion.stride = handleSizeAligned;
 	m_MissRegion.size = Vulture::Device::GetAlignment(missCount * handleSizeAligned, Vulture::Device::GetRayTracingProperties().shaderGroupBaseAlignment);
@@ -549,10 +548,12 @@ void SceneRenderer::ImGuiPass()
 				CameraScript* camScript = scComp->GetScript<CameraScript>(0);
 				if (camScript)
 				{
-					if (ImGui::Checkbox("Orbit Camera", &camScript->orbitCamera) && camScript->orbitCamera == false)
+					if (ImGui::Checkbox("Orbit Camera", &camScript->m_OrbitCamera) && camScript->m_OrbitCamera == false)
 					{
 						comp.Translation = glm::vec3(0.0f, 0.0f, -10.0f);
 					}
+
+					ImGui::SliderFloat("Movement Speed", &camScript->m_MovementSpeed, 0.0f, 1.0f);
 				}
 			}
 

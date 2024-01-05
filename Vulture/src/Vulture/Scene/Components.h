@@ -191,8 +191,8 @@ namespace Vulture
 		void UpdateViewMatrix()
 		{
 			ViewMat = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			ViewMat = glm::rotate(ViewMat, glm::radians(Rotation.x), glm::vec3(0.0f, 1.0f, 0.0f));
 			ViewMat = glm::rotate(ViewMat, glm::radians(Rotation.y), glm::vec3(1.0f, 0.0f, 0.0f));
+			ViewMat = glm::rotate(ViewMat, glm::radians(Rotation.x), glm::vec3(0.0f, 1.0f, 0.0f));
 			ViewMat = glm::rotate(ViewMat, glm::radians(Rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 			ViewMat = glm::translate(ViewMat, Translation);
 		}

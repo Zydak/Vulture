@@ -25,14 +25,14 @@ public:
 
 	void OnUpdate(double deltaTime) override
 	{
-		timer += deltaTime;
-		float movementSpeed = 0.2f;
+		m_Timer += deltaTime;
 		auto& cameraComponent = GetComponent<Vulture::CameraComponent>();
 
-		if (orbitCamera)
+		if (m_OrbitCamera)
 		{
-			cameraComponent.Translation.x = (float)sin(timer) * 5.0f;
-			cameraComponent.Translation.z = (float)cos(timer) * 5.0f;
+			cameraComponent.Translation.x = (float)sin(m_Timer * m_MovementSpeed) * 5.0f;
+			cameraComponent.Translation.y = 0.0f;
+			cameraComponent.Translation.z = (float)cos(m_Timer * m_MovementSpeed) * 5.0f;
 
 			glm::vec3 viewDirection = glm::normalize(-cameraComponent.Translation);
 
@@ -44,35 +44,60 @@ public:
 		{
 			if (Vulture::Input::IsKeyPressed(VL_KEY_A))
 			{
-				cameraComponent.Translation.x += 0.5f * movementSpeed;
+				cameraComponent.Translation += 0.2f * m_MovementSpeed * m_RightVector;
 			}
 			if (Vulture::Input::IsKeyPressed(VL_KEY_D))
 			{
-				cameraComponent.Translation.x -= 0.5f * movementSpeed;
+				cameraComponent.Translation -= 0.2f * m_MovementSpeed * m_RightVector;
 			}
 			if (Vulture::Input::IsKeyPressed(VL_KEY_W))
 			{
-				cameraComponent.Translation.z += 0.5f * movementSpeed;
+				cameraComponent.Translation += 0.2f * m_MovementSpeed * m_FrontVector;
 			}
 			if (Vulture::Input::IsKeyPressed(VL_KEY_S))
 			{
-				cameraComponent.Translation.z -= 0.5f * movementSpeed;
+				cameraComponent.Translation -= 0.2f * m_MovementSpeed * m_FrontVector;
 			}
 			if (Vulture::Input::IsKeyPressed(VL_KEY_SPACE))
 			{
-				cameraComponent.Translation.y -= 0.5f * movementSpeed;
+				cameraComponent.Translation -= 0.2f * m_MovementSpeed * m_UpVector;
 			}
 			if (Vulture::Input::IsKeyPressed(VL_KEY_LEFT_SHIFT))
 			{
-				cameraComponent.Translation.y += 0.5f * movementSpeed;
+				cameraComponent.Translation += 0.2f * m_MovementSpeed * m_UpVector;
 			}
 
+			glm::vec2 mousePosition = Vulture::Input::GetMousePosition();
+			if (Vulture::Input::IsMousePressed(0))
+			{
+				if (m_LastMousePosition.x != mousePosition.x)
+				{
+					cameraComponent.Rotation.x -= (float)(m_LastMousePosition.x - mousePosition.x) * 0.1f;
+				}
+				if (m_LastMousePosition.y != mousePosition.y)
+				{
+					cameraComponent.Rotation.y -= (float)(m_LastMousePosition.y - mousePosition.y) * 0.1f;
+				}
+			}
+			m_LastMousePosition = mousePosition;
+
 			cameraComponent.UpdateViewMatrix();
+
+			glm::mat4 view = cameraComponent.ViewMat;
+
+			m_FrontVector = glm::vec3(view[0][2], view[1][2], view[2][2]);
+			m_RightVector = glm::vec3(view[0][0], view[1][0], view[2][0]);
+			m_UpVector = glm::vec3(view[0][1], view[1][1], view[2][1]);
 		}
 
 	}
 
-	bool orbitCamera = true;
+	bool m_OrbitCamera = true;
+	float m_MovementSpeed = 0.2f;
 private:
-	double timer = 0.0;
+	double m_Timer = 0.0;
+	glm::vec2 m_LastMousePosition{0.0f};
+	glm::vec3 m_FrontVector{ 0.0f, 0.0f, -1.0f };
+	glm::vec3 m_UpVector{ 0.0f, 1.0f, 0.0f };
+	glm::vec3 m_RightVector{ 1.0f, 0.0f, 0.0f };
 };

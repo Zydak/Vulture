@@ -270,6 +270,9 @@
       <Project>{FC8A9FF8-686A-1E94-7182-A96ADDE084F5}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\raytraceShadow.rmiss" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
