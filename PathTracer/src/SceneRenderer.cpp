@@ -30,7 +30,7 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 	if (Vulture::Renderer::BeginFrame())
 	{
 		UpdateUniformData();
-		RayTrace(glm::vec4(0.1f));
+		RayTrace(glm::vec4(0.25f));
 
 		Vulture::Renderer::FramebufferCopyPass(&(*m_HDRUniforms[Vulture::Renderer::GetCurrentFrameIndex()]));
 
@@ -45,18 +45,29 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 
 void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 {
-	PushConstantRay pcRay{};
-	pcRay.ClearColor = clearColor;
+	m_PcRay.ClearColor = clearColor;
 
 	if (m_CircleLight)
 	{
 		double time = glfwGetTime();
-		pcRay.LightPosition.x = 10.0f * (float)cos(time);
-		pcRay.LightPosition.z = 10.0f * (float)sin(time);
+		m_PcRay.LightPosition.x = 10.0f * (float)cos(time);
+		m_PcRay.LightPosition.z = 10.0f * (float)sin(time);
 	}
 	else
 	{
-		pcRay.LightPosition = glm::vec4(0.0f, 0.0f, 10.0f, 1.0f);
+		m_PcRay.LightPosition = glm::vec4(0.0f, 0.0f, 10.0f, 1.0f);
+	}
+
+	static glm::mat4 previousMat{ 0.0f };
+	if (previousMat != m_CurrentSceneRendered->GetMainCamera()->ViewMat)
+	{
+		ResetFrame();
+		previousMat = m_CurrentSceneRendered->GetMainCamera()->ViewMat;
+	}
+	else
+	{
+		m_PcRay.frame++;
+		m_SamplesPerPixel += 15;
 	}
 
 	m_RtPipeline.Bind(Vulture::Renderer::GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
@@ -75,7 +86,7 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 
 	vkCmdPushConstants(Vulture::Renderer::GetCurrentCommandBuffer(), m_RtPipeline.GetPipelineLayout(),
 		VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR,
-		0, sizeof(PushConstantRay), &pcRay);
+		0, sizeof(PushConstantRay), &m_PcRay);
 
 	Vulture::Device::vkCmdTraceRaysKHR(
 		Vulture::Renderer::GetCurrentCommandBuffer(), 
@@ -89,8 +100,17 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 	);
 }
 
+void SceneRenderer::ResetFrame()
+{
+	m_PcRay.frame = -1;
+	m_SamplesPerPixel = 0;
+}
+
 void SceneRenderer::RecreateResources()
 {
+	ResetFrame();
+	m_PcRay.frame -= 1;
+
 	CreateFramebuffers();
 	RecreateUniforms();
 	CreatePipelines();
@@ -306,6 +326,7 @@ void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 		m_RayTracingUniforms[i]->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
 			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_RAYGEN_BIT_KHR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 		m_RayTracingUniforms[i]->AddStorageBuffer(2, sizeof(MeshAdresses) * 100, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
+		m_RayTracingUniforms[i]->AddStorageBuffer(3, sizeof(Vulture::Material) * 100, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
 
 		m_RayTracingUniforms[i]->Build();
 	}
@@ -321,8 +342,10 @@ void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		std::vector<MeshAdresses> meshAddresses;
+		std::vector<Vulture::Material> materials;
 		auto modelView = scene.GetRegistry().view<Vulture::ModelComponent, Vulture::TransformComponent>();
-		uint32_t size = 0;
+		uint32_t meshSizes = 0;
+		uint32_t materialSizes = 0;
 		for (auto& entity : modelView)
 		{
 			auto& [modelComp, transformComp] = scene.GetRegistry().get<Vulture::ModelComponent, Vulture::TransformComponent>(entity);
@@ -332,15 +355,23 @@ void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 				adr.VertexAddress = modelComp.Model.GetMesh(i).GetVertexBuffer()->GetDeviceAddress();
 				adr.IndexAddress = modelComp.Model.GetMesh(i).GetIndexBuffer()->GetDeviceAddress();
 
+				Vulture::Material material = modelComp.Model.GetMaterial(i);
+
+				materials.push_back(material);
 				meshAddresses.push_back(adr);
 			}
-			size += sizeof(MeshAdresses) * modelComp.Model.GetMeshCount();
+			meshSizes += sizeof(MeshAdresses) * modelComp.Model.GetMeshCount();
+			materialSizes += sizeof(Vulture::Material) * modelComp.Model.GetMeshCount();
 		}
-		m_RayTracingUniforms[i]->GetBuffer(2)->WriteToBuffer(meshAddresses.data(), size, 0);
-		if (!size)
+
+		if (!meshSizes)
 			VL_CORE_ASSERT(false, "No meshes found?");
 
-		m_RayTracingUniforms[i]->GetBuffer(2)->Flush(size, 0);
+		m_RayTracingUniforms[i]->GetBuffer(2)->WriteToBuffer(meshAddresses.data(), meshSizes, 0);
+		m_RayTracingUniforms[i]->GetBuffer(3)->WriteToBuffer(materials.data(), materialSizes, 0);
+
+		m_RayTracingUniforms[i]->GetBuffer(2)->Flush(meshSizes, 0);
+		m_RayTracingUniforms[i]->GetBuffer(3)->Flush(materialSizes, 0);
 	}
 
 	CreateRayTracingPipeline();
@@ -401,7 +432,7 @@ void SceneRenderer::CreateRayTracingPipeline()
 
 void SceneRenderer::CreateShaderBindingTable()
 {
-	uint32_t missCount{ 2 };
+	uint32_t missCount{ 1 };
 	uint32_t hitCount{ 1 };
 	auto     handleCount = 1 + missCount + hitCount;
 	uint32_t handleSize = Vulture::Device::GetRayTracingProperties().shaderGroupHandleSize;
@@ -563,6 +594,9 @@ void SceneRenderer::ImGuiPass()
 
 	ImGui::Separator();
 	ImGui::Checkbox("Orbiting light", &m_CircleLight);
+
+	ImGui::Separator();
+	ImGui::Text("Samples Per Pixel: %i", m_SamplesPerPixel);
 
 	ImGui::End();
 	ImGui::Render();

@@ -78,6 +78,7 @@ namespace Vulture
 			s_DeviceExtensions.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
 		}
 
 		CreateInstance();
@@ -497,6 +498,9 @@ namespace Vulture
 		VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalarBlockLayoutFeatures = {};
 		scalarBlockLayoutFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT;
 
+		VkPhysicalDeviceShaderClockFeaturesKHR shaderClockFeatures = {};
+		shaderClockFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR;
+
 		s_Features.pNext = &memoryPriorityFeatures;
 
 		if (s_RayTracingSupport)
@@ -505,6 +509,7 @@ namespace Vulture
 			accelerationStructureFeatures.pNext = &rayTracingFeatures;
 			rayTracingFeatures.pNext = &deviceAddressFeatures;
 			deviceAddressFeatures.pNext = &scalarBlockLayoutFeatures;
+			scalarBlockLayoutFeatures.pNext = &shaderClockFeatures;
 		}
 
 		vkGetPhysicalDeviceFeatures2(s_PhysicalDevice, &s_Features);

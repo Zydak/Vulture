@@ -197,4 +197,16 @@ namespace Vulture
 
 		return entitiesThatItCollidesWith;
 	}
+
+	Vulture::CameraComponent* Scene::GetMainCamera()
+	{
+		auto view = m_Registry.view<CameraComponent>();
+		for (auto& entity : view)
+		{
+			CameraComponent& camera = m_Registry.get<CameraComponent>(entity);
+			if (camera.Main)
+				return &camera;
+		}
+	}
+
 }

@@ -334,7 +334,7 @@ namespace Vulture
 	void Pipeline::CreateRayTracingPipeline(std::vector<VkRayTracingShaderGroupCreateInfoKHR>& rtShaderGroups, RayTracingPipelineCreateInfo& info)
 	{
 		// All stages
-		std::array<VkPipelineShaderStageCreateInfo, 4> stages{};
+		std::array<VkPipelineShaderStageCreateInfo, 3> stages{};
 		VkPipelineShaderStageCreateInfo stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
 		stage.pName = "main";  // All the same entry point
 		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -353,14 +353,6 @@ namespace Vulture
 			CreateShaderModule(code, &stage.module);
 			stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
 			stages[RayTracingStages::Miss] = stage;
-		}
-
-		// Miss Shadow
-		{
-			auto code = ReadFile("src/shaders/spv/raytraceShadow.rmiss.spv");
-			CreateShaderModule(code, &stage.module);
-			stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
-			stages[RayTracingStages::MissShadow] = stage;
 		}
 
 		// Hit Group - Closest Hit
@@ -388,11 +380,6 @@ namespace Vulture
 		group.generalShader = RayTracingStages::Miss;
 		rtShaderGroups.push_back(group);
 
-		// Miss Shadow
-		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-		group.generalShader = RayTracingStages::MissShadow;
-		rtShaderGroups.push_back(group);
-
 		// closest hit shader
 		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 		group.generalShader = VK_SHADER_UNUSED_KHR;
@@ -410,7 +397,7 @@ namespace Vulture
 		rayPipelineInfo.groupCount = static_cast<uint32_t>(rtShaderGroups.size());
 		rayPipelineInfo.pGroups = rtShaderGroups.data();
 
-		rayPipelineInfo.maxPipelineRayRecursionDepth = 1;  // Ray depth
+		rayPipelineInfo.maxPipelineRayRecursionDepth = 10;  // Ray depth
 		rayPipelineInfo.layout = m_PipelineLayout;
 
 		Device::vkCreateRayTracingPipelinesKHR(Device::GetDevice(), {}, {}, 1, &rayPipelineInfo, nullptr, &m_Pipeline);

@@ -9,10 +9,14 @@ namespace Vulture
 		CreateIndexBuffer(indices);
 	}
 
-	void Mesh::CreateMesh(aiMesh* mesh, const aiScene* scene)
+	void Mesh::CreateMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 mat)
 	{
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
+
+		//aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+		//aiColor3D emissiveColor(0.0f, 0.0f, 0.0f); // Default color
+		//material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor);
 
 		// vertices
 		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
@@ -24,7 +28,7 @@ namespace Vulture
 			vector.x = mesh->mVertices[i].x;
 			vector.y = mesh->mVertices[i].y;
 			vector.z = mesh->mVertices[i].z;
-			vertex.Position = vector;
+			vertex.Position = mat * glm::vec4(vector, 1.0f);
 
 			// normals
 			if (mesh->HasNormals())

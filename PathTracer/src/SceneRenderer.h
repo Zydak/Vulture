@@ -13,6 +13,7 @@ struct PushConstantRay
 {
 	glm::vec4 ClearColor;
 	glm::vec4 LightPosition;
+	int frame;
 };
 
 struct MeshAdresses
@@ -32,6 +33,7 @@ public:
 	void CreateRayTracingUniforms(Vulture::Scene& scene);
 private:
 	void RayTrace(const glm::vec4& clearColor);
+	void ResetFrame();
 
 	void RecreateResources();
 	void FixCameraAspectRatio();
@@ -68,6 +70,8 @@ private:
 	Vulture::RenderPass m_GBufferPass;
 	Vulture::Scene* m_CurrentSceneRendered;
 
+	PushConstantRay m_PcRay{};
+	uint32_t m_SamplesPerPixel = 0;
 
 	// temporary stuff
 	bool m_CircleLight = false;

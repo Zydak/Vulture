@@ -61,7 +61,6 @@ namespace Vulture
 	{
 		Raygen,
 		Miss,
-		MissShadow,
 		ClosestHit
 	};
 

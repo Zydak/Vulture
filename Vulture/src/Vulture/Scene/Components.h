@@ -9,6 +9,8 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 
+#include "Math/Quaternion.h"
+
 #include "Entity.h"
 
 
@@ -160,9 +162,11 @@ namespace Vulture
 
 	class CameraComponent
 	{
+	private:
+		Quaternion Rotation{};
+
 	public:
-		glm::vec3 Translation{0.0f};
-		glm::vec3 Rotation{0.0f};
+		glm::vec3 Translation{ 0.0f };
 		glm::mat4 ProjMat{1.0f};
 		glm::mat4 ViewMat{1.0f};
 		bool Main = false;
@@ -190,10 +194,7 @@ namespace Vulture
 
 		void UpdateViewMatrix()
 		{
-			ViewMat = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			ViewMat = glm::rotate(ViewMat, glm::radians(Rotation.y), glm::vec3(1.0f, 0.0f, 0.0f));
-			ViewMat = glm::rotate(ViewMat, glm::radians(Rotation.x), glm::vec3(0.0f, 1.0f, 0.0f));
-			ViewMat = glm::rotate(ViewMat, glm::radians(Rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+			ViewMat = Rotation.GetMat4();
 			ViewMat = glm::translate(ViewMat, Translation);
 		}
 
@@ -206,6 +207,30 @@ namespace Vulture
 		{
 			return ProjMat * ViewMat;
 		}
+
+		void AddRotation(const glm::vec3& vec)
+		{
+			Rotation.AddAngles(vec);
+		}
+
+		void AddPitch(float pitch)
+		{
+			Rotation.AddPitch(pitch);
+		}
+
+		void AddYaw(float yaw)
+		{
+			Rotation.AddYaw(yaw);
+		}
+
+		void AddRoll(float roll)
+		{
+			Rotation.AddRoll(roll);
+		}
+
+		inline const glm::vec3 GetFrontVec() const { return Rotation.GetFrontVec(); }
+		inline const glm::vec3 GetRightVec() const { return Rotation.GetRightVec(); }
+		inline const glm::vec3 GetUpVec() const { return Rotation.GetUpVec(); }
 	};
 
 	class ColliderComponent

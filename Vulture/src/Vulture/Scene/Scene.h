@@ -12,6 +12,7 @@ namespace Vulture
 	// forward declaration
 	class Entity;
 	class AccelerationStructure;
+	class CameraComponent;
 
 	class Scene
 	{
@@ -55,6 +56,7 @@ namespace Vulture
 		inline entt::registry& GetRegistry() { return m_Registry; }
 		inline std::shared_ptr<TextureAtlas> GetAtlas() { return m_Atlas; }
 		Ref<Window> GetWindow() const { return m_Window; }
+		CameraComponent* GetMainCamera();
 
 	private:
 		AccelerationStructure* m_AccelerationStructure = nullptr;

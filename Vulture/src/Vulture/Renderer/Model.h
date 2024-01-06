@@ -4,6 +4,14 @@
 
 namespace Vulture
 {
+	struct Material
+	{
+		glm::vec4 Color;
+		glm::vec4 Emissive;
+		float Metallic;
+		float Roughness;
+	};
+
 	class Model
 	{
 	public:
@@ -14,10 +22,12 @@ namespace Vulture
 
 		inline uint32_t GetMeshCount() { return (uint32_t)m_Meshes.size(); }
 		inline Mesh& GetMesh(int index) { return *m_Meshes[index]; }
+		inline Material GetMaterial(int index) { return m_Materials[index]; }
 	private:
 		void ProcessNode(aiNode* node, const aiScene* scene, int& index);
 
 		std::vector<Ref<Mesh>> m_Meshes;
+		std::vector<Material> m_Materials;
 	};
 
 }
