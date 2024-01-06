@@ -3,5 +3,8 @@ bin-int/
 .vs/
 **/Vulture/*.vcxproj.*
 **/Vulture/*.vcxproj
-**/Sandbox/*.vcxproj.*
-**/Sandbox/*.vcxproj
+**/2D/*.vcxproj.*
+**/2D/*.vcxproj
+**/PathTracer/*.vcxproj.*
+**/PathTracer/*.vcxproj
+**.sln
