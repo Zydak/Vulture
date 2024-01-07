@@ -81,7 +81,7 @@ namespace Vulture
 
 	void Mesh::CreateVertexBuffer(const std::vector<Vertex>& vertices)
 	{
-		m_VertexCount = static_cast<uint32_t>(vertices.size());
+		m_VertexCount = (uint32_t)vertices.size();
 		VkDeviceSize bufferSize = sizeof(vertices[0]) * m_VertexCount;
 		uint32_t vertexSize = sizeof(vertices[0]);
 
@@ -120,7 +120,7 @@ namespace Vulture
 
 	void Mesh::CreateIndexBuffer(const std::vector<uint32_t>& indices)
 	{
-		m_IndexCount = static_cast<uint32_t>(indices.size());
+		m_IndexCount = (uint32_t)indices.size();
 		m_HasIndexBuffer = m_IndexCount > 0;
 		if (!m_HasIndexBuffer) { return; }
 

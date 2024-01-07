@@ -63,7 +63,7 @@ namespace Vulture
 		renderPassInfo.framebuffer = m_Target->GetFramebuffer();
 		renderPassInfo.renderArea.offset = { 0, 0 };
 		renderPassInfo.renderArea.extent = VkExtent2D{ (uint32_t)extent.x, (uint32_t)extent.y };
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearColors.size());
+		renderPassInfo.clearValueCount = (uint32_t)clearColors.size();
 		renderPassInfo.pClearValues = clearColors.data();
 
 		// Begin the render pass for the current command buffer

@@ -288,7 +288,7 @@ void SceneRenderer::GeometryPass()
 
 	// Bind and draw the quad mesh
 	Vulture::Renderer::GetQuadMesh().Bind(Vulture::Renderer::GetCurrentCommandBuffer());
-	Vulture::Renderer::GetQuadMesh().Draw(Vulture::Renderer::GetCurrentCommandBuffer(), static_cast<uint32_t>(m_StorageBufferTransforms[Vulture::Renderer::GetCurrentFrameIndex()].size()));
+	Vulture::Renderer::GetQuadMesh().Draw(Vulture::Renderer::GetCurrentCommandBuffer(), (uint32_t)m_StorageBufferTransforms[Vulture::Renderer::GetCurrentFrameIndex()].size());
 
 	if (m_StaticObjectsCount)
 	{
@@ -301,7 +301,7 @@ void SceneRenderer::GeometryPass()
 		);
 
 		Vulture::Renderer::GetQuadMesh().Bind(Vulture::Renderer::GetCurrentCommandBuffer());
-		Vulture::Renderer::GetQuadMesh().Draw(Vulture::Renderer::GetCurrentCommandBuffer(), static_cast<uint32_t>(m_StaticObjectsCount));
+		Vulture::Renderer::GetQuadMesh().Draw(Vulture::Renderer::GetCurrentCommandBuffer(), (uint32_t)m_StaticObjectsCount);
 	}
 
 	// Text

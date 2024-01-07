@@ -54,7 +54,7 @@ namespace Vulture
 			VkFramebufferCreateInfo framebufferInfo = {};
 			framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 			framebufferInfo.renderPass = renderPass;
-			framebufferInfo.attachmentCount = static_cast<uint32_t>(m_Attachments.size());
+			framebufferInfo.attachmentCount = (uint32_t)m_Attachments.size();
 			framebufferInfo.pAttachments = m_Attachments.data();
 			framebufferInfo.width = m_Extent.width;
 			framebufferInfo.height = m_Extent.height;

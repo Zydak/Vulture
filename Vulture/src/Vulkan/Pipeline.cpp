@@ -118,8 +118,8 @@ namespace Vulture
 
 		configInfo.Viewport.x = 0.0f;
 		configInfo.Viewport.y = 0.0f;
-		configInfo.Viewport.width = static_cast<float>(width);
-		configInfo.Viewport.height = static_cast<float>(height);
+		configInfo.Viewport.width = (float)width;
+		configInfo.Viewport.height = (float)height;
 		configInfo.Viewport.minDepth = 0.0f;
 		configInfo.Viewport.maxDepth = 1.0f;
 
@@ -380,9 +380,10 @@ namespace Vulture
 		group.generalShader = RayTracingStages::Miss;
 		rtShaderGroups.push_back(group);
 
+		group.generalShader = VK_SHADER_UNUSED_KHR;
+
 		// closest hit shader
 		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-		group.generalShader = VK_SHADER_UNUSED_KHR;
 		group.closestHitShader = RayTracingStages::ClosestHit;
 		rtShaderGroups.push_back(group);
 
@@ -391,13 +392,13 @@ namespace Vulture
 
 		// Assemble the shader stages and recursion depth info into the ray tracing pipeline
 		VkRayTracingPipelineCreateInfoKHR rayPipelineInfo{ VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR };
-		rayPipelineInfo.stageCount = static_cast<uint32_t>(stages.size());  // Stages are shaders
+		rayPipelineInfo.stageCount = (uint32_t)stages.size();  // Stages are shaders
 		rayPipelineInfo.pStages = stages.data();
 
-		rayPipelineInfo.groupCount = static_cast<uint32_t>(rtShaderGroups.size());
+		rayPipelineInfo.groupCount = (uint32_t)rtShaderGroups.size();
 		rayPipelineInfo.pGroups = rtShaderGroups.data();
 
-		rayPipelineInfo.maxPipelineRayRecursionDepth = 10;  // Ray depth
+		rayPipelineInfo.maxPipelineRayRecursionDepth = 1;  // Ray depth
 		rayPipelineInfo.layout = m_PipelineLayout;
 
 		Device::vkCreateRayTracingPipelinesKHR(Device::GetDevice(), {}, {}, 1, &rayPipelineInfo, nullptr, &m_Pipeline);

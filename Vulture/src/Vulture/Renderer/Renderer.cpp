@@ -248,7 +248,7 @@ namespace Vulture
 		renderPassInfo.framebuffer = framebuffer;
 		renderPassInfo.renderArea.offset = { 0, 0 };
 		renderPassInfo.renderArea.extent = VkExtent2D{ (uint32_t)extent.x, (uint32_t)extent.y };
-		renderPassInfo.clearValueCount = static_cast<uint32_t>(clearColors.size());
+		renderPassInfo.clearValueCount = (uint32_t)clearColors.size();
 		renderPassInfo.pClearValues = clearColors.data();
 
 		// Begin the render pass for the current command buffer
@@ -323,7 +323,7 @@ namespace Vulture
 		// Recreate the swapchain
 		if (s_Swapchain == nullptr)
 		{
-			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::VSync);
+			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::Immediate);
 		}
 		else
 		{
@@ -331,7 +331,7 @@ namespace Vulture
 			std::shared_ptr<Swapchain> oldSwapchain = std::move(s_Swapchain);
 
 			// Create a new swapchain using the old one as a reference
-			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::VSync, oldSwapchain);
+			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::Immediate, oldSwapchain);
 
 			// Check if the swap formats are consistent
 			VL_CORE_ASSERT(oldSwapchain->CompareSwapFormats(*s_Swapchain), "Swap chain image or depth formats have changed!");

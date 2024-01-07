@@ -79,6 +79,7 @@ namespace Vulture
 			s_DeviceExtensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME);
 		}
 
 		CreateInstance();
@@ -501,6 +502,9 @@ namespace Vulture
 		VkPhysicalDeviceShaderClockFeaturesKHR shaderClockFeatures = {};
 		shaderClockFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR;
 
+		VkPhysicalDeviceHostQueryResetFeaturesEXT hostQueryResetFeatures = {};
+		hostQueryResetFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT;
+
 		s_Features.pNext = &memoryPriorityFeatures;
 
 		if (s_RayTracingSupport)
@@ -510,6 +514,7 @@ namespace Vulture
 			rayTracingFeatures.pNext = &deviceAddressFeatures;
 			deviceAddressFeatures.pNext = &scalarBlockLayoutFeatures;
 			scalarBlockLayoutFeatures.pNext = &shaderClockFeatures;
+			shaderClockFeatures.pNext = &hostQueryResetFeatures;
 		}
 
 		vkGetPhysicalDeviceFeatures2(s_PhysicalDevice, &s_Features);
@@ -546,7 +551,7 @@ namespace Vulture
 
 		VkDeviceCreateInfo createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+		createInfo.queueCreateInfoCount = (uint32_t)queueCreateInfos.size();
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 		createInfo.pEnabledFeatures = nullptr;
 		createInfo.enabledExtensionCount = (uint32_t)extensions.size();
@@ -555,7 +560,7 @@ namespace Vulture
 
 		if (s_EnableValidationLayers)
 		{
-			createInfo.enabledLayerCount = static_cast<uint32_t>(s_ValidationLayers.size());
+			createInfo.enabledLayerCount = (uint32_t)s_ValidationLayers.size();
 			createInfo.ppEnabledLayerNames = s_ValidationLayers.data();
 		}
 		else { createInfo.enabledLayerCount = 0; }

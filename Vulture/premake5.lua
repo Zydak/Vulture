@@ -76,6 +76,7 @@ project "Vulture"
         defines { "NDEBUG" }
         optimize "speed"
 
-    filter "configurations:Dist"
-        defines { "DIST" }
-        optimize "speed"
+    filter "configurations:Distribution"
+		defines "DISTRIBUTION"
+		runtime "Release"
+		optimize "on"

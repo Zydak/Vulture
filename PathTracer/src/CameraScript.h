@@ -30,9 +30,9 @@ public:
 
 		if (m_OrbitCamera)
 		{
-			cameraComponent.Translation.x = (float)sin(m_Timer * m_MovementSpeed) * 5.0f;
+			cameraComponent.Translation.x = (float)sin(m_Timer * m_MovementSpeed * deltaTime) * 5.0f;
 			cameraComponent.Translation.y = 0.0f;
-			cameraComponent.Translation.z = (float)cos(m_Timer * m_MovementSpeed) * 5.0f;
+			cameraComponent.Translation.z = (float)cos(m_Timer * m_MovementSpeed * deltaTime) * 5.0f;
 
 			glm::vec3 viewDirection = glm::normalize(-cameraComponent.Translation);
 
@@ -45,27 +45,27 @@ public:
 			// Translation
 			if (Vulture::Input::IsKeyPressed(VL_KEY_A))
 			{
-				cameraComponent.Translation += 0.2f * m_MovementSpeed * cameraComponent.GetRightVec();
+				cameraComponent.Translation += (float)deltaTime * m_MovementSpeed * cameraComponent.GetRightVec();
 			}
 			if (Vulture::Input::IsKeyPressed(VL_KEY_D))
 			{
-				cameraComponent.Translation -= 0.2f * m_MovementSpeed * cameraComponent.GetRightVec();
+				cameraComponent.Translation -= (float)deltaTime * m_MovementSpeed * cameraComponent.GetRightVec();
 			}
 			if (Vulture::Input::IsKeyPressed(VL_KEY_W))
 			{
-				cameraComponent.Translation += 0.2f * m_MovementSpeed * cameraComponent.GetFrontVec();
+				cameraComponent.Translation += (float)deltaTime * m_MovementSpeed * cameraComponent.GetFrontVec();
 			}
 			if (Vulture::Input::IsKeyPressed(VL_KEY_S))
 			{
-				cameraComponent.Translation -= 0.2f * m_MovementSpeed * cameraComponent.GetFrontVec();
+				cameraComponent.Translation -= (float)deltaTime * m_MovementSpeed * cameraComponent.GetFrontVec();
 			}
 			if (Vulture::Input::IsKeyPressed(VL_KEY_SPACE))
 			{
-				cameraComponent.Translation -= 0.2f * m_MovementSpeed * cameraComponent.GetUpVec();
+				cameraComponent.Translation -= (float)deltaTime * m_MovementSpeed * cameraComponent.GetUpVec();
 			}
 			if (Vulture::Input::IsKeyPressed(VL_KEY_LEFT_SHIFT))
 			{
-				cameraComponent.Translation += 0.2f * m_MovementSpeed * cameraComponent.GetUpVec();
+				cameraComponent.Translation += (float)deltaTime * m_MovementSpeed * cameraComponent.GetUpVec();
 			}
 
 			// Rotation
@@ -75,23 +75,23 @@ public:
 				// Pitch
 				if (m_LastMousePosition.y != mousePosition.y)
 				{
-					cameraComponent.AddPitch(-(m_LastMousePosition.y - mousePosition.y) * 0.1f);
+					cameraComponent.AddPitch(-(m_LastMousePosition.y - mousePosition.y) * (float)deltaTime * m_RotationSpeed);
 				}
 
 				// Yaw
 				if (m_LastMousePosition.x != mousePosition.x)
 				{
-					cameraComponent.AddYaw(-(m_LastMousePosition.x - mousePosition.x) * 0.1f);
+					cameraComponent.AddYaw(-(m_LastMousePosition.x - mousePosition.x) * (float)deltaTime * m_RotationSpeed);
 				}
 
 				// Roll
 				if (Vulture::Input::IsKeyPressed(VL_KEY_Q))
 				{
-					cameraComponent.AddRoll(-0.5f);
+					cameraComponent.AddRoll(-20.0f * (float)deltaTime * m_RotationSpeed);
 				}
 				if (Vulture::Input::IsKeyPressed(VL_KEY_E))
 				{
-					cameraComponent.AddRoll(0.5f);
+					cameraComponent.AddRoll(20.0f * (float)deltaTime * m_RotationSpeed);
 				}
 			}
 			m_LastMousePosition = mousePosition;
@@ -102,7 +102,8 @@ public:
 	}
 
 	bool m_OrbitCamera = false;
-	float m_MovementSpeed = 0.2f;
+	float m_MovementSpeed = 20.0f;
+	float m_RotationSpeed = 2.0f;
 private:
 	double m_Timer = 0.0;
 	glm::vec2 m_LastMousePosition{0.0f};

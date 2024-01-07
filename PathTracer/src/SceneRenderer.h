@@ -50,10 +50,10 @@ private:
 	void ImGuiPass();
 
 	std::vector<Vulture::Ref<Vulture::Framebuffer>> m_GBufferFramebuffer;
-	std::vector<Vulture::Ref<Vulture::Framebuffer>> m_HDRFramebuffer;
-	std::vector<Vulture::Ref<Vulture::Uniform>> m_HDRUniforms;
+	Vulture::Ref<Vulture::Framebuffer> m_HDRFramebuffer; // we have only one framebuffer for ray tracing
+	Vulture::Ref<Vulture::Uniform> m_HDRUniforms; // we have only one framebuffer for ray tracing
 
-	std::vector<Vulture::Ref<Vulture::Uniform>> m_RayTracingUniforms;
+	Vulture::Ref<Vulture::Uniform> m_RayTracingUniforms; // we have only one uniform for ray tracing
 	std::vector<Vulture::Ref<Vulture::Uniform>> m_GlobalUniforms;
 	Vulture::Pipeline m_RtPipeline;
 	
@@ -72,6 +72,8 @@ private:
 
 	PushConstantRay m_PcRay{};
 	uint32_t m_SamplesPerPixel = 0;
+	float m_Time = 0;
+	Timer m_TotalTimer;
 
 	// temporary stuff
 	bool m_CircleLight = false;

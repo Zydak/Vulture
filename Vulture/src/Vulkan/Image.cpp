@@ -150,7 +150,7 @@ namespace Vulture
 
 		auto buffer = std::make_unique<Buffer>(imageSize, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 		buffer->Map(imageSize);
-		buffer->WriteToBuffer((void*)pixels, static_cast<uint32_t>(imageSize));
+		buffer->WriteToBuffer((void*)pixels, (uint32_t)imageSize);
 		buffer->Unmap();
 
 		stbi_image_free(pixels);
@@ -175,7 +175,7 @@ namespace Vulture
 		range.layerCount = 1;
 
 		Image::TransitionImageLayout(m_Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, range);
-		CopyBufferToImage(buffer->GetBuffer(), static_cast<uint32_t>(m_Size.x), static_cast<uint32_t>(m_Size.y));
+		CopyBufferToImage(buffer->GetBuffer(), (uint32_t)m_Size.x, (uint32_t)m_Size.y);
 
 		Image::TransitionImageLayout(m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 

@@ -1,5 +1,5 @@
 workspace "Vulture"
-    configurations { "Debug", "Release", "Dist" }
+    configurations { "Debug", "Release", "Distribution" }
     platforms { "Windows", "Linux" }
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"

@@ -41,7 +41,7 @@ namespace Vulture
 
 		VkDescriptorSetLayoutCreateInfo descriptorSetLayoutInfo{};
 		descriptorSetLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		descriptorSetLayoutInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+		descriptorSetLayoutInfo.bindingCount = (uint32_t)setLayoutBindings.size();
 		descriptorSetLayoutInfo.pBindings = setLayoutBindings.data();
 
 		VL_CORE_RETURN_ASSERT(vkCreateDescriptorSetLayout(Device::GetDevice(), &descriptorSetLayoutInfo, nullptr, &m_DescriptorSetLayout), 
@@ -99,7 +99,7 @@ namespace Vulture
 	{
 		VkDescriptorPoolCreateInfo descriptorPoolInfo{};
 		descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(builder.m_PoolSizes.size());
+		descriptorPoolInfo.poolSizeCount = (uint32_t)builder.m_PoolSizes.size();
 		descriptorPoolInfo.pPoolSizes = builder.m_PoolSizes.data();
 		descriptorPoolInfo.maxSets = builder.m_MaxSets;
 		descriptorPoolInfo.flags = builder.m_PoolFlags;

@@ -16,6 +16,7 @@ SceneRenderer::SceneRenderer()
 	CreatePipelines();
 
 	Vulture::Renderer::RenderImGui([this](){ImGuiPass(); });
+	m_TotalTimer.Reset();
 }
 
 SceneRenderer::~SceneRenderer()
@@ -30,9 +31,9 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 	if (Vulture::Renderer::BeginFrame())
 	{
 		UpdateUniformData();
-		RayTrace(glm::vec4(0.25f));
+		RayTrace(glm::vec4(0.1f));
 
-		Vulture::Renderer::FramebufferCopyPass(&(*m_HDRUniforms[Vulture::Renderer::GetCurrentFrameIndex()]));
+		Vulture::Renderer::FramebufferCopyPass(&(*m_HDRUniforms));
 
 		if (!Vulture::Renderer::EndFrame())
 			RecreateResources();
@@ -66,12 +67,19 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 	}
 	else
 	{
+		if (m_SamplesPerPixel > 65'000)
+		{
+			return;
+		}
+
 		m_PcRay.frame++;
 		m_SamplesPerPixel += 15;
 	}
+	
+	m_Time = m_TotalTimer.ElapsedSeconds();
 
 	m_RtPipeline.Bind(Vulture::Renderer::GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
-	m_RayTracingUniforms[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
+	m_RayTracingUniforms->Bind(
 		0,
 		m_RtPipeline.GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
@@ -94,8 +102,8 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 		&m_MissRegion, 
 		&m_HitRegion, 
 		&m_CallRegion,
-		(uint32_t)m_HDRFramebuffer[0]->GetExtent().x,
-		(uint32_t)m_HDRFramebuffer[0]->GetExtent().y,
+		(uint32_t)m_HDRFramebuffer->GetExtent().x,
+		(uint32_t)m_HDRFramebuffer->GetExtent().y,
 		1
 	);
 }
@@ -104,6 +112,7 @@ void SceneRenderer::ResetFrame()
 {
 	m_PcRay.frame = -1;
 	m_SamplesPerPixel = 0;
+	m_TotalTimer.Reset();
 }
 
 void SceneRenderer::RecreateResources()
@@ -298,37 +307,34 @@ void SceneRenderer::CreateRenderPasses()
 
 void SceneRenderer::CreateUniforms()
 {
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_HDRUniforms.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
-		m_HDRUniforms[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
+		m_HDRUniforms = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
+		m_HDRUniforms->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer->GetColorImageView(0),
 			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_FRAGMENT_BIT
 		);
-		m_HDRUniforms[i]->Build();
+		m_HDRUniforms->Build();
 	}
 }
 
 void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 {
-	m_RayTracingUniforms.clear();
 	m_GlobalUniforms.clear();
 
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_RayTracingUniforms.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
+		m_RayTracingUniforms = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
 
 		VkAccelerationStructureKHR tlas = scene.GetAccelerationStructure()->GetTlas().Accel;
 		VkWriteDescriptorSetAccelerationStructureKHR asInfo{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR };
 		asInfo.accelerationStructureCount = 1;
 		asInfo.pAccelerationStructures = &tlas;
 
-		m_RayTracingUniforms[i]->AddAccelerationStructure(0, asInfo);
-		m_RayTracingUniforms[i]->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
+		m_RayTracingUniforms->AddAccelerationStructure(0, asInfo);
+		m_RayTracingUniforms->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer->GetColorImageView(0),
 			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_RAYGEN_BIT_KHR, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-		m_RayTracingUniforms[i]->AddStorageBuffer(2, sizeof(MeshAdresses) * 100, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
-		m_RayTracingUniforms[i]->AddStorageBuffer(3, sizeof(Vulture::Material) * 100, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
+		m_RayTracingUniforms->AddStorageBuffer(2, sizeof(MeshAdresses) * 100, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
+		m_RayTracingUniforms->AddStorageBuffer(3, sizeof(Vulture::Material) * 100, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
 
-		m_RayTracingUniforms[i]->Build();
+		m_RayTracingUniforms->Build();
 	}
 
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
@@ -367,11 +373,11 @@ void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 		if (!meshSizes)
 			VL_CORE_ASSERT(false, "No meshes found?");
 
-		m_RayTracingUniforms[i]->GetBuffer(2)->WriteToBuffer(meshAddresses.data(), meshSizes, 0);
-		m_RayTracingUniforms[i]->GetBuffer(3)->WriteToBuffer(materials.data(), materialSizes, 0);
+		m_RayTracingUniforms->GetBuffer(2)->WriteToBuffer(meshAddresses.data(), meshSizes, 0);
+		m_RayTracingUniforms->GetBuffer(3)->WriteToBuffer(materials.data(), materialSizes, 0);
 
-		m_RayTracingUniforms[i]->GetBuffer(2)->Flush(meshSizes, 0);
-		m_RayTracingUniforms[i]->GetBuffer(3)->Flush(materialSizes, 0);
+		m_RayTracingUniforms->GetBuffer(2)->Flush(meshSizes, 0);
+		m_RayTracingUniforms->GetBuffer(3)->Flush(materialSizes, 0);
 	}
 
 	CreateRayTracingPipeline();
@@ -380,19 +386,16 @@ void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 
 void SceneRenderer::RecreateUniforms()
 {
-	m_HDRUniforms.clear();
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_HDRUniforms.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
-		m_HDRUniforms[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
+		m_HDRUniforms = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
+		m_HDRUniforms->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer->GetColorImageView(0),
 			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_FRAGMENT_BIT
 		);
-		m_HDRUniforms[i]->Build();
+		m_HDRUniforms->Build();
 	}
 
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_RayTracingUniforms[i]->UpdateImageSampler(1, m_HDRFramebuffer[i]->GetColorImageView(0), Vulture::Renderer::GetSampler().GetSampler(),
+		m_RayTracingUniforms->UpdateImageSampler(1, m_HDRFramebuffer->GetColorImageView(0), Vulture::Renderer::GetSampler().GetSampler(),
 			VK_IMAGE_LAYOUT_GENERAL);
 	}
 }
@@ -421,7 +424,7 @@ void SceneRenderer::CreateRayTracingPipeline()
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts
 		{
-			m_RayTracingUniforms[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
+			m_RayTracingUniforms->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
 			m_GlobalUniforms[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout()
 		};
 		info.UniformSetLayouts = layouts;
@@ -432,9 +435,9 @@ void SceneRenderer::CreateRayTracingPipeline()
 
 void SceneRenderer::CreateShaderBindingTable()
 {
-	uint32_t missCount{ 1 };
-	uint32_t hitCount{ 1 };
-	auto     handleCount = 1 + missCount + hitCount;
+	uint32_t missCount = 1;
+	uint32_t hitCount = 1;
+	uint32_t handleCount = 1 + missCount + hitCount;
 	uint32_t handleSize = Vulture::Device::GetRayTracingProperties().shaderGroupHandleSize;
 
 	uint32_t handleSizeAligned = (uint32_t)Vulture::Device::GetAlignment(handleSize, Vulture::Device::GetRayTracingProperties().shaderGroupHandleAlignment);
@@ -452,14 +455,22 @@ void SceneRenderer::CreateShaderBindingTable()
 	uint32_t             dataSize = handleCount * handleSize;
 	std::vector<uint8_t> handles(dataSize);
 	auto result = Vulture::Device::vkGetRayTracingShaderGroupHandlesKHR(Vulture::Device::GetDevice(), m_RtPipeline.GetPipeline(), 0, handleCount, dataSize, handles.data());
-	assert(result == VK_SUCCESS);
+	VL_CORE_ASSERT(result == VK_SUCCESS, "Failed to get shader group handles!");
 
 	// Allocate a buffer for storing the SBT.
 	VkDeviceSize sbtSize = m_RgenRegion.size + m_MissRegion.size + m_HitRegion.size + m_CallRegion.size;
-	m_RtSBTBuffer = std::make_shared<Vulture::Buffer>(sbtSize, 1,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-		| VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+	Vulture::Ref<Vulture::Buffer> StagingBuffer = std::make_shared<Vulture::Buffer>(
+		sbtSize,
+		1,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
+	m_RtSBTBuffer = std::make_shared<Vulture::Buffer>(
+		sbtSize,
+		1,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
 	// Find the SBT addresses of each group
@@ -470,10 +481,10 @@ void SceneRenderer::CreateShaderBindingTable()
 	auto getHandle = [&](int i) { return handles.data() + i * handleSize; };
 
 	// TODO maybe use WriteToBuffer?
-	m_RtSBTBuffer->Map();
-	uint8_t* pSBTBuffer = reinterpret_cast<uint8_t*>(m_RtSBTBuffer->GetMappedMemory());
-	uint8_t* pData{ nullptr };
-	uint32_t handleIdx{ 0 };
+	StagingBuffer->Map();
+	uint8_t* pSBTBuffer = reinterpret_cast<uint8_t*>(StagingBuffer->GetMappedMemory());
+	uint8_t* pData = nullptr;
+	uint32_t handleIdx = 0;
 
 	// Ray gen
 	pData = pSBTBuffer;
@@ -498,21 +509,22 @@ void SceneRenderer::CreateShaderBindingTable()
 		pData += m_HitRegion.stride;
 	}
 
-	m_RtSBTBuffer->Unmap();
+	// Copy the shader binding table to the device local buffer
+	Vulture::Buffer::CopyBuffer(StagingBuffer->GetBuffer(), m_RtSBTBuffer->GetBuffer(), sbtSize, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetCommandPool());
+	
+	StagingBuffer->Unmap();
 }
 
 void SceneRenderer::CreateFramebuffers()
 {
-	m_HDRFramebuffer.clear();
 	m_GBufferFramebuffer.clear();
 
 	// HDR
 	{
 		std::vector<Vulture::FramebufferAttachment> attachments{ Vulture::FramebufferAttachment::ColorRGBA16 };
-		for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			m_HDRFramebuffer.push_back(std::make_unique<Vulture::Framebuffer>(attachments, m_HDRPass.GetRenderPass(), Vulture::Renderer::GetSwapchain().GetSwapchainExtent(), Vulture::Swapchain::FindDepthFormat(), 1, Vulture::ImageType::Image2D, VK_IMAGE_USAGE_STORAGE_BIT));
-			Vulture::Image::TransitionImageLayout(m_HDRFramebuffer[i]->GetColorImage(0), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+			m_HDRFramebuffer = std::make_shared<Vulture::Framebuffer>(attachments, m_HDRPass.GetRenderPass(), Vulture::Renderer::GetSwapchain().GetSwapchainExtent(), Vulture::Swapchain::FindDepthFormat(), 1, Vulture::ImageType::Image2D, VK_IMAGE_USAGE_STORAGE_BIT);
+			Vulture::Image::TransitionImageLayout(m_HDRFramebuffer->GetColorImage(0), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 		}
 	}
 
@@ -560,7 +572,7 @@ void SceneRenderer::ImGuiPass()
 
 	ImGui::Begin("Settings");
 
-	ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.Elapsed());
+	ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.ElapsedSeconds());
 	m_Timer.Reset();
 
 	ImGui::Separator();
@@ -584,7 +596,8 @@ void SceneRenderer::ImGuiPass()
 						comp.Translation = glm::vec3(0.0f, 0.0f, -10.0f);
 					}
 
-					ImGui::SliderFloat("Movement Speed", &camScript->m_MovementSpeed, 0.0f, 1.0f);
+					ImGui::SliderFloat("Movement Speed", &camScript->m_MovementSpeed, 0.0f, 20.0f);
+					ImGui::SliderFloat("Rotation Speed", &camScript->m_RotationSpeed, 0.0f, 4.0f);
 				}
 			}
 
@@ -597,6 +610,7 @@ void SceneRenderer::ImGuiPass()
 
 	ImGui::Separator();
 	ImGui::Text("Samples Per Pixel: %i", m_SamplesPerPixel);
+	ImGui::Text("Time: %fs", m_Time);
 
 	ImGui::End();
 	ImGui::Render();

@@ -41,7 +41,7 @@ namespace Vulture
 			m_Window->PollEvents();
 
 			OnUpdate(deltaTime);
-			deltaTime = timer.Elapsed();
+			deltaTime = timer.ElapsedSeconds();
 		}
 
 		Renderer::Destroy();

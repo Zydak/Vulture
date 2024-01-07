@@ -5,65 +5,85 @@
 
 namespace Vulture
 {
+	/**
+	 * @brief Converts a mesh to AccelerationStructure input data.
+	 *
+	 * This function takes a Mesh object and extracts device addresses of the vertex
+	 * and index buffers, then constructs AccelerationStructure input data.
+	 *
+	 * @param mesh - Input Mesh object to convert.
+	 * @return BlasInput - AccelerationStructure input data generated from the mesh.
+	 */
 	BlasInput AccelerationStructure::MeshToGeometry(Mesh& mesh)
 	{
-		// BLAS builder requires raw device addresses.
+		// Get device addresses of the vertex and index buffers
 		VkDeviceAddress vertexAddress = mesh.GetVertexBuffer()->GetDeviceAddress();
 		VkDeviceAddress indexAddress = mesh.GetIndexBuffer()->GetDeviceAddress();
 
-		uint32_t maxPrimitiveCount = mesh.GetIndexCount() / 3;
+		uint32_t primitiveCount = mesh.GetIndexCount() / 3;
 
 		// Describe buffer as array of Mesh::Vertex.
 		VkAccelerationStructureGeometryTrianglesDataKHR triangles{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR };
-		triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;  // vec4 vertex position data.
+		triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
 		triangles.vertexData.deviceAddress = vertexAddress;
 		triangles.vertexStride = sizeof(Mesh::Vertex);
 		triangles.indexType = VK_INDEX_TYPE_UINT32;
 		triangles.indexData.deviceAddress = indexAddress;
-		//triangles.transformData = {};
+		triangles.transformData = {};
 		triangles.maxVertex = mesh.GetVertexCount() - 1;
 
-		// Identify the above data as containing opaque triangles.
-		VkAccelerationStructureGeometryKHR asGeom{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
-		asGeom.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
-		asGeom.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
-		asGeom.geometry.triangles = triangles;
+		// Identify the above data as opaque triangles.
+		VkAccelerationStructureGeometryKHR asGeometry{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
+		asGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+		asGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+		asGeometry.geometry.triangles = triangles;
 
 		// The entire array will be used to build the BLAS.
-		VkAccelerationStructureBuildRangeInfoKHR offset{};
-		offset.firstVertex = 0;
-		offset.primitiveCount = maxPrimitiveCount;
-		offset.primitiveOffset = 0;
-		offset.transformOffset = 0;
+		VkAccelerationStructureBuildRangeInfoKHR range{};
+		range.firstVertex = 0;
+		range.primitiveCount = primitiveCount;
+		range.primitiveOffset = 0;
+		range.transformOffset = 0;
 
 		// Our blas is made from only one geometry, but could be made of many geometries
 		BlasInput input{};
-		input.AsGeometry.emplace_back(asGeom);
-		input.AsOffset.emplace_back(offset);
+		input.AsGeometry.emplace_back(asGeometry);
+		input.AsRange.emplace_back(range);
 
+		// Return the generated AccelerationStructure input data.
 		return input;
 	}
 
+	/**
+	 * @brief Creates bottom-level acceleration structures (BLAS) from given indices of blases.
+	 *
+	 * @param cmdBuf - Vulkan command buffer where acceleration structures will be built.
+	 * @param indices - Vector of indices specifying the builds to be performed.
+	 * @param buildAs - Vector of BuildAccelerationStructure objects containing build information.
+	 * @param scratchAddress - Device address of the scratch memory used during acceleration structure builds.
+	 * @param queryPool (Optional) - Vulkan query pool for measuring compaction size. Pass nullptr if not needed.
+	 */
 	void AccelerationStructure::CmdCreateBlas(VkCommandBuffer cmdBuf, std::vector<uint32_t> indices, std::vector<BuildAccelerationStructure>& buildAs, VkDeviceAddress scratchAddress, VkQueryPool queryPool)
 	{
 		if (queryPool)  // For querying the compaction size
-			vkResetQueryPool(Device::GetDevice(), queryPool, 0, static_cast<uint32_t>(indices.size()));
-		uint32_t queryCnt{ 0 };
+		{
+			vkResetQueryPool(Device::GetDevice(), queryPool, 0, (uint32_t)indices.size());
+		}
+		uint32_t queryCount = 0;
 
-		for (const auto& idx : indices)
+		for (const auto& i : indices)
 		{
 			// Actual allocation of buffer and acceleration structure.
 			VkAccelerationStructureCreateInfoKHR createInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR };
 			createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-			createInfo.size = buildAs[idx].SizeInfo.accelerationStructureSize;  // Will be used to allocate memory.
-			CreateAcceleration(createInfo, buildAs[idx].As);
+			createInfo.size = buildAs[i].SizeInfo.accelerationStructureSize;
+			CreateAcceleration(createInfo, buildAs[i].As);
 
-			// BuildInfo #2 part
-			buildAs[idx].BuildInfo.dstAccelerationStructure = buildAs[idx].As.Accel;  // Setting where the build lands
-			buildAs[idx].BuildInfo.scratchData.deviceAddress = scratchAddress;  // All builds are using the same scratch buffer
+			buildAs[i].BuildInfo.dstAccelerationStructure = buildAs[i].As.Accel;  // Setting where the build lands
+			buildAs[i].BuildInfo.scratchData.deviceAddress = scratchAddress;  // All builds are using the same scratch buffer
 
 			// Building the bottom-level-acceleration-structure
-			Device::vkCmdBuildAccelerationStructuresKHR(cmdBuf, 1, &buildAs[idx].BuildInfo, &buildAs[idx].RangeInfo);
+			Device::vkCmdBuildAccelerationStructuresKHR(cmdBuf, 1, &buildAs[i].BuildInfo, &buildAs[i].RangeInfo);
 
 			// Since the scratch buffer is reused across builds, we need a barrier to ensure one build
 			// is finished before starting the next one.
@@ -75,43 +95,73 @@ namespace Vulture
 
 			if (queryPool)
 			{
-				// Add a query to find the 'real' amount of memory needed, use for compaction
-				Device::vkCmdWriteAccelerationStructuresPropertiesKHR(cmdBuf, 1, &buildAs[idx].BuildInfo.dstAccelerationStructure,
-					VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, queryPool, queryCnt);
-				queryCnt++;
+				// Add a query to find the 'real' amount of memory needed
+				Device::vkCmdWriteAccelerationStructuresPropertiesKHR(cmdBuf, 1, &buildAs[i].BuildInfo.dstAccelerationStructure,
+					VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR, queryPool, queryCount);
+				queryCount++;
 			}
 		}
 	}
 
+	/**
+	 * @brief Compacts bottom-level acceleration structures (BLAS).
+	 *
+	 * This function compacts the BLAS by creating a new compact version and copying
+	 * the original BLAS to the compact version.
+	 *
+	 * @param cmdBuf The Vulkan command buffer where acceleration structures will be compacted.
+	 * @param indices A vector of indices specifying the builds to be compacted.
+	 * @param buildAs A vector of BuildAccelerationStructure objects containing build information.
+	 * @param queryPool Vulkan query pool used for retrieving compacted sizes.
+	 */
 	void AccelerationStructure::CmdCompactBlas(VkCommandBuffer cmdBuf, std::vector<uint32_t> indices, std::vector<BuildAccelerationStructure>& buildAs, VkQueryPool queryPool)
 	{
-		uint32_t queryCtn{ 0 };
+		uint32_t queryCount = 0;
 
 		// Get the compacted size result back
-		std::vector<VkDeviceSize> compactSizes(static_cast<uint32_t>(indices.size()));
-		vkGetQueryPoolResults(Device::GetDevice(), queryPool, 0, (uint32_t)compactSizes.size(), compactSizes.size() * sizeof(VkDeviceSize),
-			compactSizes.data(), sizeof(VkDeviceSize), VK_QUERY_RESULT_WAIT_BIT);
+		std::vector<VkDeviceSize> compactSizes((uint32_t)indices.size());
+		vkGetQueryPoolResults(
+			Device::GetDevice(),
+			queryPool,
+			0,
+			(uint32_t)compactSizes.size(),
+			compactSizes.size() * sizeof(VkDeviceSize),
+			compactSizes.data(),
+			sizeof(VkDeviceSize),
+			VK_QUERY_RESULT_WAIT_BIT
+		);
 
-		for (auto idx : indices)
+		for (auto i : indices)
 		{
-			buildAs[idx].CleanupAs = buildAs[idx].As;           // previous AS to destroy
-			buildAs[idx].SizeInfo.accelerationStructureSize = compactSizes[queryCtn++];  // new reduced size
+			buildAs[i].CleanupAs = buildAs[i].As; // previous AS to destroy
+			buildAs[i].SizeInfo.accelerationStructureSize = compactSizes[queryCount]; // new reduced size
+			queryCount++;
 
 			// Creating a compact version of the AS
 			VkAccelerationStructureCreateInfoKHR asCreateInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR };
-			asCreateInfo.size = buildAs[idx].SizeInfo.accelerationStructureSize;
+			asCreateInfo.size = buildAs[i].SizeInfo.accelerationStructureSize;
 			asCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-			CreateAcceleration(asCreateInfo, buildAs[idx].As);
+			CreateAcceleration(asCreateInfo, buildAs[i].As);
 
 			// Copy the original BLAS to a compact version
 			VkCopyAccelerationStructureInfoKHR copyInfo{ VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR };
-			copyInfo.src = buildAs[idx].BuildInfo.dstAccelerationStructure;
-			copyInfo.dst = buildAs[idx].As.Accel;
+			copyInfo.src = buildAs[i].BuildInfo.dstAccelerationStructure;
+			copyInfo.dst = buildAs[i].As.Accel;
 			copyInfo.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR;
 			Device::vkCmdCopyAccelerationStructureKHR(cmdBuf, &copyInfo);
 		}
 	}
 
+	/**
+	 * @brief Builds or updates a Top-Level Acceleration Structure (TLAS).
+	 *
+	 * @param cmdBuf - Vulkan command buffer in which the TLAS will be built or updated.
+	 * @param instanceCount - Number of instances in the TLAS.
+	 * @param instanceBufferAddr - Device address of the buffer containing the instance data.
+	 * @param scratchBuffer - Buffer used for temporary storage during the TLAS build process.
+	 * @param flags - Flags specifying acceleration structure build options.
+	 * @param update - Flag indicating whether to update an existing TLAS (true) or create a new one (false).
+	 */
 	void AccelerationStructure::CmdCreateTlas(VkCommandBuffer cmdBuf, uint32_t instanceCount, VkDeviceAddress instanceBufferAddr, Ref<Buffer> scratchBuffer, VkBuildAccelerationStructureFlagsKHR flags, bool update)
 	{
 		// Wraps a device pointer to the above uploaded instances.
@@ -161,18 +211,36 @@ namespace Vulture
 		Device::vkCmdBuildAccelerationStructuresKHR(cmdBuf, 1, &buildInfo, &pBuildOffsetInfo);
 	}
 
+	/**
+	 * @brief Creates a Vulkan acceleration structure based on the provided creation information.
+	 *
+	 * @param createInfo - Vulkan acceleration structure creation information.
+	 * @param As - AccelKHR object representing the acceleration structure and associated buffer.
+	 */
 	void AccelerationStructure::CreateAcceleration(VkAccelerationStructureCreateInfoKHR& createInfo, AccelKHR& As)
 	{
-		As.Buffer = std::make_shared<Buffer>(createInfo.size, 1, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR
-			| VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 128);
-		// TODO alignment size
+		// Create a Vulkan buffer for the acceleration structure
+		As.Buffer = std::make_shared<Buffer>(
+			createInfo.size,
+			1,
+			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment
+		);
 
 		// Setting the buffer
 		createInfo.buffer = As.Buffer->GetBuffer();
+
 		// Create the acceleration structure
 		Device::vkCreateAccelerationStructureKHR(Device::GetDevice(), &createInfo, &As.Accel);
 	}
 
+	/**
+	 * @brief Destroys non-compacted Acceleration Structures (AS) with provided indices.
+	 * 
+	 * @param indices - Vector of indices specifying the non-compacted Acceleration Structures to destroy.
+	 * @param buildAs - Vector of BuildAccelerationStructure objects containing build information.
+	 */
 	void AccelerationStructure::DestroyNonCompacted(std::vector<uint32_t> indices, std::vector<BuildAccelerationStructure>& buildAs)
 	{
 		for (auto& i : indices)
@@ -181,11 +249,22 @@ namespace Vulture
 		}
 	}
 
+	/**
+	 * @brief Retrieves the device address of a Bottom-Level Acceleration Structure (BLAS) by index.
+	 *
+	 * @param blasID - Index of the BLAS for which to retrieve the device address.
+	 * @return VkDeviceAddress - Device address of the specified BLAS.
+	 */
 	VkDeviceAddress AccelerationStructure::GetBlasDeviceAddress(uint32_t blasID)
 	{
+		// Ensure the provided BLAS index is within valid range
 		VL_CORE_ASSERT(blasID < m_Blas.size(), "There is no such index");
+
+		// Set up acceleration structure device address information
 		VkAccelerationStructureDeviceAddressInfoKHR addressInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR };
 		addressInfo.accelerationStructure = m_Blas[blasID].As.Accel;
+
+		// Retrieve and return the device address of the specified BLAS
 		return Device::vkGetAccelerationStructureDeviceAddressKHR(Device::GetDevice(), &addressInfo);
 	}
 
@@ -195,6 +274,11 @@ namespace Vulture
 		CreateTopLevelAS(scene);
 	}
 
+	/**
+	 * @brief Creates a Top-Level Acceleration Structure (TLAS) for a scene.
+	 *
+	 * @param scene - Scene object containing entities with ModelComponent and TransformComponent.
+	 */
 	void AccelerationStructure::CreateTopLevelAS(Scene& scene)
 	{
 		std::vector<VkAccelerationStructureInstanceKHR> tlas;
@@ -206,19 +290,18 @@ namespace Vulture
 
 			for (int i = 0; i < (int)modelComponent.Model.GetMeshCount(); i++)
 			{
-				VkAccelerationStructureInstanceKHR rayInst{};
-				rayInst.transform = transformComponent.transform.GetKhrMat();
-				rayInst.instanceCustomIndex = meshCount;
-				rayInst.accelerationStructureReference = GetBlasDeviceAddress(meshCount);
-				rayInst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
-				rayInst.mask = 0xFF;
-				rayInst.instanceShaderBindingTableRecordOffset = 0;
-				tlas.emplace_back(rayInst);
+				VkAccelerationStructureInstanceKHR instance{};
+				instance.transform = transformComponent.transform.GetKhrMat();
+				instance.instanceCustomIndex = meshCount;
+				instance.accelerationStructureReference = GetBlasDeviceAddress(meshCount);
+				instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR; // VK_GEOMETRY_INSTANCE_TRIANGLE_FRONT_COUNTERCLOCKWISE_BIT_KHR
+				instance.mask = 0xFF;
+				instance.instanceShaderBindingTableRecordOffset = 0;
+				tlas.emplace_back(instance);
 				meshCount++;
 			}
 		}
 
-		//VL_CORE_ASSERT(m_tlas.accel == VK_NULL_HANDLE || update, "Cannot call buildTlas twice except to update");
 		uint32_t instanceCount = (uint32_t)tlas.size();
 
 		Ref<Buffer> stagingBuffer = std::make_shared<Buffer>(instanceCount * sizeof(VkAccelerationStructureInstanceKHR), 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment);
@@ -247,11 +330,17 @@ namespace Vulture
 		stagingBuffer->Unmap();
 	}
 
+	/**
+	 * @brief Creates Bottom-Level Acceleration Structures (BLAS) for each model in the scene.
+	 *
+	 * @param scene - Scene object containing entities with ModelComponent and TransformComponent.
+	 */
 	void AccelerationStructure::CreateBottomLevelAS(Scene& scene)
 	{
 		// BLAS - Storing each primitive in a geometry
-		std::vector<BlasInput> allBlas;
+		std::vector<BlasInput> blases;
 
+		// Retrieve view of entities with ModelComponent and TransformComponent
 		auto view = scene.GetRegistry().view<ModelComponent, TransformComponent>();
 		for (auto entity : view)
 		{
@@ -261,74 +350,81 @@ namespace Vulture
 			{
 				BlasInput blas = MeshToGeometry(modelComponent.Model.GetMesh(i));
 
-				allBlas.emplace_back(blas);
+				blases.emplace_back(blas);
 			}
 		}
 
-		uint32_t     nbBlas = static_cast<uint32_t>(allBlas.size());
-		VkDeviceSize totalSize{ 0 };     // Memory size of all allocated BLAS
-		uint32_t     nbCompactions{ 0 };   // Nb of BLAS requesting compaction
-		VkDeviceSize maxScratchSize{ 0 };  // Largest scratch size
+		uint32_t     blasCount = (uint32_t)blases.size();
+		VkDeviceSize totalSize = 0; // Memory size of all allocated BLASes
+		uint32_t     compactionsCount = 0; // Number of BLAS requesting compaction
+		VkDeviceSize scratchSize = 0;
 
-		std::vector<BuildAccelerationStructure> buildAs(nbBlas);
-		for (uint32_t idx = 0; idx < nbBlas; idx++)
+		std::vector<BuildAccelerationStructure> buildAs(blasCount);
+		for (uint32_t i = 0; i < blasCount; i++)
 		{
 			// Filling partially the VkAccelerationStructureBuildGeometryInfoKHR for querying the build sizes.
-			// Other information will be filled in the createBlas (see #2)
-			buildAs[idx].BuildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-			buildAs[idx].BuildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-			buildAs[idx].BuildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-			buildAs[idx].BuildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-			buildAs[idx].BuildInfo.geometryCount = static_cast<uint32_t>(allBlas[idx].AsGeometry.size());
-			buildAs[idx].BuildInfo.pGeometries = allBlas[idx].AsGeometry.data();
+			buildAs[i].BuildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+			buildAs[i].BuildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+			buildAs[i].BuildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+			buildAs[i].BuildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+			buildAs[i].BuildInfo.geometryCount = (uint32_t)blases[i].AsGeometry.size();
+			buildAs[i].BuildInfo.pGeometries = blases[i].AsGeometry.data();
 
 			// Build range information
-			buildAs[idx].RangeInfo = allBlas[idx].AsOffset.data();
+			buildAs[i].RangeInfo = blases[i].AsRange.data();
 
 			// Build size information
-			buildAs[idx].SizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+			buildAs[i].SizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 
-			// Finding sizes to create acceleration structures and scratch
-			std::vector<uint32_t> maxPrimCount(allBlas[idx].AsOffset.size());
-			for (auto tt = 0; tt < allBlas[idx].AsOffset.size(); tt++)
-				maxPrimCount[tt] = allBlas[idx].AsOffset[tt].primitiveCount;  // Number of primitives/triangles
-			Device::vkGetAccelerationStructureBuildSizesKHR(Device::GetDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-				&buildAs[idx].BuildInfo, maxPrimCount.data(), &buildAs[idx].SizeInfo);
+			// Finding sizes to create acceleration structures
+			std::vector<uint32_t> trianglesCount(blases[i].AsRange.size());
+			for (uint32_t j = 0; j < blases[i].AsRange.size(); j++)
+			{
+				trianglesCount[j] = blases[i].AsRange[j].primitiveCount;  // Number of primitives/triangles
+			}
+
+			Device::vkGetAccelerationStructureBuildSizesKHR(
+				Device::GetDevice(), 
+				VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+				&buildAs[i].BuildInfo, 
+				trianglesCount.data(),
+				&buildAs[i].SizeInfo
+			);
 
 			// Extra info
-			totalSize += buildAs[idx].SizeInfo.accelerationStructureSize;
-			maxScratchSize = std::max(maxScratchSize, buildAs[idx].SizeInfo.buildScratchSize);
-			if ((buildAs[idx].BuildInfo.flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR) != 0)
+			totalSize += buildAs[i].SizeInfo.accelerationStructureSize;
+			scratchSize = std::max(scratchSize, buildAs[i].SizeInfo.buildScratchSize);
+			if ((buildAs[i].BuildInfo.flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR) != 0)
 			{
-				nbCompactions++;
+				compactionsCount++;
 			}
 		}
 
 		// Allocate the scratch buffers holding the temporary data of the acceleration structure builder
-		Ref<Buffer> scratchBuffer = std::make_shared<Buffer>(maxScratchSize, 1, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment);
+		Ref<Buffer> scratchBuffer = std::make_shared<Buffer>(scratchSize, 1, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment);
 		VkDeviceAddress scratchAddress = scratchBuffer->GetDeviceAddress();
 
 		// Allocate a query pool for storing the needed size for every BLAS compaction.
-		VkQueryPool queryPool{ VK_NULL_HANDLE };
-		if (nbCompactions > 0)  // Is compaction requested?
+		VkQueryPool queryPool = VK_NULL_HANDLE;
+		if (compactionsCount > 0)  // Is compaction requested?
 		{
-			VL_CORE_ASSERT(nbCompactions == nbBlas, "Don't allow mix of on/off compaction");
+			VL_CORE_ASSERT(compactionsCount == blasCount, "Don't allow mix of on/off compaction");
 			VkQueryPoolCreateInfo qpci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
-			qpci.queryCount = nbBlas;
+			qpci.queryCount = blasCount;
 			qpci.queryType = VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR;
 			vkCreateQueryPool(Device::GetDevice(), &qpci, nullptr, &queryPool);
 		}
 
 		// Batching creation/compaction of BLAS to allow staying in restricted amount of memory
 		std::vector<uint32_t> indices;  // Indices of the BLAS to create
-		VkDeviceSize          batchSize{ 0 };
-		VkDeviceSize          batchLimit{ 256'000'000 };  // 256 MB
-		for (uint32_t idx = 0; idx < nbBlas; idx++)
+		VkDeviceSize          batchSize = 0;
+		VkDeviceSize          batchLimit = 256'000'000;  // 256 MB
+		for (uint32_t i = 0; i < blasCount; i++)
 		{
-			indices.push_back(idx);
-			batchSize += buildAs[idx].SizeInfo.accelerationStructureSize;
+			indices.push_back(i);
+			batchSize += buildAs[i].SizeInfo.accelerationStructureSize;
 			// Over the limit or last BLAS element
-			if (batchSize >= batchLimit || idx == nbBlas - 1)
+			if (batchSize >= batchLimit || i == blasCount - 1)
 			{
 				VkCommandBuffer cmdBuf;
 				Device::BeginSingleTimeCommands(cmdBuf, Device::GetCommandPool());

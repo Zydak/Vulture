@@ -10,7 +10,7 @@ namespace Vulture
 	struct BlasInput
 	{
 		std::vector<VkAccelerationStructureGeometryKHR> AsGeometry;
-		std::vector<VkAccelerationStructureBuildRangeInfoKHR> AsOffset;
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR> AsRange;
 	};
 
 	struct AccelKHR
