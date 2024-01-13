@@ -8,7 +8,13 @@ layout(set = 0, binding = 0) uniform sampler2D uHDR;
 
 void main()
 {
-    vec3 color = texture(uHDR, inTexCoords).rgb;
+    const float gamma = 1.0;
+    const float exposure = 1.0;
 
-    outFragColor = vec4(color, 1.0);
+    vec3 hdrColor = texture(uHDR, inTexCoords).rgb;
+
+    vec3 mapped = vec3(1.0) - exp(-hdrColor * exposure);
+    mapped = pow(mapped, vec3(1.0 / gamma));
+
+    outFragColor = vec4(mapped, 1.0);
 }

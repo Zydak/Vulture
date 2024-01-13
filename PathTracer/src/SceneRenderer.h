@@ -12,8 +12,14 @@ struct GlobalUbo
 struct PushConstantRay
 {
 	glm::vec4 ClearColor;
-	glm::vec4 LightPosition;
 	int frame;
+	int maxDepth;
+};
+
+struct PushConstantGBuffer
+{
+	glm::mat4 Model;
+	Vulture::Material Material;
 };
 
 struct MeshAdresses
@@ -33,6 +39,8 @@ public:
 	void CreateRayTracingUniforms(Vulture::Scene& scene);
 private:
 	void RayTrace(const glm::vec4& clearColor);
+	void DrawGBuffer();
+	void Denoise();
 	void ResetFrame();
 
 	void RecreateResources();
@@ -49,7 +57,17 @@ private:
 
 	void ImGuiPass();
 
-	std::vector<Vulture::Ref<Vulture::Framebuffer>> m_GBufferFramebuffer;
+	enum GBufferImage
+	{
+		Albedo,
+		Roughness,
+		Metallness,
+		Normal,
+		Count
+	};
+	Vulture::Ref<Vulture::Framebuffer> m_GBufferFramebuffer;
+
+	Vulture::Ref<Vulture::Image> m_DenoisedImage;
 	Vulture::Ref<Vulture::Framebuffer> m_HDRFramebuffer; // we have only one framebuffer for ray tracing
 	Vulture::Ref<Vulture::Uniform> m_HDRUniforms; // we have only one framebuffer for ray tracing
 
@@ -58,6 +76,7 @@ private:
 	Vulture::Pipeline m_RtPipeline;
 	
 	// SBT
+	VkImageView m_PresentedImageView;
 	Vulture::Ref<Vulture::Buffer> m_RtSBTBuffer;
 	VkStridedDeviceAddressRegionKHR m_RgenRegion{};
 	VkStridedDeviceAddressRegionKHR m_MissRegion{};
@@ -70,11 +89,18 @@ private:
 	Vulture::RenderPass m_GBufferPass;
 	Vulture::Scene* m_CurrentSceneRendered;
 
-	PushConstantRay m_PcRay{};
-	uint32_t m_SamplesPerPixel = 0;
 	float m_Time = 0;
 	Timer m_TotalTimer;
 
-	// temporary stuff
-	bool m_CircleLight = false;
+	int m_MaxRayDepth = 5;
+	PushConstantRay m_PushContantRay{};
+
+	VkFence m_DenoiseFence;
+	uint64_t m_DenoiseFenceValue = 0U;
+	Vulture::Ref<Vulture::Denoiser> m_Denoiser;
+	uint32_t m_CurrentSamplesPerPixel = 0;
+	int m_MaxSamplesPerPixel = 15'000;
+
+	bool m_RunDenoising = false;
+	bool m_ShowDenoised = false;
 };

@@ -15,8 +15,11 @@ layout(push_constant) uniform _PushConstantRay
 void main()
 {
 	if(prd.depth == 0)
+	{
 		prd.hitValue = pcRay.clearColor.xyz;
+		prd.missedAllGeometry = true;
+	}
 	else
-		prd.hitValue = vec3(0.2f);
+		prd.hitValue = vec3(0.1f);
 	prd.depth = 100;
 }

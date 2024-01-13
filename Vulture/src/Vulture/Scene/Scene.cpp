@@ -207,6 +207,8 @@ namespace Vulture
 			if (camera.Main)
 				return &camera;
 		}
+
+		return nullptr;
 	}
 
 }

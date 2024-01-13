@@ -17,7 +17,7 @@ namespace Vulture
 		VkPipelineInputAssemblyStateCreateInfo InputAssemblyInfo;
 		VkPipelineRasterizationStateCreateInfo RasterizationInfo;
 		VkPipelineMultisampleStateCreateInfo MultisampleInfo;
-		VkPipelineColorBlendAttachmentState ColorBlendAttachment;
+		std::vector<VkPipelineColorBlendAttachmentState> ColorBlendAttachment;
 		VkPipelineColorBlendStateCreateInfo ColorBlendInfo;
 		VkPipelineDepthStencilStateCreateInfo DepthStencilInfo;
 		VkPipelineLayout PipelineLayout = 0;
@@ -48,6 +48,7 @@ namespace Vulture
 		std::vector<VkDescriptorSetLayout> UniformSetLayouts;
 		VkPushConstantRange* PushConstants;
 		VkRenderPass RenderPass;
+		int ColorAttachmentCount = 1;
 	};
 
 	struct RayTracingPipelineCreateInfo
@@ -75,7 +76,7 @@ namespace Vulture
 
 		void Bind(VkCommandBuffer commandBuffer, VkPipelineBindPoint bindPoint);
 
-		static void CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable);
+		static void CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable, int colorAttachmentCount = 1);
 		void CreatePipeline(PipelineCreateInfo& info);
 		void CreateRayTracingPipeline(std::vector<VkRayTracingShaderGroupCreateInfoKHR>& rtShaderGroups, RayTracingPipelineCreateInfo& info);
 

@@ -61,5 +61,6 @@ void main()
     prd.rayOrigin = rayOrigin;
     prd.rayDirection = rayDirection;
     prd.hitValue = material.Emissive.xyz;
-    prd.weight = (material.Albedo.xyz / M_PI) * cos_theta / p;
+    vec3 albedo = material.Albedo.xyz / M_PI;
+    prd.weight = albedo * cos_theta / p;
 }

@@ -109,7 +109,7 @@ namespace Vulture
 	 * @param depthTestEnable - Flag indicating whether depth testing is enabled.
 	 * @param blendingEnable - Flag indicating whether blending is enabled.
 	 */
-	void Pipeline::CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable)
+	void Pipeline::CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable, int colorAttachmentCount)
 	{
 		configInfo.InputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		configInfo.InputAssemblyInfo.topology = topology;
@@ -143,34 +143,38 @@ namespace Vulture
 		configInfo.MultisampleInfo.alphaToCoverageEnable = VK_FALSE;
 		configInfo.MultisampleInfo.alphaToOneEnable = VK_FALSE;
 
-		if (blendingEnable)
+		configInfo.ColorBlendAttachment.resize(colorAttachmentCount);
+		for (int i = 0; i < colorAttachmentCount; i++)
 		{
-			configInfo.ColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-			configInfo.ColorBlendAttachment.blendEnable = VK_TRUE;
-			configInfo.ColorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-			configInfo.ColorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-			configInfo.ColorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-			configInfo.ColorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-			configInfo.ColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-			configInfo.ColorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-		}
-		else
-		{
-			configInfo.ColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-			configInfo.ColorBlendAttachment.blendEnable = VK_FALSE;
-			configInfo.ColorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-			configInfo.ColorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-			configInfo.ColorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-			configInfo.ColorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-			configInfo.ColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-			configInfo.ColorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+			if (blendingEnable)
+			{
+				configInfo.ColorBlendAttachment[i].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+				configInfo.ColorBlendAttachment[i].blendEnable = VK_TRUE;
+				configInfo.ColorBlendAttachment[i].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+				configInfo.ColorBlendAttachment[i].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				configInfo.ColorBlendAttachment[i].colorBlendOp = VK_BLEND_OP_ADD;
+				configInfo.ColorBlendAttachment[i].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+				configInfo.ColorBlendAttachment[i].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+				configInfo.ColorBlendAttachment[i].alphaBlendOp = VK_BLEND_OP_ADD;
+			}
+			else
+			{
+				configInfo.ColorBlendAttachment[i].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+				configInfo.ColorBlendAttachment[i].blendEnable = VK_FALSE;
+				configInfo.ColorBlendAttachment[i].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+				configInfo.ColorBlendAttachment[i].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+				configInfo.ColorBlendAttachment[i].colorBlendOp = VK_BLEND_OP_ADD;
+				configInfo.ColorBlendAttachment[i].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+				configInfo.ColorBlendAttachment[i].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+				configInfo.ColorBlendAttachment[i].alphaBlendOp = VK_BLEND_OP_ADD;
+			}
 		}
 
 		configInfo.ColorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 		configInfo.ColorBlendInfo.logicOpEnable = VK_FALSE;
 		configInfo.ColorBlendInfo.logicOp = VK_LOGIC_OP_COPY;
-		configInfo.ColorBlendInfo.attachmentCount = 1;
-		configInfo.ColorBlendInfo.pAttachments = &configInfo.ColorBlendAttachment;
+		configInfo.ColorBlendInfo.attachmentCount = colorAttachmentCount;
+		configInfo.ColorBlendInfo.pAttachments = configInfo.ColorBlendAttachment.data();
 		configInfo.ColorBlendInfo.blendConstants[0] = 0.0f;
 		configInfo.ColorBlendInfo.blendConstants[1] = 0.0f;
 		configInfo.ColorBlendInfo.blendConstants[2] = 0.0f;
@@ -199,7 +203,7 @@ namespace Vulture
 		PipelineConfigInfo configInfo{};
 		configInfo.RenderPass = info.RenderPass;
 		configInfo.DepthClamp = info.DepthClamp;
-		CreatePipelineConfigInfo(configInfo, info.Width, info.Height, info.Topology, info.CullMode, info.DepthTestEnable, info.BlendingEnable);
+		CreatePipelineConfigInfo(configInfo, info.Width, info.Height, info.Topology, info.CullMode, info.DepthTestEnable, info.BlendingEnable, info.ColorAttachmentCount);
 
 		std::vector<ShaderModule> shaderModules;
 		shaderModules.resize(info.ShaderFilepaths.size());

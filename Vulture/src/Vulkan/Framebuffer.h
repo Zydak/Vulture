@@ -17,6 +17,7 @@ namespace Vulture
 		ColorRGB8,
 		ColorRGB16,
 		ColorRGBA32,
+		ColorRGBA32Float,
 		ColorRG16,
 		ColorRG32,
 		ColorR8,
@@ -34,6 +35,7 @@ namespace Vulture
 		inline VkImageView GetColorImageViewLayered(int index, int layer) { return m_ColorAttachments[index].GetLayerView(layer); }
 		inline VkImageView GetDepthImageViewLayered(int index, int layer) { return m_DepthAttachments[index].GetLayerView(layer); }
 		inline VkImage GetColorImage(int index) { return m_ColorAttachments[index].GetImage(); }
+		inline Image& GetColorImageNoVk(int index) { return m_ColorAttachments[index]; }
 		inline VkImageView GetDepthImageView(int index) { return m_DepthAttachments[index].GetImageView(); }
 		inline VkImage GetDepthImage(int index) { return m_DepthAttachments[index].GetImage(); }
 

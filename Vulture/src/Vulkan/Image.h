@@ -44,8 +44,7 @@ namespace Vulture
 		
 		inline VkImage GetImage() { return m_Image; }
 		inline VkImageView GetImageView() { return m_ImageView; }
-		//inline VkDeviceMemory GetImageMemory() { return (*m_Allocation)->GetMemory(); }
-		inline VkBuffer GetBuffer() { return m_Buffer; }
+		inline VmaAllocationInfo GetAllocationInfo() { VmaAllocationInfo info{}; vmaGetAllocationInfo(Device::GetAllocator(), *m_Allocation, &info); return info; }
 		inline VkSampler GetSampler() { return m_Sampler->GetSampler(); }
 		inline glm::vec2 GetImageSize() { return m_Size; }
 		inline VkImageView GetLayerView(int layer) { return m_LayersView[layer]; }
@@ -61,9 +60,6 @@ namespace Vulture
 		VkImageView m_ImageView;
 		std::vector<VkImageView> m_LayersView; // only for layered images
 		VmaAllocation* m_Allocation;
-
-		VkBuffer m_Buffer;
-		VkDeviceMemory m_BufferMemory;
 
 		glm::vec2 m_Size;
 		uint32_t m_MipLevels = 1;

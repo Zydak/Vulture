@@ -25,6 +25,11 @@ public:
 
 	void OnUpdate(double deltaTime) override
 	{
+		if (m_CameraLocked)
+		{
+			return;
+		}
+
 		m_Timer += deltaTime;
 		auto& cameraComponent = GetComponent<Vulture::CameraComponent>();
 
@@ -104,6 +109,7 @@ public:
 	bool m_OrbitCamera = false;
 	float m_MovementSpeed = 20.0f;
 	float m_RotationSpeed = 2.0f;
+	bool m_CameraLocked = false;
 private:
 	double m_Timer = 0.0;
 	glm::vec2 m_LastMousePosition{0.0f};

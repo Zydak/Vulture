@@ -2,8 +2,12 @@
 #include "pch.h"
 
 #include "Window.h"
+#include "Utility/Utility.h"
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
+#include <vector>
+
+#include "vulkan/vulkan_win32.h"
 
 namespace Vulture
 {
@@ -64,7 +68,7 @@ namespace Vulture
 		static void BeginSingleTimeCommands(VkCommandBuffer& buffer, VkCommandPool pool);
 		static uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
-		static void CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0);
+		static void CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0, bool noPool = false);
 		static void CreateImage(VkImageCreateInfo& createInfo, VkImage& image, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0);
 
 		//TODO description
@@ -84,7 +88,7 @@ namespace Vulture
 		static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
 
 		static void CreateMemoryAllocator();
-		static void CreateMemoryPool(uint32_t memoryIndex, VmaPool& pool, uint32_t MBSize = 16);
+		static void CreateMemoryPool(uint32_t memoryIndex, VmaPool& pool, VkDeviceSize MBSize = 10, VkDeviceSize ByteSize = 0);
 		static void FindMemoryTypeIndex(VkMemoryPropertyFlags flags, uint32_t& memoryIndex);
 		static void FindMemoryTypeIndexForBuffer(VkBufferCreateInfo& createInfo, uint32_t& memoryIndex, VkMemoryPropertyFlags flags = 0);
 		static void FindMemoryTypeIndexForImage(VkImageCreateInfo& createInfo, uint32_t& memoryIndex, VkMemoryPropertyFlags flags = 0);
@@ -101,8 +105,15 @@ namespace Vulture
 		static bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
 		static SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device);
 
+
+		static VkMemoryAllocateInfo info;
+		static VkExportMemoryAllocateInfo exportMemoryInfo;
+		static VkExternalMemoryBufferCreateInfo externalMemoryBufferInfo;
+		static VkExternalMemoryImageCreateInfo externalMemoryImageInfo;
+
 		static VmaAllocator s_Allocator;
 		static std::unordered_map<uint32_t, VmaPool> s_Pools;
+		static std::vector<VmaPool> s_SingleObjPools;
 		static bool s_RayTracingSupport;
 		static VkPhysicalDeviceProperties2 s_Properties;
 		static VkSampleCountFlagBits s_MaxSampleCount;
@@ -132,7 +143,7 @@ namespace Vulture
 #endif
 
 	public:
-		// loaded functions
+		// Loaded functions
 		static VkResult vkCreateAccelerationStructureKHR(VkDevice device, VkAccelerationStructureCreateInfoKHR* createInfo, VkAccelerationStructureKHR* structure);
 		static void vkDestroyAccelerationStructureKHR(VkDevice device, VkAccelerationStructureKHR structure);
 		static void vkCmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer, uint32_t infoCount, const VkAccelerationStructureBuildGeometryInfoKHR* pInfos, const VkAccelerationStructureBuildRangeInfoKHR* const* ppBuildRangeInfos);
@@ -143,5 +154,8 @@ namespace Vulture
 		static VkDeviceAddress vkGetAccelerationStructureDeviceAddressKHR(VkDevice device,const VkAccelerationStructureDeviceAddressInfoKHR* pInfo);
 		static VkResult vkGetRayTracingShaderGroupHandlesKHR(VkDevice device, VkPipeline pipeline, uint32_t firstGroup, uint32_t groupCount, size_t dataSize, void* pData);
 		static void vkCmdTraceRaysKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, uint32_t width, uint32_t height, uint32_t depth);
+		static void vkCmdPushDescriptorSetKHR(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t set, uint32_t descriptorWriteCount, const VkWriteDescriptorSet* pDescriptorWrites);
+		static VkResult vkGetMemoryWin32HandleKHR(VkDevice device, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle);
+		static VkResult vkGetSemaphoreWin32HandleKHR(VkDevice device, const VkSemaphoreGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle);
 	};
 }

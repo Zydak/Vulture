@@ -168,13 +168,22 @@ namespace Vulture
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
 
-		if (m_HasIndexBuffer) { vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32); }
+		if (m_HasIndexBuffer) 
+		{ 
+			vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32); 
+		}
 	}
 
 	void Mesh::Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance)
 	{
-		if (m_HasIndexBuffer) { vkCmdDrawIndexed(commandBuffer, m_IndexCount, instanceCount, 0, 0, firstInstance); }
-		else { vkCmdDraw(commandBuffer, m_VertexCount, instanceCount, 0, firstInstance); }
+		if (m_HasIndexBuffer) 
+		{ 
+			vkCmdDrawIndexed(commandBuffer, m_IndexCount, instanceCount, 0, 0, firstInstance); 
+		}
+		else 
+		{ 
+			vkCmdDraw(commandBuffer, m_VertexCount, instanceCount, 0, firstInstance); 
+		}
 	}
 
 	/**

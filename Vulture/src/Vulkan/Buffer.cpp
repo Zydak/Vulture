@@ -60,7 +60,7 @@ namespace Vulture
 	}
 
 	Buffer::Buffer(VkDeviceSize instanceSize, uint32_t instanceCount, VkBufferUsageFlags usageFlags,
-		VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize minOffsetAlignment
+		VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize minOffsetAlignment, bool noPool
 	)
 		: m_InstanceSize(instanceSize), m_InstanceCount(instanceCount), m_UsageFlags(usageFlags),
 		m_MemoryPropertyFlags(memoryPropertyFlags)
@@ -79,7 +79,7 @@ namespace Vulture
 		// The buffer will only be used from the graphics queue, so we can stick to exclusive access.
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		Device::CreateBuffer(bufferInfo, m_Buffer, *m_Allocation, memoryPropertyFlags);
+		Device::CreateBuffer(bufferInfo, m_Buffer, *m_Allocation, memoryPropertyFlags, noPool);
 	}
 
 	Buffer::~Buffer()
@@ -101,6 +101,13 @@ namespace Vulture
 		vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
 		Device::EndSingleTimeCommands(commandBuffer, queue, pool);
+	}
+
+	VmaAllocationInfo Buffer::GetMemoryInfo() const
+	{
+		VmaAllocationInfo info{};
+		vmaGetAllocationInfo(Device::GetAllocator(), *m_Allocation, &info);
+		return info;
 	}
 
 	VkDeviceAddress Buffer::GetDeviceAddress() const

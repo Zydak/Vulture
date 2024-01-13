@@ -10,7 +10,7 @@ namespace Vulture
 	class Buffer
 	{
 	public:
-		Buffer(VkDeviceSize instanceSize, uint32_t instanceCount, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize minOffsetAlignment = 1);
+		Buffer(VkDeviceSize instanceSize, uint32_t instanceCount, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize minOffsetAlignment = 1, bool noPool = false);
 		~Buffer();
 
 		Buffer(const Buffer&) = delete;
@@ -29,7 +29,7 @@ namespace Vulture
 		inline VkBuffer GetBuffer() const { return m_Buffer; }
 
 		inline void* GetMappedMemory() const { return m_Mapped; }
-		inline VmaAllocation GetAllocation() { return *m_Allocation; }
+		VmaAllocationInfo GetMemoryInfo() const;
 		VkDeviceAddress GetDeviceAddress() const;
 		inline bool IsMapped() { return m_Mapped; }
 

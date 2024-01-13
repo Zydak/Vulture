@@ -6,6 +6,7 @@ struct hitPayload
     vec3 rayOrigin;
     vec3 rayDirection;
     vec3 weight;
+    bool missedAllGeometry;
 };
 
 struct GlobalUniforms
@@ -18,8 +19,8 @@ struct GlobalUniforms
 struct PushConstantRay
 {
     vec4 clearColor;
-	vec4 lightPosition; // vec3
     int frame;
+    int maxDepth;
 };
 
 struct Vertex
@@ -41,8 +42,8 @@ struct Material
 {
     vec4 Albedo;
     vec4 Emissive;
-    float Roughness;
     float Metallic;
+    float Roughness;
 };
 
 uint pcg(inout uint seed)

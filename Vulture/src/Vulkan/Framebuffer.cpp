@@ -135,6 +135,7 @@ namespace Vulture
 	 */
 	void Framebuffer::CreateDepthAttachment(int layers, ImageType type, VkImageUsageFlags customBits)
 	{
+		customBits &= ~VK_IMAGE_USAGE_STORAGE_BIT; // Don't use storage bit on depth attachments
 		ImageInfo imageInfo;
 		imageInfo.width = m_Extent.width;
 		imageInfo.height = m_Extent.height;

@@ -30,6 +30,7 @@
 #if defined(WIN)
 #define VL_CORE_RETURN_ASSERT(function, value, ...)\
 		if(function != value) {\
+			VL_CORE_ERROR("Expected: {0}, Actual: {1}", value, function);\
 			VL_CORE_ERROR(__VA_ARGS__);\
 			__debugbreak();\
 		}

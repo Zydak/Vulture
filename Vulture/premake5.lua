@@ -33,19 +33,7 @@ project "Vulture"
         "src/",
         "src/Vulture/",
 
-        "lib/",
-        "lib/glfw/include/",
-        "lib/imgui/",
-        "lib/stbimage/",
-        "lib/glm/",
-        "lib/msdf-atlas-gen/",
-        "lib/msdf-atlas-gen/msdfgen/",
-        "lib/entt/",
-        "lib/vulkanLib/Include/",
-        "lib/vulkanMemoryAllocator/",
-        "lib/spdlog/include/",
-        "lib/tinyobjloader/",
-        "lib/assimp/include/",
+        globalIncludes,
     }
 
     links
@@ -57,12 +45,13 @@ project "Vulture"
         "msdfgenfreetype",
         "vulkan-1",
         "spdlog",
-        "assimp"
+        "assimp",
+        "lib/cuda/*.lib",
     }
 
     filter "platforms:Windows"
         system "Windows"
-        defines { "WIN" }
+        defines { "WIN", "VK_USE_PLATFORM_WIN32_KHR" }
 
     filter "platforms:Linux"
         system "Linux"

@@ -23,6 +23,7 @@ namespace Vulture
 		inline uint32_t GetMeshCount() { return (uint32_t)m_Meshes.size(); }
 		inline Mesh& GetMesh(int index) { return *m_Meshes[index]; }
 		inline Material GetMaterial(int index) { return m_Materials[index]; }
+		inline std::vector<Ref<Mesh>>& GetMeshes() { return m_Meshes; };
 	private:
 		void ProcessNode(aiNode* node, const aiScene* scene, int& index);
 

@@ -7,6 +7,9 @@
 #include "GLFW/glfw3.h"
 
 #include <vulkan/vulkan_core.h>
+#include <vulkan/vk_platform.h>
+#include <Dxgi1_2.h>
+
 
 namespace Vulture
 {
@@ -80,6 +83,16 @@ namespace Vulture
 			s_DeviceExtensions.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
+
+			s_DeviceExtensions.push_back(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_FENCE_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME);
+			s_DeviceExtensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
 		}
 
 		CreateInstance();
@@ -219,7 +232,7 @@ namespace Vulture
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.pEngineName = "No Engine";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_2;
+		appInfo.apiVersion = VK_API_VERSION_1_3;
 
 		VkInstanceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -309,12 +322,27 @@ namespace Vulture
 		vmaCreateAllocator(&allocatorInfo, &s_Allocator);
 	}
 
-	void Device::CreateMemoryPool(uint32_t memoryIndex, VmaPool& pool, uint32_t MBSize)
+	void Device::CreateMemoryPool(uint32_t memoryIndex, VmaPool& pool, VkDeviceSize MBSize, VkDeviceSize ByteSize)
 	{
 		VmaPoolCreateInfo poolInfo{};
-		poolInfo.blockSize = 1024 * 1024 * MBSize;
+		if (MBSize != 0)
+		{
+			VL_CORE_ASSERT(ByteSize == 0, "MBSize and ByteSize can't be both set!");
+			poolInfo.blockSize = 1024 * 1024 * MBSize;
+		}
+		else if (ByteSize != 0)
+		{
+			VL_CORE_ASSERT(MBSize == 0, "MBSize and ByteSize can't be both set!");
+			poolInfo.blockSize = ByteSize;
+		}
 		poolInfo.memoryTypeIndex = memoryIndex;
 		poolInfo.priority = 0.5f;
+
+		exportMemoryInfo = {};
+		exportMemoryInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
+		exportMemoryInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+
+		poolInfo.pMemoryAllocateNext = &exportMemoryInfo;
 		vmaCreatePool(s_Allocator, &poolInfo, &pool);
 	}
 
@@ -343,16 +371,36 @@ namespace Vulture
 		VmaAllocationCreateInfo allocInfo{};
 		allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
 		allocInfo.priority = 0.5f;
-		if (flags)
-			allocInfo.requiredFlags = flags;
+		allocInfo.requiredFlags = flags;
 
 		vmaFindMemoryTypeIndexForImageInfo(s_Allocator, &createInfo, &allocInfo, &memoryIndex);
 	}
 
-	void Device::CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags)
+	void Device::CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags, bool noPool)
 	{
+		static int singleObjIndex = 0;
+
 		uint32_t memoryIndex = 0;
+		externalMemoryBufferInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+		externalMemoryBufferInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO;
+		createInfo.pNext = &externalMemoryBufferInfo;
 		FindMemoryTypeIndexForBuffer(createInfo, memoryIndex, customFlags);
+
+
+		if (noPool)
+		{
+			s_SingleObjPools.push_back(VmaPool());
+			CreateMemoryPool(memoryIndex, s_SingleObjPools[singleObjIndex], 0, createInfo.size);
+
+			VmaAllocationCreateInfo allocCreateInfo = {};
+			allocCreateInfo.priority = 0.5f;
+			allocCreateInfo.pool = s_SingleObjPools[singleObjIndex];
+
+			VkResult res = vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr);
+			singleObjIndex++;
+			return;
+		}
+
 		auto it = s_Pools.find(memoryIndex);
 		if (it != s_Pools.end())
 		{
@@ -378,7 +426,9 @@ namespace Vulture
 	void Device::CreateImage(VkImageCreateInfo& createInfo, VkImage& image, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags)
 	{
 		uint32_t memoryIndex = 0;
+
 		FindMemoryTypeIndexForImage(createInfo, memoryIndex, customFlags);
+
 		VmaAllocationCreateInfo allocCreateInfo = {};
 		allocCreateInfo.memoryTypeBits = memoryIndex;
 		VL_CORE_RETURN_ASSERT(
@@ -505,6 +555,12 @@ namespace Vulture
 		VkPhysicalDeviceHostQueryResetFeaturesEXT hostQueryResetFeatures = {};
 		hostQueryResetFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT;
 
+		VkPhysicalDeviceTimelineSemaphoreFeaturesKHR timelineSemaphoreFeatures = {};
+		timelineSemaphoreFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR;
+
+		VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2Features = {};
+		synchronization2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
+
 		s_Features.pNext = &memoryPriorityFeatures;
 
 		if (s_RayTracingSupport)
@@ -515,6 +571,8 @@ namespace Vulture
 			deviceAddressFeatures.pNext = &scalarBlockLayoutFeatures;
 			scalarBlockLayoutFeatures.pNext = &shaderClockFeatures;
 			shaderClockFeatures.pNext = &hostQueryResetFeatures;
+			hostQueryResetFeatures.pNext = &timelineSemaphoreFeatures;
+			timelineSemaphoreFeatures.pNext = &synchronization2Features;
 		}
 
 		vkGetPhysicalDeviceFeatures2(s_PhysicalDevice, &s_Features);
@@ -805,6 +863,11 @@ namespace Vulture
 
 	VmaAllocator Device::s_Allocator;
 	std::unordered_map<uint32_t, VmaPool> Device::s_Pools;
+	std::vector<VmaPool> Device::s_SingleObjPools;
+	VkMemoryAllocateInfo Device::info;
+	VkExportMemoryAllocateInfo Device::exportMemoryInfo;
+	VkExternalMemoryBufferCreateInfo Device::externalMemoryBufferInfo;
+	VkExternalMemoryImageCreateInfo Device::externalMemoryImageInfo;
 	bool Device::s_RayTracingSupport;
 	VkPhysicalDeviceProperties2 Device::s_Properties = {};
 	VkSampleCountFlagBits Device::s_MaxSampleCount;
@@ -891,4 +954,26 @@ namespace Vulture
 		if (func != nullptr) { return func(commandBuffer, pRaygenShaderBindingTable, pMissShaderBindingTable, pHitShaderBindingTable, pCallableShaderBindingTable, width, height, depth); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
+
+	void Device::vkCmdPushDescriptorSetKHR(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t set, uint32_t descriptorWriteCount, const VkWriteDescriptorSet* pDescriptorWrites)
+	{
+		auto func = (PFN_vkCmdPushDescriptorSetKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdPushDescriptorSetKHR");
+		if (func != nullptr) { return func(commandBuffer, pipelineBindPoint, layout, set, descriptorWriteCount, pDescriptorWrites); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	VkResult Device::vkGetMemoryWin32HandleKHR(VkDevice device, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle)
+	{
+		auto func = (PFN_vkGetMemoryWin32HandleKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetMemoryWin32HandleKHR");
+		if (func != nullptr) { return func(device, pGetWin32HandleInfo, pHandle); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	VkResult Device::vkGetSemaphoreWin32HandleKHR(VkDevice device, const VkSemaphoreGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle)
+	{
+		auto func = (PFN_vkGetSemaphoreWin32HandleKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetSemaphoreWin32HandleKHR");
+		if (func != nullptr) { return func(device, pGetWin32HandleInfo, pHandle); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
 }
