@@ -19,7 +19,7 @@ namespace Vulture
 		Sampler(SamplerInfo samplerInfo);
 		~Sampler();
 
-		inline VkSampler GetSampler() { return m_Sampler; }
+		inline VkSampler GetSampler() const { return m_Sampler; }
 
 	private:
 		VkSampler m_Sampler;

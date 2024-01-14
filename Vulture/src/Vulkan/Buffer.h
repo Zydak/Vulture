@@ -31,7 +31,7 @@ namespace Vulture
 		inline void* GetMappedMemory() const { return m_Mapped; }
 		VmaAllocationInfo GetMemoryInfo() const;
 		VkDeviceAddress GetDeviceAddress() const;
-		inline bool IsMapped() { return m_Mapped; }
+		inline bool IsMapped() const { return m_Mapped; }
 
 		inline uint32_t GetInstanceCount() const { return m_InstanceCount; }
 		inline VkDeviceSize GetInstanceSize() const { return m_InstanceSize; }

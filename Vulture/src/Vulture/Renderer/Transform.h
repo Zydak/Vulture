@@ -18,6 +18,7 @@ namespace Vulture
 		~Transform();
 
 		VkTransformMatrixKHR GetKhrMat();
+		// Maybe add ComputeMat4() function and make getters const?
 		glm::mat4 GetMat4();
 		glm::mat4 GetMat4(const glm::mat4& compareMat);
 		glm::mat4 GetMat4(const Transform& transform, bool& changed);

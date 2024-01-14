@@ -29,7 +29,7 @@ namespace Vulture
 		void SetRenderTarget(Framebuffer* framebuffer);
 
 		inline VkRenderPass GetRenderPass() const { return m_RenderPass; }
-		inline Pipeline& GetPipeline() { return m_Pipeline; }
+		inline const Pipeline& GetPipeline() const { return m_Pipeline; }
 
 	private:
 

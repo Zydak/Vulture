@@ -37,17 +37,17 @@ namespace Vulture
 		void CreateWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
 		void PollEvents();
 
-		inline bool WasWindowResized() { return m_Resized; }
-		inline bool ShouldClose() { return glfwWindowShouldClose(m_Window); }
+		inline bool WasWindowResized() const { return m_Resized; }
+		inline bool ShouldClose() const { return glfwWindowShouldClose(m_Window); }
 
 		inline void ResetWindowResizedFlag() { m_Resized = false; }
 		inline void Close() { glfwSetWindowShouldClose(m_Window, GLFW_TRUE); }
 
-		inline VkExtent2D GetExtent() { return { (uint32_t)m_Width, (uint32_t)m_Height }; }
+		inline VkExtent2D GetExtent() const { return { (uint32_t)m_Width, (uint32_t)m_Height }; }
 		inline float GetAspectRatio() const { return { (float)m_Width / (float)m_Height }; }
-		inline std::vector<Monitor>& GetMonitors() { return m_Monitors; }
-		inline std::vector<const char*>& GetMonitorsNames() { return m_MonitorRawNames; }
-		inline int GetMonitorsCount() { return m_MonitorsCount; }
+		inline const std::vector<Monitor>& GetMonitors() const { return m_Monitors; }
+		inline const std::vector<const char*>& GetMonitorsNames()  const { return m_MonitorRawNames; }
+		inline int GetMonitorsCount() const { return m_MonitorsCount; }
 
 		void Resize(const glm::vec2& extent);
 		void SetFullscreen(bool val, GLFWmonitor* monitor);

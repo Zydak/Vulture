@@ -16,8 +16,7 @@ namespace Vulture
 
 	Scene::~Scene()
 	{
-		if (m_AccelerationStructure)
-			delete m_AccelerationStructure;
+
 	}
 
 	Entity Scene::CreateEntity()
@@ -94,7 +93,7 @@ namespace Vulture
 
 	void Scene::InitAccelerationStructure()
 	{
-		m_AccelerationStructure = new AccelerationStructure();
+		m_AccelerationStructure = std::make_shared<AccelerationStructure>();
 		m_AccelerationStructure->Init(*this);
 	}
 

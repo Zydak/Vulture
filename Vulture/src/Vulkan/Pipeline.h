@@ -80,8 +80,8 @@ namespace Vulture
 		void CreatePipeline(PipelineCreateInfo& info);
 		void CreateRayTracingPipeline(std::vector<VkRayTracingShaderGroupCreateInfoKHR>& rtShaderGroups, RayTracingPipelineCreateInfo& info);
 
-		inline VkPipelineLayout GetPipelineLayout() { return m_PipelineLayout; }
-		inline VkPipeline GetPipeline() { return m_Pipeline; }
+		inline VkPipelineLayout GetPipelineLayout() const { return m_PipelineLayout; }
+		inline VkPipeline GetPipeline() const { return m_Pipeline; }
 
 	private:
 		static std::vector<char> ReadFile(const std::string& filepath);

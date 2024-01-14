@@ -43,7 +43,7 @@ namespace Vulture
 	 * @param filepath The filepath of the texture.
 	 * @return Reference to the texture offset in the atlas.
 	 */
-    glm::vec2 TextureAtlas::GetTextureOffset(const glm::vec2& tileOffset)
+    glm::vec2 TextureAtlas::GetTextureOffset(const glm::vec2& tileOffset) const
     {
 		return tileOffset * glm::vec2((float)m_TilingSize);
     }
@@ -53,7 +53,7 @@ namespace Vulture
      *
      * @return Pointer to the texture atlas uniform.
      */
-    Ref<Uniform> TextureAtlas::GetAtlasUniform()
+    Ref<Uniform> TextureAtlas::GetAtlasUniform() const
     {
         return m_AtlasUniform;
     }

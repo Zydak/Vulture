@@ -460,9 +460,4 @@ namespace Vulture
 		}
 	}
 
-	VkFramebuffer Swapchain::GetPresentableFrameBuffer(int frameIndex)
-	{
-		return m_PresentableFramebuffers[frameIndex];
-	}
-
 }

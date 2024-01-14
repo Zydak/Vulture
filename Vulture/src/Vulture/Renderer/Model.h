@@ -20,10 +20,10 @@ namespace Vulture
 
 		void Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance = 0);
 
-		inline uint32_t GetMeshCount() { return (uint32_t)m_Meshes.size(); }
-		inline Mesh& GetMesh(int index) { return *m_Meshes[index]; }
-		inline Material GetMaterial(int index) { return m_Materials[index]; }
-		inline std::vector<Ref<Mesh>>& GetMeshes() { return m_Meshes; };
+		inline uint32_t GetMeshCount() const { return (uint32_t)m_Meshes.size(); }
+		inline Mesh& GetMesh(int index) const { return *m_Meshes[index]; }
+		inline Material GetMaterial(int index) const { return m_Materials[index]; }
+		inline const std::vector<Ref<Mesh>>& GetMeshes() const { return m_Meshes; };
 	private:
 		void ProcessNode(aiNode* node, const aiScene* scene, int& index);
 

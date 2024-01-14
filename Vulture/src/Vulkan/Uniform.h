@@ -32,10 +32,10 @@ namespace Vulture
 
 		inline Ref<Buffer> GetBuffer(const int& binding) { return m_Buffers[binding]; }
 
-		inline Ref<DescriptorSetLayout> GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
+		inline Ref<DescriptorSetLayout> GetDescriptorSetLayout() const { return m_DescriptorSetLayout; }
 
-		inline VkDescriptorSet& GetDescriptorSet() { return m_DescriptorSet; }
-		inline DescriptorPool& GetPool() { return m_Pool; }
+		inline const VkDescriptorSet& GetDescriptorSet() const { return m_DescriptorSet; }
+		inline const DescriptorPool& GetPool() const { return m_Pool; }
 
 		void AddImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout, VkShaderStageFlagBits stage, VkDescriptorType type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		void AddAccelerationStructure(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR asInfo);

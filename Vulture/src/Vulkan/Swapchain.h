@@ -35,27 +35,27 @@ namespace Vulture
 		Swapchain(const Swapchain&) = delete;
 		Swapchain& operator=(const Swapchain&) = delete;
 
-		inline VkRenderPass GetSwapchainRenderPass() { return m_RenderPass; }
+		inline VkRenderPass GetSwapchainRenderPass() const { return m_RenderPass; }
 
-		VkFramebuffer GetPresentableFrameBuffer(int frameIndex);
+		VkFramebuffer GetPresentableFrameBuffer(int frameIndex) const { return m_PresentableFramebuffers[frameIndex]; };
 
-		inline VkImageView GetPresentableImageView(int frameIndex) { return m_PresentableImageViews[frameIndex]; }
+		inline VkImageView GetPresentableImageView(int frameIndex) const { return m_PresentableImageViews[frameIndex]; }
 
-		inline uint32_t GetWidth() { return m_SwapchainExtent.width; }
-		inline uint32_t GetHeight() { return m_SwapchainExtent.height; }
-		inline VkFormat GetSwapchainImageFormat() { return m_SwapchainImageFormat; }
-		inline uint32_t GetImageCount() { return (uint32_t)m_PresentableImageViews.size(); }
-		inline VkExtent2D GetSwapchainExtent() { return m_SwapchainExtent; }
+		inline uint32_t GetWidth() const { return m_SwapchainExtent.width; }
+		inline uint32_t GetHeight() const { return m_SwapchainExtent.height; }
+		inline VkFormat GetSwapchainImageFormat() const { return m_SwapchainImageFormat; }
+		inline uint32_t GetImageCount() const { return (uint32_t)m_PresentableImageViews.size(); }
+		inline VkExtent2D GetSwapchainExtent() const { return m_SwapchainExtent; }
 
-		inline std::vector<PresentMode>& GetAvailablePresentModes() { return m_AvailablePresentModes; }
-		inline PresentModes GetCurrentPresentMode() { return m_CurrentPresentMode; }
+		inline const std::vector<PresentMode>& GetAvailablePresentModes() const { return m_AvailablePresentModes; }
+		inline PresentModes GetCurrentPresentMode() const { return m_CurrentPresentMode; }
+
+		float GetExtentAspectRatio() const { return float(m_SwapchainExtent.width) / float(m_SwapchainExtent.height); }
 
 		VkResult SubmitCommandBuffers(const VkCommandBuffer* buffers, uint32_t& imageIndex);
 		VkResult AcquireNextImage(uint32_t& imageIndex);
 
 		bool CompareSwapFormats(const Swapchain& swapChain) const { return swapChain.m_SwapchainDepthFormat == m_SwapchainDepthFormat && swapChain.m_SwapchainImageFormat == m_SwapchainImageFormat; }
-
-		float GetExtentAspectRatio() { return float(m_SwapchainExtent.width) / float(m_SwapchainExtent.height); }
 
 		static VkFormat FindDepthFormat();
 	private:

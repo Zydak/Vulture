@@ -1,5 +1,5 @@
 #include "pch.h"
-
+#pragma warning(push, 0)
 //
 // Core assert
 //
@@ -30,7 +30,7 @@
 #if defined(WIN)
 #define VL_CORE_RETURN_ASSERT(function, value, ...)\
 		if(function != value) {\
-			VL_CORE_ERROR("Expected: {0}, Actual: {1}", value, function);\
+			VL_CORE_ERROR("Expected: {}, Actual: {}", value, function);\
 			VL_CORE_ERROR(__VA_ARGS__);\
 			__debugbreak();\
 		}
@@ -90,3 +90,4 @@
 #else
 #define VL_RETURN_ASSERT(function, value, ...) function
 #endif
+#pragma warning(pop)

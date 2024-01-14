@@ -24,7 +24,7 @@ namespace Vulture
 		}
 
 		template<typename T>
-		bool HasComponent()
+		bool HasComponent() const
 		{
 			return m_Scene->GetRegistry().any_of<T>(m_Handle);
 		}
@@ -35,7 +35,7 @@ namespace Vulture
 			return m_Scene->GetRegistry().get<T>(m_Handle);
 		}
 
-		inline Scene* GetScene() { return m_Scene; }
+		inline Scene* GetScene() const { return m_Scene; }
 
 		operator entt::entity() const { return m_Handle; }
 		operator bool() const{ return (uint32_t)m_Handle != 0; }

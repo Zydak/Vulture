@@ -17,9 +17,9 @@ namespace Vulture
 	public:
 		FontAtlas(const std::string& filepath, const std::string& fontName);
 
-		Ref<Image> GetAtlasTexture() { return m_AtlasTexture; }
-		const std::vector<msdf_atlas::GlyphGeometry>& GetGlyphs() { return m_Glyphs; }
-		const msdf_atlas::FontGeometry& GetGeometry() { return m_FontGeometry; }
+		Ref<Image> GetAtlasTexture() const { return m_AtlasTexture; }
+		const std::vector<msdf_atlas::GlyphGeometry>& GetGlyphs() const { return m_Glyphs; }
+		const msdf_atlas::FontGeometry& GetGeometry() const { return m_FontGeometry; }
 		inline std::string GetFontName() const { return m_FontName; }
 		inline Ref<Uniform> GetUniform() const { return m_Uniform; }
 

@@ -344,7 +344,7 @@ namespace Vulture
 		auto view = scene.GetRegistry().view<ModelComponent, TransformComponent>();
 		for (auto entity : view)
 		{
-			ModelComponent& modelComponent = view.get<ModelComponent>(entity);
+			const ModelComponent& modelComponent = view.get<ModelComponent>(entity);
 
 			for (int i = 0; i < (int)modelComponent.Model.GetMeshCount(); i++)
 			{

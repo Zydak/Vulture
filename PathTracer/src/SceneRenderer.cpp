@@ -205,9 +205,9 @@ void SceneRenderer::Denoise()
 	// copy images to cuda buffers
 	std::vector<Vulture::Image*> vec = 
 	{ 
-		&m_HDRFramebuffer->GetColorImageNoVk(0), // Path Tracing Result
-		&m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Albedo), // Albedo
-		&m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Normal) // Normal
+		const_cast<Vulture::Image*>(&(m_HDRFramebuffer->GetColorImageNoVk(0))), // Path Tracing Result
+		const_cast<Vulture::Image*>(&(m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Albedo))), // Albedo
+		const_cast<Vulture::Image*>(&(m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Normal))) // Normal
 	};
 	m_Denoiser->ImageToBuffer(cmd, vec);
 

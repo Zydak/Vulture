@@ -38,8 +38,8 @@ namespace Vulture
 
 		void CreateEmptyBuffers(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags);
 
-		inline Ref<Buffer> GetVertexBuffer() { return m_VertexBuffer; }
-		inline Ref<Buffer> GetIndexBuffer() { return m_IndexBuffer; }
+		inline Ref<Buffer> GetVertexBuffer() const { return m_VertexBuffer; }
+		inline Ref<Buffer> GetIndexBuffer() const { return m_IndexBuffer; }
 		inline uint32_t& GetIndexCount() { return m_IndexCount; }
 		inline uint32_t& GetVertexCount() { return m_VertexCount; }
 

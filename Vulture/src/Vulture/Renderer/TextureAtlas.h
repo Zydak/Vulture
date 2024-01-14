@@ -20,8 +20,8 @@ namespace Vulture
 		TextureAtlas(const std::string& filepath);
 		~TextureAtlas();
 
-		glm::vec2 GetTextureOffset(const glm::vec2& tileOffset);
-		Ref<Uniform> GetAtlasUniform();
+		glm::vec2 GetTextureOffset(const glm::vec2& tileOffset) const;
+		Ref<Uniform> GetAtlasUniform() const;
 
 		void SetTiling(int tiling);
 

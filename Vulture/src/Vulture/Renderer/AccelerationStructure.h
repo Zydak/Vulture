@@ -33,8 +33,8 @@ namespace Vulture
 	public:
 		void Init(Scene& scene);
 
-		AccelKHR GetTlas() { return m_Tlas; }
-		AccelKHR GetBlas(int index) { return m_Blas[index].As; }
+		AccelKHR GetTlas() const { return m_Tlas; }
+		AccelKHR GetBlas(int index) const { return m_Blas[index].As; }
 
 	private:
 		void CreateTopLevelAS(Scene& scene);

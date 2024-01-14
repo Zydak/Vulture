@@ -42,12 +42,12 @@ namespace Vulture
 		void CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkOffset3D offset = {0, 0, 0});
 		void CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkImageLayout layout, VkOffset3D srcOffset = { 0, 0, 0 }, VkOffset3D dstOffset = {0, 0, 0});
 		
-		inline VkImage GetImage() { return m_Image; }
-		inline VkImageView GetImageView() { return m_ImageView; }
-		inline VmaAllocationInfo GetAllocationInfo() { VmaAllocationInfo info{}; vmaGetAllocationInfo(Device::GetAllocator(), *m_Allocation, &info); return info; }
-		inline VkSampler GetSampler() { return m_Sampler->GetSampler(); }
-		inline glm::vec2 GetImageSize() { return m_Size; }
-		inline VkImageView GetLayerView(int layer) { return m_LayersView[layer]; }
+		inline VkImage GetImage() const { return m_Image; }
+		inline VkImageView GetImageView() const { return m_ImageView; }
+		inline VmaAllocationInfo GetAllocationInfo() const { VmaAllocationInfo info{}; vmaGetAllocationInfo(Device::GetAllocator(), *m_Allocation, &info); return info; }
+		inline VkSampler GetSampler() const { return m_Sampler->GetSampler(); }
+		inline glm::vec2 GetImageSize() const { return m_Size; }
+		inline VkImageView GetLayerView(int layer) const { return m_LayersView[layer]; }
 
 	private:
 		void CreateImageView(VkFormat format, VkImageAspectFlagBits aspect, int layerCount = 1, VkImageViewType imageType = VK_IMAGE_VIEW_TYPE_2D);

@@ -19,7 +19,7 @@ namespace Vulture
 
 	VkTransformMatrixKHR Transform::GetKhrMat()
 	{
-		glm::mat4            temp = glm::transpose(GetMat4());
+		glm::mat4 temp = glm::transpose(GetMat4());
 		VkTransformMatrixKHR out_matrix;
 		memcpy(&out_matrix, &temp, sizeof(VkTransformMatrixKHR));
 		return out_matrix;

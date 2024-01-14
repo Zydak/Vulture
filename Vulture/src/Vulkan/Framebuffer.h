@@ -31,20 +31,20 @@ namespace Vulture
 
 		inline VkFramebuffer GetFramebuffer() const { return m_Framebuffer; }
 		inline VkFramebuffer GetLayeredFramebuffer(int layer) const { if (!m_LayerFramebuffers.empty()) return m_LayerFramebuffers[layer]; else return GetFramebuffer(); }
-		inline VkImageView GetColorImageView(int index) { return m_ColorAttachments[index].GetImageView(); }
-		inline VkImageView GetColorImageViewLayered(int index, int layer) { return m_ColorAttachments[index].GetLayerView(layer); }
-		inline VkImageView GetDepthImageViewLayered(int index, int layer) { return m_DepthAttachments[index].GetLayerView(layer); }
-		inline VkImage GetColorImage(int index) { return m_ColorAttachments[index].GetImage(); }
-		inline Image& GetColorImageNoVk(int index) { return m_ColorAttachments[index]; }
-		inline VkImageView GetDepthImageView(int index) { return m_DepthAttachments[index].GetImageView(); }
-		inline VkImage GetDepthImage(int index) { return m_DepthAttachments[index].GetImage(); }
+		inline VkImageView GetColorImageView(int index) const { return m_ColorAttachments[index].GetImageView(); }
+		inline VkImageView GetColorImageViewLayered(int index, int layer) const { return m_ColorAttachments[index].GetLayerView(layer); }
+		inline VkImageView GetDepthImageViewLayered(int index, int layer) const { return m_DepthAttachments[index].GetLayerView(layer); }
+		inline VkImage GetColorImage(int index) const { return m_ColorAttachments[index].GetImage(); }
+		inline const Image& GetColorImageNoVk(int index) const { return m_ColorAttachments[index]; }
+		inline VkImageView GetDepthImageView(int index) const { return m_DepthAttachments[index].GetImageView(); }
+		inline VkImage GetDepthImage(int index) const { return m_DepthAttachments[index].GetImage(); }
 
-		inline uint32_t GetColorAttachmentCount() { return (uint32_t)m_ColorAttachments.size(); }
-		inline uint32_t GetDepthAttachmentCount() { return (uint32_t)m_DepthAttachments.size(); }
+		inline uint32_t GetColorAttachmentCount() const { return (uint32_t)m_ColorAttachments.size(); }
+		inline uint32_t GetDepthAttachmentCount() const { return (uint32_t)m_DepthAttachments.size(); }
 
-		inline std::vector<FramebufferAttachment> GetDepthAttachmentFormats() { return m_AttachmentFormats; }
+		inline std::vector<FramebufferAttachment> GetDepthAttachmentFormats() const { return m_AttachmentFormats; }
 
-		inline glm::vec2 GetExtent() { return { m_Extent.width, m_Extent.height }; }
+		inline glm::vec2 GetExtent() const { return { m_Extent.width, m_Extent.height }; }
 
 	private:
 		void CreateColorAttachment(VkFormat format, int layers, ImageType type, VkImageUsageFlags customBits);

@@ -32,7 +32,7 @@ namespace Vulture
 		void CreateAtlas(const std::string& filepath);
 
 		void InitAccelerationStructure();
-		AccelerationStructure* GetAccelerationStructure() { return m_AccelerationStructure; }
+		Ref<AccelerationStructure> GetAccelerationStructure() { return m_AccelerationStructure; }
 
 		void InitScripts();
 		void DestroyScripts();
@@ -54,12 +54,12 @@ namespace Vulture
 		std::vector<Entity> CheckCollisionsWith(Entity& entity, const std::string nameToCheckAgainst);
 
 		inline entt::registry& GetRegistry() { return m_Registry; }
-		inline std::shared_ptr<TextureAtlas> GetAtlas() { return m_Atlas; }
+		inline Ref<TextureAtlas> GetAtlas() const { return m_Atlas; }
 		Ref<Window> GetWindow() const { return m_Window; }
 		CameraComponent* GetMainCamera();
 
 	private:
-		AccelerationStructure* m_AccelerationStructure = nullptr;
+		Ref<AccelerationStructure> m_AccelerationStructure = nullptr;
 		Ref<Window> m_Window;
 		entt::registry m_Registry;
 		Ref<TextureAtlas> m_Atlas;
