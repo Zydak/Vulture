@@ -14,6 +14,9 @@ struct PushConstantRay
 	glm::vec4 ClearColor;
 	int frame;
 	int maxDepth;
+
+	float FocalLength;
+	float DoFStrength;
 };
 
 struct PushConstantGBuffer
@@ -99,8 +102,11 @@ private:
 	uint64_t m_DenoiseFenceValue = 0U;
 	Vulture::Ref<Vulture::Denoiser> m_Denoiser;
 	uint32_t m_CurrentSamplesPerPixel = 0;
-	int m_MaxSamplesPerPixel = 15'000;
+	int m_MaxSamplesPerPixel = 1;
 
 	bool m_RunDenoising = false;
 	bool m_ShowDenoised = false;
+
+	float m_FocalLength = 1.0f;
+	float m_DoFStrength = 1.0f;
 };

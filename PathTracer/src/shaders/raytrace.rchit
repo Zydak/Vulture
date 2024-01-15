@@ -51,16 +51,16 @@ void main()
 
     // Pick a random direction.
     vec3 tangent, bitangent;
-    createCoordinateSystem(worldNrm, tangent, bitangent);
+    CreateCoordinateSystem(worldNrm, tangent, bitangent);
     vec3 rayOrigin    = worldPos;
-    vec3 rayDirection = samplingHemisphere(prd.seed, tangent, bitangent, worldNrm);
+    vec3 rayDirection = SamplingHemisphere(prd.Seed, tangent, bitangent, worldNrm);
 
     const float cos_theta = dot(rayDirection, worldNrm);
     const float p = cos_theta / M_PI;
 
-    prd.rayOrigin = rayOrigin;
-    prd.rayDirection = rayDirection;
-    prd.hitValue = material.Emissive.xyz;
+    prd.RayOrigin = rayOrigin;
+    prd.RayDirection = rayDirection;
+    prd.HitValue = material.Emissive.xyz;
     vec3 albedo = material.Albedo.xyz / M_PI;
-    prd.weight = albedo * cos_theta / p;
+    prd.Weight = albedo * cos_theta / p;
 }

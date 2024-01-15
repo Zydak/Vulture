@@ -14,12 +14,12 @@ layout(push_constant) uniform _PushConstantRay
 
 void main()
 {
-	if(prd.depth == 0)
+	if(prd.Depth == 0)
 	{
-		prd.hitValue = pcRay.clearColor.xyz;
-		prd.missedAllGeometry = true;
+		prd.HitValue = pcRay.ClearColor.xyz;
+		prd.MissedAllGeometry = true;
 	}
 	else
-		prd.hitValue = vec3(0.1f);
-	prd.depth = 100;
+		prd.HitValue = vec3(0.1f);
+	prd.Depth = 100;
 }

@@ -78,6 +78,8 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 {
 	m_PushContantRay.ClearColor = clearColor;
 	m_PushContantRay.maxDepth = m_MaxRayDepth;
+	m_PushContantRay.FocalLength = m_FocalLength;
+	m_PushContantRay.DoFStrength = m_DoFStrength;
 
 	static glm::mat4 previousMat{ 0.0f };
 	if (previousMat != m_CurrentSceneRendered->GetMainCamera()->ViewMat)
@@ -864,6 +866,9 @@ void SceneRenderer::ImGuiPass()
 	{
 		ResetFrame();
 	}
+
+	ImGui::SliderFloat("Focal Length", &m_FocalLength, 1.0f, 100.0f);
+	ImGui::SliderFloat("DoF Strength", &m_DoFStrength, 1.0f, 100.0f);
 
 	ImGui::End();
 	ImGui::Render();
