@@ -86,7 +86,6 @@ namespace Vulture
 			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
 
-			s_DeviceExtensions.push_back(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_FENCE_EXTENSION_NAME);
@@ -561,7 +560,14 @@ namespace Vulture
 		VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2Features = {};
 		synchronization2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
 
-		s_Features.pNext = &memoryPriorityFeatures;
+		VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {};
+		indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+		//VkPhysicalDeviceVulkan12Features vk12Features = {};
+		//vk12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+
+		s_Features.pNext = &indexingFeatures;
+		indexingFeatures.pNext = &memoryPriorityFeatures;
 
 		if (s_RayTracingSupport)
 		{

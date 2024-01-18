@@ -40,6 +40,7 @@ namespace Vulture
 		VkFramebuffer GetPresentableFrameBuffer(int frameIndex) const { return m_PresentableFramebuffers[frameIndex]; };
 
 		inline VkImageView GetPresentableImageView(int frameIndex) const { return m_PresentableImageViews[frameIndex]; }
+		inline VkImage GetPresentableImage(int frameIndex) const { return m_PresentableImages[frameIndex]; }
 
 		inline uint32_t GetWidth() const { return m_SwapchainExtent.width; }
 		inline uint32_t GetHeight() const { return m_SwapchainExtent.height; }

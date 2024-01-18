@@ -8,5 +8,5 @@ Vulture::Application* Vulture::CreateApplication()
 	appInfo.Name = "PathTracer Sandbox";
 	appInfo.WorkingDirectory = "";
 	appInfo.RayTracingSupport = true;
-	return new Sandbox(appInfo, 600, 600);
+	return new Sandbox(appInfo, 1600, 900);
 }

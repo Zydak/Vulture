@@ -55,8 +55,12 @@ namespace Vulture
 
 		inline entt::registry& GetRegistry() { return m_Registry; }
 		inline Ref<TextureAtlas> GetAtlas() const { return m_Atlas; }
+		inline uint32_t GetTextureCount() const { return m_TextureCount; }
 		Ref<Window> GetWindow() const { return m_Window; }
-		CameraComponent* GetMainCamera();
+		CameraComponent* GetMainCamera(Entity* entity = nullptr);
+
+		inline uint32_t GetVertexCount() const { return m_VertexCount; }
+		inline uint32_t GetIndexCount() const { return m_IndexCount; }
 
 	private:
 		Ref<AccelerationStructure> m_AccelerationStructure = nullptr;
@@ -65,6 +69,12 @@ namespace Vulture
 		Ref<TextureAtlas> m_Atlas;
 		std::vector<SystemInterface*> m_Systems;
 		std::unordered_map<std::string, Ref<FontAtlas>> m_FontAtlases;
+		uint32_t m_TextureCount = 0;
+
+
+		// Just for fun
+		uint32_t m_VertexCount = 0;
+		uint32_t m_IndexCount = 0;
 	};
 
 }

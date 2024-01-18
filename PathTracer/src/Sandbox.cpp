@@ -46,6 +46,7 @@ void Sandbox::Init()
 	// Load Scene
 	m_Scene.CreateModel("assets/cornellBox.gltf", Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.5f)));
 
+	// Initialize path tracer
 	m_Scene.InitAccelerationStructure();
 	m_SceneRenderer.CreateRayTracingUniforms(m_Scene);
 }

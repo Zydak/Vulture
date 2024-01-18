@@ -65,6 +65,9 @@ namespace Vulture
 	{
 		auto entity = CreateEntity();
 		auto& mesh = entity.AddComponent<ModelComponent>(filepath);
+		m_TextureCount += mesh.Model.GetTextureCount();
+		m_VertexCount += mesh.Model.GetVertexCount();
+		m_IndexCount += mesh.Model.GetIndexCount();
 		auto& transformComp = entity.AddComponent<TransformComponent>(transform);
 		return entity;
 	}
@@ -197,14 +200,18 @@ namespace Vulture
 		return entitiesThatItCollidesWith;
 	}
 
-	Vulture::CameraComponent* Scene::GetMainCamera()
+	Vulture::CameraComponent* Scene::GetMainCamera(Entity* inEntity)
 	{
 		auto view = m_Registry.view<CameraComponent>();
 		for (auto& entity : view)
 		{
 			CameraComponent& camera = m_Registry.get<CameraComponent>(entity);
 			if (camera.Main)
+			{
+				if (inEntity != nullptr)
+					*inEntity = { entity, this };
 				return &camera;
+			}
 		}
 
 		return nullptr;

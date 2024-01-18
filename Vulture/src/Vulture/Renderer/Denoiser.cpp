@@ -184,7 +184,7 @@ namespace Vulture
     *              - [1] Albedo.
     *              - [2] Normals.
     */
-    void Denoiser::ImageToBuffer(VkCommandBuffer& cmdBuf, std::vector<Vulture::Image*>& imgIn)
+    void Denoiser::ImageToBuffer(VkCommandBuffer& cmdBuf, const std::vector<Ref<Vulture::Image>>& imgIn)
     {
         VkBufferImageCopy region = {
             .imageSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .layerCount = 1},
@@ -193,9 +193,9 @@ namespace Vulture
 
         for (int i = 0; i < (int)imgIn.size(); i++)
         {
-            Image::TransitionImageLayout(imgIn[i]->GetImage(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, cmdBuf);
+            imgIn[i]->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, cmdBuf);
             vkCmdCopyImageToBuffer(cmdBuf, imgIn[i]->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_pixelBufferIn[i].BufferVk->GetBuffer(), 1, &region);
-            Image::TransitionImageLayout(imgIn[i]->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, cmdBuf);
+            imgIn[i]->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, cmdBuf);
         }
     }
 
@@ -213,9 +213,9 @@ namespace Vulture
             .imageExtent = {.width = m_ImageSize.width, .height = m_ImageSize.height, .depth = 1},
         };
 
-        Image::TransitionImageLayout(imgOut->GetImage(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmdBuf);
+        imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, cmdBuf);
         vkCmdCopyBufferToImage(cmdBuf, m_pixelBufferOut.BufferVk->GetBuffer(), imgOut->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-        Image::TransitionImageLayout(imgOut->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, cmdBuf);
+        imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, cmdBuf);
     }
 
     void Denoiser::Destroy()

@@ -37,7 +37,9 @@ namespace Vulture
 	public:
 		Image(const ImageInfo& imageInfo);
 		Image(const std::string& filepath, SamplerInfo samplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST });
+		Image(const glm::vec4& color, const ImageInfo& imageInfo);
 		~Image();
+		void TransitionImageLayout(const VkImageLayout& newLayout, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkCommandBuffer cmdBuffer = 0, const VkImageSubresourceRange& subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 		static void TransitionImageLayout(const VkImage& image, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer = 0, const VkImageSubresourceRange& subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 		void CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkOffset3D offset = {0, 0, 0});
 		void CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkImageLayout layout, VkOffset3D srcOffset = { 0, 0, 0 }, VkOffset3D dstOffset = {0, 0, 0});
@@ -48,6 +50,9 @@ namespace Vulture
 		inline VkSampler GetSampler() const { return m_Sampler->GetSampler(); }
 		inline glm::vec2 GetImageSize() const { return m_Size; }
 		inline VkImageView GetLayerView(int layer) const { return m_LayersView[layer]; }
+		inline VkImageUsageFlags GetUsageFlags() const { return m_Usage; }
+		inline VkMemoryPropertyFlags GetMemoryProperties() const { return m_MemoryProperties; }
+		inline VkImageLayout GetLayout() const { return m_Layout; }
 
 	private:
 		void CreateImageView(VkFormat format, VkImageAspectFlagBits aspect, int layerCount = 1, VkImageViewType imageType = VK_IMAGE_VIEW_TYPE_2D);
@@ -63,6 +68,11 @@ namespace Vulture
 
 		glm::vec2 m_Size;
 		uint32_t m_MipLevels = 1;
+
+		//Flags
+		VkImageUsageFlags m_Usage;
+		VkMemoryPropertyFlags m_MemoryProperties;
+		VkImageLayout m_Layout = VK_IMAGE_LAYOUT_UNDEFINED;
 	};
 
 }

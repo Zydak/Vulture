@@ -47,8 +47,8 @@ namespace Vulture
 			}
 		}
 
-		for (int i = 0; i < m_ColorAttachments.size(); i++) m_Attachments.push_back(m_ColorAttachments[i].GetImageView());
-		for (int i = 0; i < m_DepthAttachments.size(); i++) m_Attachments.push_back(m_DepthAttachments[i].GetImageView());
+		for (int i = 0; i < m_ColorAttachments.size(); i++) m_Attachments.push_back(m_ColorAttachments[i]->GetImageView());
+		for (int i = 0; i < m_DepthAttachments.size(); i++) m_Attachments.push_back(m_DepthAttachments[i]->GetImageView());
 
 		{
 			VkFramebufferCreateInfo framebufferInfo = {};
@@ -72,8 +72,8 @@ namespace Vulture
 			for (int i = 0; i < layers; i++)
 			{
 				m_Attachments.clear();
-				for (int j = 0; j < m_ColorAttachments.size(); j++) m_Attachments.push_back(m_ColorAttachments[j].GetLayerView(i));
-				for (int j = 0; j < m_DepthAttachments.size(); j++) m_Attachments.push_back(m_DepthAttachments[j].GetLayerView(i));
+				for (int j = 0; j < m_ColorAttachments.size(); j++) m_Attachments.push_back(m_ColorAttachments[j]->GetLayerView(i));
+				for (int j = 0; j < m_DepthAttachments.size(); j++) m_Attachments.push_back(m_DepthAttachments[j]->GetLayerView(i));
 				VkFramebufferCreateInfo framebufferInfo = {};
 				framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 				framebufferInfo.renderPass = renderPass;
@@ -122,7 +122,7 @@ namespace Vulture
 		imageInfo.layerCount = layers;
 		imageInfo.type = type;
 
-		m_ColorAttachments.emplace_back(imageInfo);
+		m_ColorAttachments.emplace_back(std::make_shared<Image>(imageInfo));
 	}
 
 	/**
@@ -148,7 +148,7 @@ namespace Vulture
 		imageInfo.layerCount = layers;
 		imageInfo.type = type;
 
-		m_DepthAttachments.emplace_back(imageInfo);
+		m_DepthAttachments.emplace_back(std::make_shared<Image>(imageInfo));
 	}
 
 }

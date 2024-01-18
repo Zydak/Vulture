@@ -178,7 +178,7 @@ namespace Vulture
 		createInfo.imageColorSpace = surfaceFormat.colorSpace;
 		createInfo.imageExtent = extent;
 		createInfo.imageArrayLayers = 1;
-		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
 		QueueFamilyIndices indices = Device::FindPhysicalQueueFamilies();
 		uint32_t queueFamilyIndices[] = { indices.GraphicsFamily, indices.PresentFamily };
@@ -211,6 +211,11 @@ namespace Vulture
 		vkGetSwapchainImagesKHR(Device::GetDevice(), m_Swapchain, &imageCount, nullptr);
 		m_PresentableImages.resize(imageCount);
 		vkGetSwapchainImagesKHR(Device::GetDevice(), m_Swapchain, &imageCount, m_PresentableImages.data());
+
+		for (int i = 0; i < m_PresentableImages.size(); i++)
+		{
+			Image::TransitionImageLayout(m_PresentableImages[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		}
 
 		m_SwapchainImageFormat = surfaceFormat.format;
 		m_SwapchainExtent = extent;
@@ -255,7 +260,7 @@ namespace Vulture
 		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 		VkAttachmentReference colorAttachmentRef = {};

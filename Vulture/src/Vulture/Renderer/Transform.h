@@ -41,9 +41,6 @@ namespace Vulture
 		glm::vec3 m_Scale;
 
 		Quaternion m_Rotation{};
-		glm::vec3 m_RightVec{ 1.0f, 0.0f, 0.0f };
-		glm::vec3 UpVec{ 0.0f, -1.0f, 0.0f };
-		glm::vec3 FrontVec{ 0.0f, 0.0f, -1.0f };
 	};
 
 }

@@ -19,7 +19,7 @@ namespace Vulture
 	struct Binding
 	{
 		BindingType Type;
-		VkDescriptorImageInfo ImageInfo{};
+		std::vector<VkDescriptorImageInfo> ImageInfo;
 		VkDescriptorBufferInfo BufferInfo{};
 		VkWriteDescriptorSetAccelerationStructureKHR AccelInfo{};
 	};
@@ -37,7 +37,7 @@ namespace Vulture
 		inline const VkDescriptorSet& GetDescriptorSet() const { return m_DescriptorSet; }
 		inline const DescriptorPool& GetPool() const { return m_Pool; }
 
-		void AddImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout, VkShaderStageFlagBits stage, VkDescriptorType type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+		void AddImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout, VkShaderStageFlagBits stage, int count = 1, VkDescriptorType type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 		void AddAccelerationStructure(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR asInfo);
 		void AddUniformBuffer(uint32_t binding, uint32_t bufferSize, VkShaderStageFlags stage);
 		void AddStorageBuffer(uint32_t binding, uint32_t bufferSize, VkShaderStageFlagBits stage, bool resizable = false);

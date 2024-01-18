@@ -23,21 +23,39 @@ namespace Vulture
 	 * @param imageView - The Vulkan image view to be used.
 	 * @param imageLayout - The layout of the image.
 	 * @param stage - The shader stage where the sampler will be used.
+	 * @param count - number of descriptors in binding.
 	 * @param type - The descriptor type for the binding.
 	 */
-	void Uniform::AddImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout, VkShaderStageFlagBits stage, VkDescriptorType Type)
+	void Uniform::AddImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout, VkShaderStageFlagBits stage, int count, VkDescriptorType Type)
 	{
-		VL_CORE_ASSERT(m_Bindings.count(binding) == 0, "Binding already in use!");
-		VkDescriptorImageInfo imageDescriptor{};
-		imageDescriptor.sampler = sampler;
-		imageDescriptor.imageView = imageView;
-		imageDescriptor.imageLayout = imageLayout;
-		m_SetBuilder.AddBinding(binding, Type, stage);
+		//VL_CORE_ASSERT(m_Bindings.count(binding) == 0, "Binding already in use!");
+		if (m_Bindings.count(binding) != 0) // Binding Found, add to existing binding
+		{
+			VkDescriptorImageInfo imageDescriptor{};
+			imageDescriptor.sampler = sampler;
+			imageDescriptor.imageView = imageView;
+			imageDescriptor.imageLayout = imageLayout;
 
-		Binding bin;
-		bin.ImageInfo = imageDescriptor;
-		bin.Type = BindingType::Image;
-		m_Bindings[binding] = bin;
+			m_Bindings[binding].ImageInfo.push_back(imageDescriptor);
+
+			return;
+		}
+		else // Binding not found, create new binding
+		{
+			m_SetBuilder.AddBinding(binding, Type, stage, count);
+
+			VkDescriptorImageInfo imageDescriptor{};
+			imageDescriptor.sampler = sampler;
+			imageDescriptor.imageView = imageView;
+			imageDescriptor.imageLayout = imageLayout;
+
+			Binding bin;
+			bin.ImageInfo.push_back(imageDescriptor);
+			bin.Type = BindingType::Image;
+			m_Bindings[binding] = bin;
+
+			return;
+		}
 	}
 
 	// TODO description
@@ -112,11 +130,11 @@ namespace Vulture
 			{
 
 			case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: {
-				writer.WriteImage(i, &m_Bindings[i].ImageInfo);
+				writer.WriteImage(i, m_Bindings[i].ImageInfo.data());
 			} break;
 
 			case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
-				writer.WriteImage(i, &m_Bindings[i].ImageInfo);
+				writer.WriteImage(i, m_Bindings[i].ImageInfo.data());
 			} break;
 
 			case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
@@ -165,7 +183,7 @@ namespace Vulture
 
 			switch (m_DescriptorSetLayout->GetDescriptorSetLayoutBindings()[i].descriptorType) {
 			case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: {
-				writer.WriteImage(i, &m_Bindings[i].ImageInfo);
+				writer.WriteImage(i, m_Bindings[i].ImageInfo.data());
 			} break;
 
 			case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {

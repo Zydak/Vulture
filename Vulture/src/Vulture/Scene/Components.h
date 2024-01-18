@@ -196,6 +196,9 @@ namespace Vulture
 		{
 			ViewMat = Rotation.GetMat4();
 			ViewMat = glm::translate(ViewMat, Translation);
+
+			// Invert Y axis so that image is not flipped
+			ViewMat = glm::scale(ViewMat, glm::vec3(1.0f, -1.0f, 1.0f));
 		}
 
 		void UpdateViewMatrixCustom(const glm::mat4 mat)

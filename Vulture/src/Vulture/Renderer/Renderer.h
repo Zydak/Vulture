@@ -45,7 +45,10 @@ namespace Vulture
 		static VkCommandBuffer GetCurrentCommandBuffer();
 		static int GetFrameIndex();
 
-		static void FramebufferCopyPass(Uniform* uniformWithImageSampler);
+		static void FramebufferCopyPassImGui(Ref<Uniform> uniformWithImageSampler);
+		static void FramebufferCopyPassBlit(Ref<Image> image);
+		static void ToneMapPass(Ref<Uniform> uniformWithImageSampler, Ref<Image> image);
+		static void BloomPass(Ref<Image> image, int mipsCount);
 
 	private:
 		static bool BeginFrameInternal();
@@ -57,6 +60,7 @@ namespace Vulture
 		static void CreateCommandBuffers();
 		static void CreatePool();
 		static void CreatePipeline();
+		static void CreateBloomImages(Ref<Image> image, int mipsCount);
 
 		static Scope<DescriptorPool> s_Pool;
 		static Window* s_Window;
@@ -75,10 +79,25 @@ namespace Vulture
 		static Mesh s_QuadMesh;
 		static Scope<Sampler> s_RendererSampler;
 
+		static Ref<Uniform> s_BloomSeparateBrightnessUniform;
+		static Ref<Uniform> s_BloomAccumulateUniform;
+		static std::vector<Ref<Uniform>> s_BloomDownSampleUniform;
+
 		static Pipeline s_HDRToPresentablePipeline;
+		static Pipeline s_ToneMapPipeline;
+		static Pipeline s_BloomSeparateBrightnessPipeline;
+		static Pipeline s_BloomAccumulatePipeline;
+		static Pipeline s_BloomDownSamplePipeline;
+
+		static std::vector<Ref<Image>> s_BloomImages;
 
 		static std::function<void()> s_ImGuiFunction;
 
+		static glm::vec2 s_MipSize;
+		static int m_PrevMipsCount;
+		static int m_MipsCount;
 		friend class RenderPass;
+
+
 	};
 }

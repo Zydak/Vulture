@@ -43,6 +43,7 @@ namespace Vulture
 		inline uint32_t& GetIndexCount() { return m_IndexCount; }
 		inline uint32_t& GetVertexCount() { return m_VertexCount; }
 
+
 		inline bool& HasIndexBuffer() { return m_HasIndexBuffer; }
 
 	private:

@@ -18,6 +18,8 @@ namespace Vulture
 	 */
 	Image::Image(const ImageInfo& imageInfo)
 	{
+		m_Usage = imageInfo.usage;
+		m_MemoryProperties = imageInfo.properties;
 		m_Allocation = new VmaAllocation();
 		m_Size.x = (float)imageInfo.width;
 		m_Size.y = (float)imageInfo.height;
@@ -36,6 +38,52 @@ namespace Vulture
 			CreateImageView(imageInfo.format, imageInfo.aspect, imageInfo.layerCount, VK_IMAGE_VIEW_TYPE_2D);
 		}
 		CreateImageSampler(imageInfo.samplerInfo);
+	}
+
+	Image::Image(const glm::vec4& color, const ImageInfo& imageInfo)
+	{
+		m_Usage = imageInfo.usage;
+		m_MemoryProperties = imageInfo.properties;
+		m_Allocation = new VmaAllocation();
+		m_Size.x = (float)imageInfo.width;
+		m_Size.y = (float)imageInfo.height;
+		CreateImage(imageInfo);
+
+		if (imageInfo.type == ImageType::Cubemap)
+		{
+			CreateImageView(imageInfo.format, imageInfo.aspect, imageInfo.layerCount, VK_IMAGE_VIEW_TYPE_CUBE_ARRAY);
+		}
+		else if (imageInfo.layerCount > 1 || imageInfo.type == ImageType::Image2DArray)
+		{
+			CreateImageView(imageInfo.format, imageInfo.aspect, imageInfo.layerCount, VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+		}
+		else
+		{
+			CreateImageView(imageInfo.format, imageInfo.aspect, imageInfo.layerCount, VK_IMAGE_VIEW_TYPE_2D);
+		}
+		CreateImageSampler(imageInfo.samplerInfo);
+
+		uint32_t size = imageInfo.width * imageInfo.height * sizeof(float);
+
+		uint32_t* pixels = new uint32_t[size];
+		for (int i = 0; i < size; i++)
+		{
+			uint8_t r = (uint8_t)(color.r * 255.0f);
+			uint8_t g = (uint8_t)(color.g * 255.0f);
+			uint8_t b = (uint8_t)(color.b * 255.0f);
+			uint8_t a = (uint8_t)(color.a * 255.0f);
+			pixels[i] = (a << 24) | (b << 16) | (g << 8) | r;
+		}
+
+		auto buffer = std::make_unique<Buffer>(size, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		buffer->Map(size);
+		buffer->WriteToBuffer((void*)pixels, size);
+		buffer->Unmap();
+
+		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		CopyBufferToImage(buffer->GetBuffer(), (uint32_t)m_Size.x, (uint32_t)m_Size.y);
+		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
 	}
 
 	Image::~Image()
@@ -136,6 +184,8 @@ namespace Vulture
 	 */
 	Image::Image(const std::string& filepath, SamplerInfo samplerInfo)
 	{
+		m_Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		m_MemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		m_Allocation = new VmaAllocation();
 		int texChannels;
 		stbi_set_flip_vertically_on_load(true);
@@ -174,10 +224,10 @@ namespace Vulture
 		range.baseArrayLayer = 0;
 		range.layerCount = 1;
 
-		Image::TransitionImageLayout(m_Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, range);
+		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, range);
 		CopyBufferToImage(buffer->GetBuffer(), (uint32_t)m_Size.x, (uint32_t)m_Size.y);
 
-		Image::TransitionImageLayout(m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 		CreateImageView(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
 		CreateImageSampler(samplerInfo);
@@ -294,7 +344,38 @@ namespace Vulture
 	 * @param cmdBuffer - Optional command buffer for the transition (useful for custom command buffer recording).
 	 * @param subresourceRange - Optional subresource range for the transition.
 	 */
-	void Image::TransitionImageLayout(const VkImage& image, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer, const VkImageSubresourceRange& subresourceRange) {
+	void Image::TransitionImageLayout(const VkImageLayout& newLayout, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkCommandBuffer cmdBuffer, const VkImageSubresourceRange& subresourceRange)
+	{
+		VkCommandBuffer commandBuffer;
+
+		if (!cmdBuffer)
+			Device::BeginSingleTimeCommands(commandBuffer, Device::GetCommandPool());
+		else
+			commandBuffer = cmdBuffer;
+
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = m_Layout;
+		barrier.newLayout = newLayout;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.image = m_Image;
+		barrier.subresourceRange = subresourceRange;
+		barrier.srcAccessMask = srcAccess;
+		barrier.dstAccessMask = dstAccess;
+		VkPipelineStageFlags srcStageMask = srcStage;
+		VkPipelineStageFlags dstStageMask = dstStage;
+
+		vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+		if (!cmdBuffer)
+			Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetCommandPool());
+
+		m_Layout = newLayout;
+	}
+
+	void Image::TransitionImageLayout(const VkImage& image, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer /*= 0*/, const VkImageSubresourceRange& subresourceRange /*= { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }*/)
+	{
 		VkCommandBuffer commandBuffer;
 
 		if (!cmdBuffer)

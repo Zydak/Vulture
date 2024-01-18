@@ -71,15 +71,16 @@ private:
 	Vulture::Ref<Vulture::Framebuffer> m_GBufferFramebuffer;
 
 	Vulture::Ref<Vulture::Image> m_DenoisedImage;
-	Vulture::Ref<Vulture::Framebuffer> m_HDRFramebuffer; // we have only one framebuffer for ray tracing
-	Vulture::Ref<Vulture::Uniform> m_HDRUniforms; // we have only one framebuffer for ray tracing
+	Vulture::Ref<Vulture::Image> m_PathTracingImage;
+	Vulture::Ref<Vulture::Uniform> m_HDRUniforms;
+	Vulture::Ref<Vulture::Uniform> m_ToneMapUniforms;
 
 	Vulture::Ref<Vulture::Uniform> m_RayTracingUniforms; // we have only one uniform for ray tracing
 	std::vector<Vulture::Ref<Vulture::Uniform>> m_GlobalUniforms;
 	Vulture::Pipeline m_RtPipeline;
 	
 	// SBT
-	VkImageView m_PresentedImageView;
+	Vulture::Ref<Vulture::Image> m_PresentedImage;
 	Vulture::Ref<Vulture::Buffer> m_RtSBTBuffer;
 	VkStridedDeviceAddressRegionKHR m_RgenRegion{};
 	VkStridedDeviceAddressRegionKHR m_MissRegion{};
@@ -102,11 +103,14 @@ private:
 	uint64_t m_DenoiseFenceValue = 0U;
 	Vulture::Ref<Vulture::Denoiser> m_Denoiser;
 	uint32_t m_CurrentSamplesPerPixel = 0;
-	int m_MaxSamplesPerPixel = 1;
+	int m_MaxSamplesPerPixel = 1500;
 
 	bool m_RunDenoising = false;
 	bool m_ShowDenoised = false;
 
 	float m_FocalLength = 1.0f;
 	float m_DoFStrength = 1.0f;
+
+	bool m_ToneMapped = false;
+	
 };

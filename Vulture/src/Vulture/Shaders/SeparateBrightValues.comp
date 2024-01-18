@@ -1,0 +1,27 @@
+#version 460 core
+
+#extension GL_EXT_nonuniform_qualifier : enable
+
+layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+layout (set = 0, binding = 0, rgba32f) uniform image2D inputImage;
+layout (set = 0, binding = 1, rgba32f) uniform image2D outputImage;
+
+layout (push_constant) uniform PushContants
+{
+	float BloomThreshold;
+} push;
+
+void main()
+{
+	vec3 color = imageLoad(inputImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
+
+    float brightness = dot(color, vec3(0.2126, 0.7152, 0.0722));
+	
+	if (brightness < 1.0f)
+	{
+		color = vec3(0.0f);
+	}
+
+	imageStore(outputImage, ivec2(gl_GlobalInvocationID.xy), vec4(color, 1.0f));
+}

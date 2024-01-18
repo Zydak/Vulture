@@ -209,14 +209,14 @@ namespace Vulture
 
 		auto& bindingDescription = m_SetLayout.m_Bindings[binding];
 
-		VL_CORE_ASSERT(bindingDescription.descriptorCount == 1, "Binding single descriptor info, but binding expects multiple");
+		//VL_CORE_ASSERT(bindingDescription.descriptorCount == 1, "Binding single descriptor info, but binding expects multiple");
 
 		VkWriteDescriptorSet write{};
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.descriptorType = bindingDescription.descriptorType;
 		write.dstBinding = binding;
 		write.pImageInfo = imageInfo;
-		write.descriptorCount = 1;
+		write.descriptorCount = bindingDescription.descriptorCount;
 
 		m_Writes.push_back(write);
 	}
