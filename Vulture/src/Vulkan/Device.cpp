@@ -408,7 +408,15 @@ namespace Vulture
 			allocCreateInfo.pool = it->second;
 			allocCreateInfo.priority = 0.5f;
 
-			vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr);
+			if (vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr) < 0)
+			{
+				allocCreateInfo.pool = nullptr;
+				allocCreateInfo.requiredFlags = customFlags;
+				if (vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr) < 0)
+				{
+					VL_CORE_ASSERT(false, "Couldn't create a buffer!");
+				}
+			}
 		}
 		else
 		{
@@ -418,7 +426,15 @@ namespace Vulture
 			VmaAllocationCreateInfo allocCreateInfo = {};
 			allocCreateInfo.pool = s_Pools[memoryIndex];
 			allocCreateInfo.priority = 0.5f;
-			vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr);
+			if (vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr) < 0)
+			{
+				allocCreateInfo.pool = nullptr;
+				allocCreateInfo.requiredFlags = customFlags;
+				if (vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr) < 0)
+				{
+					VL_CORE_ASSERT(false, "Couldn't create a buffer!");
+				}
+			}
 		}
 	}
 

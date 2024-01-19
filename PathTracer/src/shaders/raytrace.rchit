@@ -22,7 +22,15 @@ layout(buffer_reference, scalar) buffer Indices {int i[]; };
 layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
 layout(set = 0, binding = 2, scalar) buffer MeshAdressesUbo { MeshAdresses i[]; } meshAdresses;
 layout(set = 0, binding = 3, scalar) buffer MaterialsUbo { Material i[]; } materials;
-layout(set = 0, binding = 4) uniform sampler2D textures[];
+layout(set = 0, binding = 4) uniform sampler2D albedoTextures[];
+layout(set = 0, binding = 5) uniform sampler2D normalTextures[];
+layout(set = 0, binding = 6) uniform sampler2D roghnessTextures[];
+layout(set = 0, binding = 7) uniform sampler2D metallnessTextures[];
+
+vec3 brdfLambertian(vec3 diffuseColor, float metallic)
+{
+    return (1.0F - metallic) * (diffuseColor / M_PI);
+}
 
 void main() 
 {
@@ -38,7 +46,7 @@ void main()
     Vertex v0 = vertices.v[i1];
     Vertex v1 = vertices.v[i2];
     Vertex v2 = vertices.v[i3];
-    
+
     const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
     vec2 texCoord = v0.TexCoord.xy * barycentrics.x + v1.TexCoord.xy * barycentrics.y + v2.TexCoord.xy * barycentrics.z;
 
@@ -54,12 +62,20 @@ void main()
     vec3 tangent, bitangent;
     CreateCoordinateSystem(worldNrm, tangent, bitangent);
     vec3 rayOrigin    = worldPos;
-    vec3 rayDirection = SamplingHemisphere(prd.Seed, tangent, bitangent, worldNrm);
+
+    vec3 randomDirection = SamplingHemisphere(prd.Seed, tangent, bitangent, worldNrm);
+
+    // I - 2.0 * dot(N, I) * N
+    // where I is the incident vector and N is the surface normal.
+    vec3 reflectDirection = reflect(prd.RayDirection, worldNrm);
+
+    float roughness = texture(roghnessTextures[gl_InstanceCustomIndexEXT], texCoord).r * material.Roughness;
+    vec3 rayDirection = mix(reflectDirection, randomDirection, roughness);
 
     const float cos_theta = dot(rayDirection, worldNrm);
     const float p = cos_theta / M_PI;
 
-    vec3 albedo = (material.Albedo.xyz * texture(textures[gl_InstanceCustomIndexEXT], texCoord).rgb) / M_PI;
+    vec3 albedo = (material.Albedo.xyz * texture(albedoTextures[gl_InstanceCustomIndexEXT], texCoord).rgb) / M_PI;
 
     prd.RayOrigin = rayOrigin;
     prd.RayDirection = rayDirection;

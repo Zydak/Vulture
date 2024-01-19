@@ -20,6 +20,6 @@ void main()
 		prd.MissedAllGeometry = true;
 	}
 	else
-		prd.HitValue = vec3(0.0f);
+		prd.HitValue = vec3(0.1f);
 	prd.Depth = 100;
 }

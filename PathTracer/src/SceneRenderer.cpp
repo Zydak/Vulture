@@ -79,7 +79,7 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 			// tone map if finished
 			if (!m_ToneMapped)
 			{
-				Vulture::Renderer::BloomPass(m_PresentedImage, 5);
+				Vulture::Renderer::BloomPass(m_PresentedImage, 7);
 				m_PresentedImage->TransitionImageLayout(m_PresentedImage->GetLayout(), VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, Vulture::Renderer::GetCurrentCommandBuffer());
 				Vulture::Renderer::ToneMapPass(m_ToneMapUniforms, m_PresentedImage);
 				m_ToneMapped = true;
@@ -516,22 +516,40 @@ void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 		m_RayTracingUniforms->AddAccelerationStructure(0, asInfo);
 		m_RayTracingUniforms->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), m_PathTracingImage->GetImageView(),
 			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-		m_RayTracingUniforms->AddStorageBuffer(2, sizeof(MeshAdresses) * 100, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
-		m_RayTracingUniforms->AddStorageBuffer(3, sizeof(Vulture::Material) * 100, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
+		m_RayTracingUniforms->AddStorageBuffer(2, sizeof(MeshAdresses) * 200, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
+		m_RayTracingUniforms->AddStorageBuffer(3, sizeof(Vulture::Material) * 200, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
 
-		for (int i = 0; i < scene.GetTextureCount(); i++)
+		auto view = scene.GetRegistry().view<Vulture::ModelComponent>();
+		for (auto& entity : view)
 		{
-			auto view = scene.GetRegistry().view<Vulture::ModelComponent>();
-			for (auto& entity : view)
+			auto& modelComp = scene.GetRegistry().get<Vulture::ModelComponent>(entity);
+			for (int j = 0; j < (int)modelComp.Model.GetAlbedoTextureCount(); j++)
 			{
-				auto& modelComp = scene.GetRegistry().get<Vulture::ModelComponent>(entity);
-				for (int j = 0; j < (int)modelComp.Model.GetTextureCount(); j++)
-				{
-					m_RayTracingUniforms->AddImageSampler(4, Vulture::Renderer::GetSampler().GetSampler(), 
-						modelComp.Model.GetTexture(j)->GetImageView(),
-						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, scene.GetTextureCount()
-					);
-				}
+				m_RayTracingUniforms->AddImageSampler(4, Vulture::Renderer::GetSampler().GetSampler(), 
+					modelComp.Model.GetAlbedoTexture(j)->GetImageView(),
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, scene.GetMeshCount()
+				);
+			}
+			for (int j = 0; j < (int)modelComp.Model.GetNormalTextureCount(); j++)
+			{
+				m_RayTracingUniforms->AddImageSampler(5, Vulture::Renderer::GetSampler().GetSampler(),
+					modelComp.Model.GetNormalTexture(j)->GetImageView(),
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, scene.GetMeshCount()
+				);
+			}
+			for (int j = 0; j < (int)modelComp.Model.GetRoughnessTextureCount(); j++)
+			{
+				m_RayTracingUniforms->AddImageSampler(6, Vulture::Renderer::GetSampler().GetSampler(),
+					modelComp.Model.GetRoughnessTexture(j)->GetImageView(),
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, scene.GetMeshCount()
+				);
+			}
+			for (int j = 0; j < (int)modelComp.Model.GetMetallnessTextureCount(); j++)
+			{
+				m_RayTracingUniforms->AddImageSampler(7, Vulture::Renderer::GetSampler().GetSampler(),
+					modelComp.Model.GetMetallnessTexture(j)->GetImageView(),
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, scene.GetMeshCount()
+				);
 			}
 		}
 		

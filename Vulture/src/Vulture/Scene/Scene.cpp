@@ -65,9 +65,12 @@ namespace Vulture
 	{
 		auto entity = CreateEntity();
 		auto& mesh = entity.AddComponent<ModelComponent>(filepath);
-		m_TextureCount += mesh.Model.GetTextureCount();
+		m_ModelCount++;
+		m_MeshCount += mesh.Model.GetMeshCount();
 		m_VertexCount += mesh.Model.GetVertexCount();
 		m_IndexCount += mesh.Model.GetIndexCount();
+
+		VL_CORE_INFO("Loaded model: {0} with {1} vertices", filepath, mesh.Model.GetVertexCount());
 		auto& transformComp = entity.AddComponent<TransformComponent>(transform);
 		return entity;
 	}

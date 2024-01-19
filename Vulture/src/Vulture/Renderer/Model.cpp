@@ -49,6 +49,8 @@ namespace Vulture
 			m_VertexCount += m_Meshes[index]->GetVertexCount();
 			m_IndexCount += m_Meshes[index]->GetIndexCount();
 
+			VL_CORE_INFO("Loaded mesh: with {0} vertices", m_Meshes[index]->GetVertexCount());
+
 			m_Materials.push_back(Material());
 			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 			aiColor3D emissiveColor(0.0f, 0.0f, 0.0f);
@@ -58,30 +60,73 @@ namespace Vulture
 
 			material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor);
 			material->Get(AI_MATKEY_COLOR_DIFFUSE, albedoColor);
-			material->Get(AI_MATKEY_SHININESS, roughness);
+			material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
 			material->Get(AI_MATKEY_REFLECTIVITY, metallic);
+
+			if (roughness == 0.0f)
+			{
+				//metallic = 0.5f;
+				//roughness = 0.5f;
+			}
 
 			for (int i = 0; i < material->GetTextureCount(aiTextureType_BASE_COLOR); i++)
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_BASE_COLOR, i, &str);
-				m_Textures.push_back(std::make_shared<Image>(std::string("assets/") + std::string(str.C_Str())));
+				m_AlbedoTextures.push_back(std::make_shared<Image>(std::string("assets/") + std::string(str.C_Str())));
+				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
+			for (int i = 0; i < material->GetTextureCount(aiTextureType_NORMALS); i++)
+			{
+				aiString str;
+				material->GetTexture(aiTextureType_NORMALS, i, &str);
+				m_NormalTextures.push_back(std::make_shared<Image>(std::string("assets/") + std::string(str.C_Str())));
+				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
+			}
+
+			for (int i = 0; i < material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS); i++)
+			{
+				aiString str;
+				material->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, i, &str);
+				m_RoghnessTextures.push_back(std::make_shared<Image>(std::string("assets/") + std::string(str.C_Str())));
+				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
+			}
+
+			for (int i = 0; i < material->GetTextureCount(aiTextureType_METALNESS); i++)
+			{
+				aiString str;
+				material->GetTexture(aiTextureType_METALNESS, i, &str);
+				m_MetallnessTextures.push_back(std::make_shared<Image>(std::string("assets/") + std::string(str.C_Str())));
+				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
+			}
+
+			ImageInfo info{};
+			info.width = 1;
+			info.height = 1;
+			info.format = VK_FORMAT_R8G8B8A8_UNORM;
+			info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+			info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+			info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+			info.tiling = VK_IMAGE_TILING_OPTIMAL;
+			info.samplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR };
+
+			// Create Empty Texture if none are found
 			if (material->GetTextureCount(aiTextureType_BASE_COLOR) == 0)
 			{
-				// Create Empty Texture if none are found
-				ImageInfo info{};
-				info.width = 1;
-				info.height = 1;
-				info.format = VK_FORMAT_R8G8B8A8_UNORM;
-				info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-				info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-				info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-				info.tiling = VK_IMAGE_TILING_OPTIMAL;
-				info.samplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR };
-
-				m_Textures.push_back(std::make_shared<Image>(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f), info));
+				m_AlbedoTextures.push_back(std::make_shared<Image>(glm::vec4(1.0f), info));
+			}
+			if (material->GetTextureCount(aiTextureType_NORMALS) == 0)
+			{
+				m_NormalTextures.push_back(std::make_shared<Image>(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f), info));
+			}
+			if (material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS) == 0)
+			{
+				m_RoghnessTextures.push_back(std::make_shared<Image>(glm::vec4(1.0f), info));
+			}
+			if (material->GetTextureCount(aiTextureType_METALNESS) == 0)
+			{
+				m_MetallnessTextures.push_back(std::make_shared<Image>(glm::vec4(0.0f), info));
 			}
 
 			m_Materials[index].Color = glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, 1.0f);

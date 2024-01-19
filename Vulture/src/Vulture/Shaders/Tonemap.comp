@@ -4,7 +4,36 @@ layout (local_size_x = 32, local_size_y = 32) in;
 
 layout(set = 0, binding = 0, rgba32f) uniform image2D uInput;
 
-vec3 uncharted2_tonemap_partial(vec3 x)
+const mat3 AcesInputMatrix =
+{
+    vec3(0.59719f, 0.35458f, 0.04823f),
+    vec3(0.07600f, 0.90834f, 0.01566f),
+    vec3(0.02840f, 0.13383f, 0.83777f)
+};
+
+const mat3 AcesOutputMatrix =
+{
+    vec3( 1.60475f, -0.53108f, -0.07367f),
+    vec3(-0.10208f,  1.10813f, -0.00605f),
+    vec3(-0.00327f, -0.07276f,  1.07602f)
+};
+
+vec3 Mul(mat3 m, vec3 v)
+{
+    float x = m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2];
+    float y = m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2];
+    float z = m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2];
+    return vec3(x, y, z);
+}
+
+vec3 RttAndOdtFit(vec3 v)
+{
+    vec3 a = v * (v + 0.0245786f) - 0.000090537f;
+    vec3 b = v * (0.983729f * v + 0.4329510f) + 0.238081f;
+    return a / b;
+}
+
+vec3 Uncharted2TonemapPartial(vec3 x)
 {
     float A = 0.15f;
     float B = 0.50f;
@@ -15,21 +44,32 @@ vec3 uncharted2_tonemap_partial(vec3 x)
     return ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F))-E/F;
 }
 
-vec3 uncharted2_filmic(vec3 v)
+vec3 Uncharted2Filmic(vec3 v)
 {
     float exposure_bias = 2.0f;
-    vec3 curr = uncharted2_tonemap_partial(v * exposure_bias);
+    vec3 curr = Uncharted2TonemapPartial(v * exposure_bias);
 
     vec3 W = vec3(11.2f);
-    vec3 white_scale = vec3(1.0f) / uncharted2_tonemap_partial(W);
+    vec3 white_scale = vec3(1.0f) / Uncharted2TonemapPartial(W);
     return curr * white_scale;
+}
+
+vec3 Aces(vec3 v)
+{
+    v = Mul(AcesInputMatrix, v);
+    v = RttAndOdtFit(v);
+    return Mul(AcesOutputMatrix, v);
 }
 
 void main() 
 {
     vec3 hdrColor = imageLoad(uInput, ivec2(gl_GlobalInvocationID.xy)).rgb;
-    
-    vec3 mapped = uncharted2_filmic(hdrColor);
+
+    float exposure = 0.2f;
+
+    //hdrColor *= exposure;
+    vec3 mapped = Aces(hdrColor);
+    //vec3 mapped = Uncharted2Filmic(hdrColor);
 
     imageStore(uInput, ivec2(gl_GlobalInvocationID.xy), vec4(mapped, 1.0f));
 }

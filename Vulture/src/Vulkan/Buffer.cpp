@@ -154,6 +154,7 @@ namespace Vulture
 	 */
 	void Buffer::WriteToBuffer(void* data, VkDeviceSize size, VkDeviceSize offset)
 	{
+		VL_CORE_ASSERT((size == VK_WHOLE_SIZE || size <= m_BufferSize), "Data size is larger than buffer size, either resize the buffer or create a larger one");
 		VL_CORE_ASSERT(m_Mapped, "Cannot copy to unmapped buffer");
 		VL_CORE_ASSERT(data != nullptr, "invalid data");
 
