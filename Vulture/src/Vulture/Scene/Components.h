@@ -301,4 +301,15 @@ namespace Vulture
 
 	private:
 	};
+
+	class SkyboxComponent
+	{
+	public:
+		// TODO see todo in Image.h, then delete ref from here
+		Ref<Vulture::Image> SkyboxImage;
+
+		SkyboxComponent(const std::string filepath);
+
+		~SkyboxComponent() = default;
+	};
 }

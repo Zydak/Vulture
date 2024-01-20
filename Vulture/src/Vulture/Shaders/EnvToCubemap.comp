@@ -1,0 +1,75 @@
+#version 460
+
+layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+layout (set = 0, binding = 0) uniform sampler2D envMap;
+layout (set = 0, binding = 1, rgba32f) uniform imageCube cubeMap;
+
+const vec2 invAtan = vec2(0.1591, 0.3183);
+vec2 SampleSphericalMap(vec3 v)
+{
+	vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
+	uv *= invAtan;
+	uv += 0.5;
+	return uv;
+}
+
+vec3 EquirectangularToCubeMap(vec2 equirectangularUV, int face, float size) {
+    float u = equirectangularUV.x * 2.0 - 1.0;
+    float v = (1.0 - equirectangularUV.y) * 2.0 - 1.0; // Inverted V coordinate
+
+    vec3 direction;
+
+    // Calculate direction based on face
+    if (face == 0) // +X
+        direction = normalize(vec3(1.0, -v, -u));
+    else if (face == 1) // -X
+        direction = normalize(vec3(-1.0, -v, u));
+    else if (face == 2) // +Y
+        direction = normalize(vec3(u, -1.0, -v));
+    else if (face == 3) // -Y
+        direction = normalize(vec3(u, 1.0, v));
+    else if (face == 4) // +Z
+        direction = normalize(vec3(u, -v, 1.0));
+    else if (face == 5) // -Z
+        direction = normalize(vec3(-u, -v, -1.0));
+
+    return direction;
+}
+
+
+void main()
+{
+	uint size = imageSize(cubeMap).x;
+    uvec2 id = gl_GlobalInvocationID.xy;
+
+    if (id.x >= size || id.y >= size)
+        return;
+
+    for (int face = 0; face < 6; ++face) 
+    {
+        vec2 equirectangularUV = vec2(float(id.x) / float(size), float(id.y) / float(size));
+        vec3 direction = EquirectangularToCubeMap(equirectangularUV, face, float(size));
+
+        // Convert direction to spherical coordinates
+        float phi = atan(direction.z, direction.x);
+        float theta = acos(direction.y);
+
+        // Map spherical coordinates to equirectangular UV
+        vec2 uv = vec2(phi / (2.0 * 3.14159265) + 0.5, theta / 3.14159265);
+
+        // Blur env map a little bit
+        int range = 2; // TODO make this a push constant
+        vec4 color = vec4(0.0);
+        for (int x = -range; x <= range; ++x)
+        {
+	        for (int y = -range; y <= range; ++y)
+            {
+	            color += texture(envMap, uv + (vec2(x, y) / size));
+            }
+        }
+        color /= (float((2 * range + 1) * (2 * range + 1)));
+
+        imageStore(cubeMap, ivec3(id.x, id.y, face), color);
+    }
+}

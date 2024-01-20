@@ -27,11 +27,6 @@ layout(set = 0, binding = 5) uniform sampler2D normalTextures[];
 layout(set = 0, binding = 6) uniform sampler2D roghnessTextures[];
 layout(set = 0, binding = 7) uniform sampler2D metallnessTextures[];
 
-vec3 brdfLambertian(vec3 diffuseColor, float metallic)
-{
-    return (1.0F - metallic) * (diffuseColor / M_PI);
-}
-
 void main() 
 {
     Material material = materials.i[gl_InstanceCustomIndexEXT];
@@ -75,12 +70,14 @@ void main()
     const float cos_theta = dot(rayDirection, worldNrm);
     const float p = cos_theta / M_PI;
 
-    vec3 albedo = (material.Albedo.xyz * texture(albedoTextures[gl_InstanceCustomIndexEXT], texCoord).rgb) / M_PI;
+    vec3 albedo = (material.Albedo.xyz * texture(albedoTextures[gl_InstanceCustomIndexEXT], texCoord).rgb);
+    
+    vec3 BRDF = albedo / M_PI;
 
     prd.RayOrigin = rayOrigin;
     prd.RayDirection = rayDirection;
     prd.HitValue = material.Emissive.xyz;
-    prd.Weight = albedo * cos_theta / p;
+    prd.Weight = BRDF * cos_theta / p;
 
     // Not sure if I can do that but I stop the ray when light source is hit
     // Chance of hitting more than one light source is very low so it should produce correct image anyway

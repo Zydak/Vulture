@@ -333,8 +333,9 @@ namespace Vulture
 		Image::TransitionImageLayout(s_Swapchain->GetPresentableImage(GetCurrentFrameIndex()), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, GetCurrentCommandBuffer());
 	}
 
-	// todo description
-	void Renderer::ToneMapPass(Ref<Uniform> uniformWithImageSampler, Ref<Image> image)
+	// TODO description
+	// TODO why the fuck are there uniform AND image?
+	void Renderer::ToneMapPass(Ref<Uniform> uniformWithImageSampler, Ref<Image> image, float exposure)
 	{
 		VkImageMemoryBarrier barrierWrite{};
 		barrierWrite.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -367,6 +368,16 @@ namespace Vulture
 			VK_PIPELINE_BIND_POINT_COMPUTE,
 			GetCurrentCommandBuffer()
 		);
+
+		vkCmdPushConstants(
+			GetCurrentCommandBuffer(),
+			s_ToneMapPipeline.GetPipelineLayout(),
+			VK_SHADER_STAGE_COMPUTE_BIT,
+			0,
+			sizeof(float),
+			&exposure
+		);
+
 		vkCmdDispatch(GetCurrentCommandBuffer(), ((int)image->GetImageSize().x) / 32 + 1, ((int)image->GetImageSize().x) / 32 + 1, 1);
 	
 		VkImageMemoryBarrier barrierRead{};
@@ -477,6 +488,67 @@ namespace Vulture
 		);
 
 		vkCmdDispatch(GetCurrentCommandBuffer(), image->GetImageSize().x / 32 + 1, image->GetImageSize().y / 32 + 1, 1);
+	}
+
+	void Renderer::EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap)
+	{
+		{
+			s_EnvToCubemapUniform = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
+			s_EnvToCubemapUniform->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), envMap->GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT
+			);
+			s_EnvToCubemapUniform->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), cubemap->GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+			);
+			s_EnvToCubemapUniform->Build();
+		}
+
+		VkCommandBuffer cmdBuf;
+		Device::BeginSingleTimeCommands(cmdBuf, Device::GetCommandPool());
+
+		// TODO automatically deduce layer count for range in cubemaps
+		VkImageSubresourceRange range{};
+		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		range.baseMipLevel = 0;
+		range.levelCount = 1;
+		range.baseArrayLayer = 0;
+		range.layerCount = 6;
+
+		//envMap->TransitionImageLayout(
+		//	VK_IMAGE_LAYOUT_GENERAL,
+		//	VK_ACCESS_TRANSFER_WRITE_BIT,
+		//	VK_ACCESS_SHADER_READ_BIT,
+		//	VK_PIPELINE_STAGE_TRANSFER_BIT,
+		//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		//	cmdBuf
+		//);
+
+		cubemap->TransitionImageLayout(
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf,
+			range
+		);
+
+		s_EnvToCubemapPipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
+		s_EnvToCubemapUniform->Bind(0, s_EnvToCubemapPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
+	
+		vkCmdDispatch(cmdBuf, cubemap->GetImageSize().x / 32 + 1, cubemap->GetImageSize().y / 32 + 1, 1);
+
+		cubemap->TransitionImageLayout(
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf,
+			range
+		);
+
+		Device::EndSingleTimeCommands(cmdBuf, Device::GetGraphicsQueue(), Device::GetCommandPool());
 	}
 
 	/*
@@ -597,14 +669,39 @@ namespace Vulture
 
 		// Tone map
 		{
+			VkPushConstantRange range{};
+			range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+			range.offset = 0;
+			range.size = sizeof(float);
+
 			auto imageLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
 			imageLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
 			auto imageLayout = std::make_shared<Vulture::DescriptorSetLayout>(imageLayoutBuilder);
 
 			PipelineCreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Tonemap.comp.spv");
-			info.Width = s_Swapchain->GetWidth();
-			info.Height = s_Swapchain->GetHeight();
+
+			// Descriptor set layouts for the pipeline
+			std::vector<VkDescriptorSetLayout> layouts
+			{
+				imageLayout->GetDescriptorSetLayout()
+			};
+			info.UniformSetLayouts = layouts;
+			info.PushConstants = &range;
+
+			// Create the graphics pipeline
+			s_ToneMapPipeline.CreatePipeline(info);
+		}
+
+		// Env to cubemap
+		{
+			auto imageLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
+			imageLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT);
+			imageLayoutBuilder.AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
+			auto imageLayout = std::make_shared<Vulture::DescriptorSetLayout>(imageLayoutBuilder);
+
+			PipelineCreateInfo info{};
+			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/EnvToCubemap.comp.spv");
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
@@ -614,8 +711,13 @@ namespace Vulture
 			info.UniformSetLayouts = layouts;
 
 			// Create the graphics pipeline
-			s_ToneMapPipeline.CreatePipeline(info);
+			s_EnvToCubemapPipeline.CreatePipeline(info);
 		}
+	}
+
+	void Renderer::CreateUniforms()
+	{
+		
 	}
 
 	void Renderer::CreateBloomImages(Ref<Image> image, int mipsCount)
@@ -654,6 +756,7 @@ namespace Vulture
 		}
 
 
+		// TODO move this from here
 		//-----------------------------------------------
 		// Pipelines
 		//-----------------------------------------------
@@ -672,8 +775,6 @@ namespace Vulture
 
 			PipelineCreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/SeparateBrightValues.comp.spv");
-			info.Width = s_MipSize.x;
-			info.Height = s_MipSize.y;
 			info.PushConstants = &range;
 
 			// Descriptor set layouts for the pipeline
@@ -701,8 +802,6 @@ namespace Vulture
 
 			PipelineCreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Bloom.comp.spv");
-			info.Width = s_MipSize.x;
-			info.Height = s_MipSize.y;
 			info.PushConstants = &range;
 
 			// Descriptor set layouts for the pipeline
@@ -725,8 +824,6 @@ namespace Vulture
 
 			PipelineCreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/BloomDownSample.comp.spv");
-			info.Width = s_MipSize.x;
-			info.Height = s_MipSize.y;
 			info.PushConstants = nullptr;
 
 			// Descriptor set layouts for the pipeline
@@ -825,12 +922,14 @@ namespace Vulture
 	Vulture::Pipeline Renderer::s_BloomSeparateBrightnessPipeline;
 	Vulture::Pipeline Renderer::s_BloomAccumulatePipeline;
 	Vulture::Pipeline Renderer::s_BloomDownSamplePipeline;
+	Vulture::Pipeline Renderer::s_EnvToCubemapPipeline;
 	std::vector<Ref<Image>> Renderer::s_BloomImages;
 	Mesh Renderer::s_QuadMesh;
 	Scope<Sampler> Renderer::s_RendererSampler;
 	Ref<Vulture::Uniform> Renderer::s_BloomSeparateBrightnessUniform;
 	Ref<Vulture::Uniform> Renderer::s_BloomAccumulateUniform;
 	std::vector<Ref<Vulture::Uniform>> Renderer::s_BloomDownSampleUniform;
+	Ref<Vulture::Uniform> Renderer::s_EnvToCubemapUniform;
 	glm::vec2 Renderer::s_MipSize = { 0.0f, 0.0f };
 	int Renderer::m_PrevMipsCount = 0;
 	int Renderer::m_MipsCount = 0;

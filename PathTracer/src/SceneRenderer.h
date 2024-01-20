@@ -34,7 +34,7 @@ struct MeshAdresses
 class SceneRenderer
 {
 public:
-	SceneRenderer();
+	SceneRenderer(Vulture::Scene& scene);
 	~SceneRenderer();
 
 	void Render(Vulture::Scene& scene);
@@ -95,6 +95,8 @@ private:
 
 	float m_Time = 0;
 	Timer m_TotalTimer;
+
+	float m_Exposure = 1.0f;
 
 	int m_MaxRayDepth = 5;
 	PushConstantRay m_PushContantRay{};

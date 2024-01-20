@@ -18,7 +18,7 @@ void Sandbox::OnUpdate(double deltaTime)
 {
 	UpdateScripts(deltaTime);
 
-	m_SceneRenderer.Render(m_Scene);
+	m_SceneRenderer->Render(m_Scene);
 }
 
 void Sandbox::InitScripts()
@@ -43,10 +43,18 @@ void Sandbox::Init()
 	auto& cameraScComponent = camera.AddComponent<Vulture::ScriptComponent>();
 	cameraScComponent.AddScript<CameraScript>();
 
+	// Add skybox
+	Vulture::Entity skybox = m_Scene.CreateEntity();
+	//auto& skyboxComponent = skybox.AddComponent<Vulture::SkyboxComponent>("assets/sky.hdr");
+	auto& skyboxComponent = skybox.AddComponent<Vulture::SkyboxComponent>("assets/sunrise.hdr");
+
 	// Load Scene
 	m_Scene.CreateModel("assets/cornellBox.gltf", Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.5f)));
+	//m_Scene.CreateModel("assets/ship.gltf", Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.5f)));
+	//m_Scene.CreateModel("assets/Sponza.gltf", Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.5f)));
 
 	// Initialize path tracer
+	m_SceneRenderer = std::make_unique<SceneRenderer>(m_Scene);
 	m_Scene.InitAccelerationStructure();
-	m_SceneRenderer.CreateRayTracingUniforms(m_Scene);
+	m_SceneRenderer->CreateRayTracingUniforms(m_Scene);
 }

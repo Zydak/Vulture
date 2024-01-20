@@ -54,7 +54,7 @@ namespace Vulture
 			m_Materials.push_back(Material());
 			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 			aiColor3D emissiveColor(0.0f, 0.0f, 0.0f);
-			aiColor3D albedoColor(0.0f, 0.0f, 0.0f);
+			aiColor4D albedoColor(0.0f, 0.0f, 0.0f, 1.0f);
 			float roughness = 1.0f;
 			float metallic = 0.0f;
 
@@ -65,8 +65,10 @@ namespace Vulture
 
 			if (roughness == 0.0f)
 			{
-				//metallic = 0.5f;
+				albedoColor.a = 0.0f;
+				//metallic = 1.0f;
 				//roughness = 0.5f;
+				//albedoColor = aiColor3D(1.0f, 0.5f, 0.0f);
 			}
 
 			for (int i = 0; i < material->GetTextureCount(aiTextureType_BASE_COLOR); i++)
@@ -129,7 +131,7 @@ namespace Vulture
 				m_MetallnessTextures.push_back(std::make_shared<Image>(glm::vec4(0.0f), info));
 			}
 
-			m_Materials[index].Color = glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, 1.0f);
+			m_Materials[index].Color = glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, albedoColor.a);
 			m_Materials[index].Metallic = metallic;
 			m_Materials[index].Roughness = roughness;
 			m_Materials[index].Emissive = glm::vec4(emissiveColor.r, emissiveColor.g, emissiveColor.b, 1.0f);

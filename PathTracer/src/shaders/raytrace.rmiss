@@ -7,6 +7,8 @@
 
 layout(location = 0) rayPayloadInEXT hitPayload prd;
 
+layout (set = 1, binding = 1) uniform samplerCube uSamplerCubeMap;
+
 layout(push_constant) uniform _PushConstantRay
 {
 	PushConstantRay pcRay;
@@ -14,12 +16,13 @@ layout(push_constant) uniform _PushConstantRay
 
 void main()
 {
+	vec3 color = texture(uSamplerCubeMap, prd.RayDirection).xyz;
 	if(prd.Depth == 0)
 	{
-		prd.HitValue = pcRay.ClearColor.xyz;
+		prd.HitValue = color;
 		prd.MissedAllGeometry = true;
 	}
 	else
-		prd.HitValue = vec3(0.1f);
+		prd.HitValue = color;
 	prd.Depth = 100;
 }

@@ -15,6 +15,7 @@ namespace Vulture
 
 	}
 
+	// TODO multiple descriptors in single uniform, especially for layouts alone
 	/**
 	 * @brief Adds a descriptor for an image sampler to the uniform.
 	 *

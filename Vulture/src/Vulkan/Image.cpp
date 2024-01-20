@@ -27,7 +27,7 @@ namespace Vulture
 
 		if (imageInfo.type == ImageType::Cubemap)
 		{
-			CreateImageView(imageInfo.format, imageInfo.aspect, imageInfo.layerCount, VK_IMAGE_VIEW_TYPE_CUBE_ARRAY);
+			CreateImageView(imageInfo.format, imageInfo.aspect, imageInfo.layerCount, VK_IMAGE_VIEW_TYPE_CUBE);
 		}
 		else if (imageInfo.layerCount > 1 || imageInfo.type == ImageType::Image2DArray)
 		{
@@ -184,22 +184,34 @@ namespace Vulture
 	 */
 	Image::Image(const std::string& filepath, SamplerInfo samplerInfo)
 	{
+		bool HDR = filepath.find(".hdr") != std::string::npos;
+
 		m_Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		m_MemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		m_Allocation = new VmaAllocation();
 		int texChannels;
 		stbi_set_flip_vertically_on_load(true);
 		int sizeX = (int)m_Size.x, sizeY = (int)m_Size.y;
-		stbi_uc* pixels = stbi_load(filepath.c_str(), &sizeX, &sizeY, &texChannels, STBI_rgb_alpha);
+		void* pixels;
+		if (HDR)
+		{
+			pixels = stbi_loadf(filepath.c_str(), &sizeX, &sizeY, &texChannels, STBI_rgb_alpha);
+
+		}
+		else
+		{
+			pixels = stbi_load(filepath.c_str(), &sizeX, &sizeY, &texChannels, STBI_rgb_alpha);
+		}
+
+		VL_CORE_ASSERT(pixels, "failed to load texture image! " + filepath);
 		m_Size.x = (float)sizeX;
 		m_Size.y = (float)sizeY;
 		//m_MipLevels = static_cast<uint32_t>(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
-		VkDeviceSize imageSize = (uint64_t)m_Size.x * (uint64_t)m_Size.y * 4;
-
-		VL_CORE_ASSERT(pixels, "failed to load texture image! " + filepath);
+		float sizeOfPixel = HDR ? sizeof(float) * 4 : sizeof(uint8_t) * 4;
+		VkDeviceSize imageSize = (uint64_t)m_Size.x * (uint64_t)m_Size.y * sizeOfPixel;
 
 		auto buffer = std::make_unique<Buffer>(imageSize, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		buffer->Map(imageSize);
+		auto res = buffer->Map(imageSize);
 		buffer->WriteToBuffer((void*)pixels, (uint32_t)imageSize);
 		buffer->Unmap();
 
@@ -207,7 +219,16 @@ namespace Vulture
 
 		ImageInfo info;
 		info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-		info.format = VK_FORMAT_R8G8B8A8_UNORM;
+
+		if (HDR)
+		{
+			info.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		}
+		else
+		{
+			info.format = VK_FORMAT_R8G8B8A8_UNORM;
+		}
+
 		info.height = (uint32_t)m_Size.y;
 		info.width =  (uint32_t)m_Size.x;
 		info.layerCount = 1;
@@ -229,7 +250,7 @@ namespace Vulture
 
 		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-		CreateImageView(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+		CreateImageView(info.format, VK_IMAGE_ASPECT_COLOR_BIT);
 		CreateImageSampler(samplerInfo);
 	}
 

@@ -61,13 +61,16 @@ vec3 Aces(vec3 v)
     return Mul(AcesOutputMatrix, v);
 }
 
+layout(push_constant) uniform PushConstants
+{
+	float Exposure;
+} pc;
+
 void main() 
 {
     vec3 hdrColor = imageLoad(uInput, ivec2(gl_GlobalInvocationID.xy)).rgb;
 
-    float exposure = 0.2f;
-
-    //hdrColor *= exposure;
+    hdrColor *= pc.Exposure;
     vec3 mapped = Aces(hdrColor);
     //vec3 mapped = Uncharted2Filmic(hdrColor);
 

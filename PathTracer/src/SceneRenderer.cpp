@@ -7,8 +7,9 @@
 
 #include "CameraScript.h"
 
-SceneRenderer::SceneRenderer()
+SceneRenderer::SceneRenderer(Vulture::Scene& scene)
 {
+	m_CurrentSceneRendered = &scene;
 	CreateRenderPasses();
 
 	CreateFramebuffers();
@@ -81,7 +82,7 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 			{
 				Vulture::Renderer::BloomPass(m_PresentedImage, 7);
 				m_PresentedImage->TransitionImageLayout(m_PresentedImage->GetLayout(), VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, Vulture::Renderer::GetCurrentCommandBuffer());
-				Vulture::Renderer::ToneMapPass(m_ToneMapUniforms, m_PresentedImage);
+				Vulture::Renderer::ToneMapPass(m_ToneMapUniforms, m_PresentedImage, m_Exposure);
 				m_ToneMapped = true;
 			}
 			
@@ -499,6 +500,16 @@ void SceneRenderer::CreateUniforms()
 		m_GlobalUniforms.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
 		m_GlobalUniforms[i]->AddUniformBuffer(0, sizeof(GlobalUbo), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR);
 
+		auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::SkyboxComponent>();
+		for(auto& entity : view)
+		{
+			auto& skyboxComp = m_CurrentSceneRendered->GetRegistry().get<Vulture::SkyboxComponent>(entity);
+			m_GlobalUniforms[i]->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), skyboxComp.SkyboxImage->GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_MISS_BIT_KHR
+			);
+			break; // there can be only one skybox
+		}
+
 		m_GlobalUniforms[i]->Build();
 	}
 }
@@ -842,11 +853,23 @@ void SceneRenderer::UpdateUniformData()
 
 void SceneRenderer::ImGuiPass()
 {
+	static bool renderImGui = true;
+
+	if (renderImGui == false && Vulture::Input::IsKeyPressed(VL_KEY_I))
+	{
+		renderImGui = true;
+	}
+
+	if (!renderImGui)
+		return;
+
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
 	ImGui::Begin("Settings");
+	if(ImGui::Button("Hide"))
+		renderImGui = false;
 
 	ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.ElapsedSeconds());
 	ImGui::Text("Total vertices: %i", m_CurrentSceneRendered->GetVertexCount());
@@ -871,6 +894,7 @@ void SceneRenderer::ImGuiPass()
 			ImGui::Checkbox("Locked", &camScript->m_CameraLocked);
 		}
 	}
+	ImGui::SliderFloat("Exposure", &m_Exposure, 0.0f, 3.0f);
 
 	ImGui::Separator();
 	ImGui::SliderInt("Max Depth", &m_MaxRayDepth, 0, 20);

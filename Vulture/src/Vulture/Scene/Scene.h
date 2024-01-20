@@ -20,6 +20,7 @@ namespace Vulture
 		Scene(Ref<Window> window);
 		~Scene();
 
+		// TODO add more creates, like skybox for example just don't use CreateEntity for everything
 		Entity CreateEntity();
 		void DestroyEntity(Entity& entity);
 		Entity CreateCamera();

@@ -92,6 +92,15 @@ void main()
             hitValue += prd.HitValue * curWeight;
             curWeight *= prd.Weight;
         }
+
+        // Eliminate fireflies
+        const float maxLuminance = 20.0f;
+        float lum = dot(hitValue, vec3(0.212671f, 0.715160f, 0.072169f));
+        if(lum > maxLuminance)
+        {
+            hitValue *= maxLuminance / lum;
+        }
+
         finalHitValue += hitValue;
         samplesAccumulated++;
 

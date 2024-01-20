@@ -730,9 +730,9 @@
     {
       "doubleSided": true,
       "emissiveFactor": [
-        10.0,
-        10.0,
-        10.0
+        3.0,
+        3.0,
+        3.0
       ],
       "extensions": {
         "NV_materials_mdl": {

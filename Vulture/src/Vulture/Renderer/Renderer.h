@@ -47,8 +47,9 @@ namespace Vulture
 
 		static void FramebufferCopyPassImGui(Ref<Uniform> uniformWithImageSampler);
 		static void FramebufferCopyPassBlit(Ref<Image> image);
-		static void ToneMapPass(Ref<Uniform> uniformWithImageSampler, Ref<Image> image);
+		static void ToneMapPass(Ref<Uniform> uniformWithImageSampler, Ref<Image> image, float exposure = 1.0f);
 		static void BloomPass(Ref<Image> image, int mipsCount);
+		static void EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap);
 
 	private:
 		static bool BeginFrameInternal();
@@ -60,6 +61,7 @@ namespace Vulture
 		static void CreateCommandBuffers();
 		static void CreatePool();
 		static void CreatePipeline();
+		static void CreateUniforms();
 		static void CreateBloomImages(Ref<Image> image, int mipsCount);
 
 		static Scope<DescriptorPool> s_Pool;
@@ -83,11 +85,14 @@ namespace Vulture
 		static Ref<Uniform> s_BloomAccumulateUniform;
 		static std::vector<Ref<Uniform>> s_BloomDownSampleUniform;
 
+		static Ref<Uniform> s_EnvToCubemapUniform;
+
 		static Pipeline s_HDRToPresentablePipeline;
 		static Pipeline s_ToneMapPipeline;
 		static Pipeline s_BloomSeparateBrightnessPipeline;
 		static Pipeline s_BloomAccumulatePipeline;
 		static Pipeline s_BloomDownSamplePipeline;
+		static Pipeline s_EnvToCubemapPipeline;
 
 		static std::vector<Ref<Image>> s_BloomImages;
 

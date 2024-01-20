@@ -32,6 +32,7 @@ namespace Vulture
 		ImageType type = ImageType::Image2D;
 	};
 
+	// TODO Major rework, Add default constructors, change parameters to structs etc.
 	class Image
 	{
 	public:
