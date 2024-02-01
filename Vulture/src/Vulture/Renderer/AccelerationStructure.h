@@ -15,7 +15,7 @@ namespace Vulture
 
 	struct AccelKHR
 	{
-		Ref<Buffer> Buffer;
+		Vulture::Buffer Buffer;
 		VkAccelerationStructureKHR Accel;
 	};
 
@@ -57,7 +57,7 @@ namespace Vulture
 			VkCommandBuffer cmdBuf,
 			uint32_t instanceCount,
 			VkDeviceAddress instanceBufferAddr,
-			Ref<Buffer> scratchBuffer,
+			Buffer* scratchBuffer,
 			VkBuildAccelerationStructureFlagsKHR flags,
 			bool update
 		);

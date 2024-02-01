@@ -21,7 +21,6 @@ static void contextLogCb(unsigned int level, const char* tag, const char* messag
     VL_CORE_INFO("[{0}][{1}]:{2}", level, tag, message);
 }
 
-
 class Denoiser
 {
 public:
@@ -63,7 +62,7 @@ private:
 
 	struct BufferCuda
 	{
-		Ref<Vulture::Buffer> BufferVk;
+		Vulture::Buffer BufferVk;
 		#ifdef WIN
 		HANDLE Handle = nullptr;  // The Win32 handle
 		#else

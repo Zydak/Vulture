@@ -78,11 +78,4 @@ void main()
     prd.RayDirection = rayDirection;
     prd.HitValue = material.Emissive.xyz;
     prd.Weight = BRDF * cos_theta / p;
-
-    // Not sure if I can do that but I stop the ray when light source is hit
-    // Chance of hitting more than one light source is very low so it should produce correct image anyway
-    // And chance of hitting the same light source over and over again is very high in closed spaces
-    // which means that more bounces(depth) will produce brighter image which isn't correct? idk
-    if (material.Emissive.xyz != vec3(0.0f))
-        prd.Depth = 100;
 }

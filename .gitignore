@@ -5,3 +5,4 @@ bin-int/
 **/*.vcxproj
 **.sln
 **/Vulture.log
+PathTracer/assets/panther.obj

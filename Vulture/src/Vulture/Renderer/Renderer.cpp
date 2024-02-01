@@ -514,14 +514,14 @@ namespace Vulture
 		range.baseArrayLayer = 0;
 		range.layerCount = 6;
 
-		//envMap->TransitionImageLayout(
-		//	VK_IMAGE_LAYOUT_GENERAL,
-		//	VK_ACCESS_TRANSFER_WRITE_BIT,
-		//	VK_ACCESS_SHADER_READ_BIT,
-		//	VK_PIPELINE_STAGE_TRANSFER_BIT,
-		//	VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		//	cmdBuf
-		//);
+		envMap->TransitionImageLayout(
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf
+		);
 
 		cubemap->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL,

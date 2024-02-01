@@ -33,7 +33,14 @@ namespace Vulture
 		info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		Ref<Image> tex = std::make_shared<Image>(info);
-		Buffer pixelBuffer(bitmap.width * bitmap.height * 4, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		
+		Buffer::CreateInfo BufferInfo{};
+		BufferInfo.InstanceSize = bitmap.width * bitmap.height * 4;
+		BufferInfo.InstanceCount = 1;
+		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		Buffer pixelBuffer;
+		pixelBuffer.Init(BufferInfo);
 		pixelBuffer.Map(bitmap.width * bitmap.height * 4);
 		pixelBuffer.WriteToBuffer((void*)bitmap.pixels, bitmap.width * bitmap.height * 4);
 		pixelBuffer.Unmap();

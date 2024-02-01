@@ -38,8 +38,12 @@ namespace Vulture
 
 		void CreateEmptyBuffers(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags);
 
-		inline Ref<Buffer> GetVertexBuffer() const { return m_VertexBuffer; }
-		inline Ref<Buffer> GetIndexBuffer() const { return m_IndexBuffer; }
+		inline const Buffer* GetVertexBuffer() const { return &m_VertexBuffer; }
+		inline Buffer* GetVertexBuffer() { return &m_VertexBuffer; }
+
+		inline const Buffer* GetIndexBuffer() const { return &m_IndexBuffer; }
+		inline Buffer* GetIndexBuffer() { return &m_IndexBuffer; }
+
 		inline uint32_t& GetIndexCount() { return m_IndexCount; }
 		inline uint32_t& GetVertexCount() { return m_VertexCount; }
 
@@ -50,11 +54,11 @@ namespace Vulture
 		void CreateVertexBuffer(const std::vector<Vertex>& vertices);
 		void CreateIndexBuffer(const std::vector<uint32_t>& indices);
 
-		Ref<Buffer> m_VertexBuffer;
+		Buffer m_VertexBuffer;
 		uint32_t m_VertexCount = 0;
 
 		bool m_HasIndexBuffer = false;
-		Ref<Buffer> m_IndexBuffer;
+		Buffer m_IndexBuffer;
 		uint32_t m_IndexCount = 0;
 	};
 }

@@ -4,6 +4,7 @@
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
+#include "ObjectLoader.h"
 
 namespace Vulture
 {
@@ -65,7 +66,7 @@ namespace Vulture
 
 			if (roughness == 0.0f)
 			{
-				albedoColor.a = 0.0f;
+				//albedoColor.a = 0.0f;
 				//metallic = 1.0f;
 				//roughness = 0.5f;
 				//albedoColor = aiColor3D(1.0f, 0.5f, 0.0f);
@@ -75,7 +76,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_BASE_COLOR, i, &str);
-				m_AlbedoTextures.push_back(std::make_shared<Image>(std::string("assets/") + std::string(str.C_Str())));
+				m_AlbedoTextures.push_back(ObjectLoader::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -83,7 +84,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_NORMALS, i, &str);
-				m_NormalTextures.push_back(std::make_shared<Image>(std::string("assets/") + std::string(str.C_Str())));
+				m_NormalTextures.push_back(ObjectLoader::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -91,7 +92,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, i, &str);
-				m_RoghnessTextures.push_back(std::make_shared<Image>(std::string("assets/") + std::string(str.C_Str())));
+				m_RoghnessTextures.push_back(ObjectLoader::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -99,7 +100,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_METALNESS, i, &str);
-				m_MetallnessTextures.push_back(std::make_shared<Image>(std::string("assets/") + std::string(str.C_Str())));
+				m_MetallnessTextures.push_back(ObjectLoader::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 

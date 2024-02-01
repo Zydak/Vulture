@@ -162,7 +162,7 @@ namespace Vulture
 	 * @param flags - Flags specifying acceleration structure build options.
 	 * @param update - Flag indicating whether to update an existing TLAS (true) or create a new one (false).
 	 */
-	void AccelerationStructure::CmdCreateTlas(VkCommandBuffer cmdBuf, uint32_t instanceCount, VkDeviceAddress instanceBufferAddr, Ref<Buffer> scratchBuffer, VkBuildAccelerationStructureFlagsKHR flags, bool update)
+	void AccelerationStructure::CmdCreateTlas(VkCommandBuffer cmdBuf, uint32_t instanceCount, VkDeviceAddress instanceBufferAddr, Buffer* scratchBuffer, VkBuildAccelerationStructureFlagsKHR flags, bool update)
 	{
 		// Wraps a device pointer to the above uploaded instances.
 		VkAccelerationStructureGeometryInstancesDataKHR instancesVk{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR };
@@ -196,7 +196,12 @@ namespace Vulture
 		}
 
 		// Allocate the scratch memory
-		scratchBuffer = std::make_shared<Buffer>(sizeInfo.buildScratchSize, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		Buffer::CreateInfo BufferInfo{};
+		BufferInfo.InstanceSize = sizeInfo.buildScratchSize;
+		BufferInfo.InstanceCount = 1;
+		BufferInfo.UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		scratchBuffer->Init(BufferInfo);
 
 		// Update build information
 		buildInfo.srcAccelerationStructure = update ? m_Tlas.Accel : VK_NULL_HANDLE;
@@ -220,16 +225,16 @@ namespace Vulture
 	void AccelerationStructure::CreateAcceleration(VkAccelerationStructureCreateInfoKHR& createInfo, AccelKHR& As)
 	{
 		// Create a Vulkan buffer for the acceleration structure
-		As.Buffer = std::make_shared<Buffer>(
-			createInfo.size,
-			1,
-			VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment
-		);
+		Buffer::CreateInfo BufferInfo{};
+		BufferInfo.InstanceSize = createInfo.size;
+		BufferInfo.InstanceCount = 1;
+		BufferInfo.UsageFlags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		BufferInfo.MinOffsetAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
+		As.Buffer.Init(BufferInfo);
 
 		// Setting the buffer
-		createInfo.buffer = As.Buffer->GetBuffer();
+		createInfo.buffer = As.Buffer.GetBuffer();
 
 		// Create the acceleration structure
 		Device::vkCreateAccelerationStructureKHR(Device::GetDevice(), &createInfo, &As.Accel);
@@ -304,12 +309,25 @@ namespace Vulture
 
 		uint32_t instanceCount = (uint32_t)tlas.size();
 
-		Ref<Buffer> stagingBuffer = std::make_shared<Buffer>(instanceCount * sizeof(VkAccelerationStructureInstanceKHR), 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment);
-		stagingBuffer->Map();
-		stagingBuffer->WriteToBuffer(tlas.data());
+		Buffer stagingBuffer{};
+		Buffer::CreateInfo BufferInfo{};
+		BufferInfo.InstanceSize = instanceCount * sizeof(VkAccelerationStructureInstanceKHR); // change instance count?
+		BufferInfo.InstanceCount = 1;
+		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+		BufferInfo.MinOffsetAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
+		stagingBuffer.Init(BufferInfo);
+		stagingBuffer.Map();
+		stagingBuffer.WriteToBuffer(tlas.data());
 
-		Ref<Buffer> instancesBuffer = std::make_shared<Buffer>(instanceCount * sizeof(VkAccelerationStructureInstanceKHR), 1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment);
-		instancesBuffer->CopyBuffer(stagingBuffer->GetBuffer(), instancesBuffer->GetBuffer(), instancesBuffer->GetBufferSize(), Device::GetGraphicsQueue(), Device::GetCommandPool());
+		Buffer instancesBuffer{};
+		BufferInfo.InstanceSize = instanceCount * sizeof(VkAccelerationStructureInstanceKHR); // change instance count?
+		BufferInfo.InstanceCount = 1;
+		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		BufferInfo.MinOffsetAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
+		instancesBuffer.Init(BufferInfo);
+		instancesBuffer.CopyBuffer(stagingBuffer.GetBuffer(), instancesBuffer.GetBuffer(), instancesBuffer.GetBufferSize(), Device::GetGraphicsQueue(), Device::GetCommandPool());
 
 		VkCommandBuffer cmdBuf;
 		Device::BeginSingleTimeCommands(cmdBuf, Device::GetCommandPool());
@@ -322,12 +340,12 @@ namespace Vulture
 			0, 1, &barrier, 0, nullptr, 0, nullptr);
 
 		// Creating the TLAS
-		Ref<Buffer> scratchBuffer;
-		CmdCreateTlas(cmdBuf, instanceCount, instancesBuffer->GetDeviceAddress(), scratchBuffer, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, false);
+		Buffer scratchBuffer;
+		CmdCreateTlas(cmdBuf, instanceCount, instancesBuffer.GetDeviceAddress(), &scratchBuffer, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, false);
 
 		// Finalizing and destroying temporary data
 		Device::EndSingleTimeCommands(cmdBuf, Device::GetGraphicsQueue(), Device::GetCommandPool());
-		stagingBuffer->Unmap();
+		stagingBuffer.Unmap();
 	}
 
 	/**
@@ -401,8 +419,15 @@ namespace Vulture
 		}
 
 		// Allocate the scratch buffers holding the temporary data of the acceleration structure builder
-		Ref<Buffer> scratchBuffer = std::make_shared<Buffer>(scratchSize, 1, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment);
-		VkDeviceAddress scratchAddress = scratchBuffer->GetDeviceAddress();
+		Buffer scratchBuffer{};
+		Buffer::CreateInfo BufferInfo{};
+		BufferInfo.InstanceSize = scratchSize; // change instance count?
+		BufferInfo.InstanceCount = 1;
+		BufferInfo.UsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		BufferInfo.MinOffsetAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
+		scratchBuffer.Init(BufferInfo);
+		VkDeviceAddress scratchAddress = scratchBuffer.GetDeviceAddress();
 
 		// Allocate a query pool for storing the needed size for every BLAS compaction.
 		VkQueryPool queryPool = VK_NULL_HANDLE;

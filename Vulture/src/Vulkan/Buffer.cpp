@@ -5,7 +5,6 @@
 
 namespace Vulture
 {
-
 	/* VULKAN MEMORY TYPES
 	 *  Device-Local Memory:
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT:
@@ -50,7 +49,7 @@ namespace Vulture
 	 * Returns the minimum instance size required to be compatible with devices minOffsetAlignment
 	 *
 	 * @param instanceSize The size of an instance
-	 * @param minOffsetAlignment The minimum required alignment, in bytes, for the offset member (eg
+	 * @param minOffsetAlignment The minimum required alignment in bytes for the offset member
 	 * minUniformBufferOffsetAlignment)
 	 */
 	VkDeviceSize Buffer::GetAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment)
@@ -59,34 +58,41 @@ namespace Vulture
 		return instanceSize;
 	}
 
-	Buffer::Buffer(VkDeviceSize instanceSize, uint32_t instanceCount, VkBufferUsageFlags usageFlags,
-		VkMemoryPropertyFlags memoryPropertyFlags, VkDeviceSize minOffsetAlignment, bool noPool
-	)
-		: m_InstanceSize(instanceSize), m_InstanceCount(instanceCount), m_UsageFlags(usageFlags),
-		m_MemoryPropertyFlags(memoryPropertyFlags)
+	void Buffer::Init(const Buffer::CreateInfo& createInfo)
 	{
-		m_Allocation = new VmaAllocation();
-		m_AlignmentSize = GetAlignment(instanceSize, minOffsetAlignment);
-		m_BufferSize = m_AlignmentSize * m_InstanceCount;
+		VL_CORE_ASSERT(createInfo, "Incorectly Initialized Buffer::CreateInfo! Values: InstanceCount: {0}, InstanceSize: {1}, UsageFlags: {2}, MemoryPropertyFlags: {3}", createInfo.InstanceCount, createInfo.InstanceSize, createInfo.UsageFlags, createInfo.MemoryPropertyFlags);
+		m_Info.Initialized = true;
+		m_Info.InstanceCount = createInfo.InstanceCount;
+		m_Info.UsageFlags = createInfo.UsageFlags;
+		m_Info.MemoryPropertyFlags = createInfo.MemoryPropertyFlags;
+		m_Info.InstanceSize = createInfo.InstanceSize;
+		m_Info.Allocation = new VmaAllocation();
+		m_Info.NoPool = createInfo.NoPool;
+		m_Info.MinOffsetAlignment = createInfo.MinOffsetAlignment;
+
+		m_Info.AlignmentSize = GetAlignment(m_Info.InstanceSize, createInfo.MinOffsetAlignment);
+		m_Info.BufferSize = m_Info.AlignmentSize * m_Info.InstanceCount;
 
 		VkBufferCreateInfo bufferInfo{};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		bufferInfo.size = m_BufferSize;
-		bufferInfo.usage = usageFlags;
-		
+		bufferInfo.size = m_Info.BufferSize;
+		bufferInfo.usage = m_Info.UsageFlags;
+
 		// Just like the images in the swap chain, buffers can also be owned
 		// by a specific queue family or be shared between multiple at the same time.
 		// The buffer will only be used from the graphics queue, so we can stick to exclusive access.
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-		Device::CreateBuffer(bufferInfo, m_Buffer, *m_Allocation, memoryPropertyFlags, noPool);
+		Device::CreateBuffer(bufferInfo, m_Info.Buffer, *m_Info.Allocation, m_Info.MemoryPropertyFlags, m_Info.NoPool);
 	}
 
-	Buffer::~Buffer()
+	void Buffer::Destroy()
 	{
+		VL_CORE_ASSERT(m_Info.Initialized, "Can't destroy buffer that is not initialized!");
 		Unmap();
-		vmaDestroyBuffer(Device::GetAllocator(), m_Buffer, *m_Allocation);
-		delete m_Allocation;
+		vmaDestroyBuffer(Device::GetAllocator(), m_Info.Buffer, *m_Info.Allocation);
+		delete m_Info.Allocation;
+		m_Info.Initialized = false;
 	}
 
 	void Buffer::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkQueue queue, VkCommandPool pool)
@@ -106,7 +112,7 @@ namespace Vulture
 	VmaAllocationInfo Buffer::GetMemoryInfo() const
 	{
 		VmaAllocationInfo info{};
-		vmaGetAllocationInfo(Device::GetAllocator(), *m_Allocation, &info);
+		vmaGetAllocationInfo(Device::GetAllocator(), *m_Info.Allocation, &info);
 		return info;
 	}
 
@@ -114,9 +120,62 @@ namespace Vulture
 	{
 		VkBufferDeviceAddressInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-		info.buffer = m_Buffer;
+		info.buffer = m_Info.Buffer;
 
 		return vkGetBufferDeviceAddress(Device::GetDevice(), &info);
+	}
+
+	Buffer& Buffer::operator=(const Buffer& other)
+	{
+		// Recreate Buffer
+		Buffer::CreateInfo info{};
+		info.InstanceCount = other.GetInstanceCount();
+		info.InstanceSize = other.GetAlignmentSize();
+		info.MemoryPropertyFlags = other.GetMemoryPropertyFlags();
+		info.MinOffsetAlignment = other.GetMinAlignment();
+		info.NoPool = other.GetNoPool();
+		info.UsageFlags = other.GetUsageFlags();
+
+		if (other)
+		{
+			if (m_Info.Initialized)
+				this->Destroy();
+
+			this->Init(info);
+		}
+
+		return *this;
+	}
+
+	Buffer::Buffer(const Buffer& other)
+	{
+		// Recreate Buffer
+		Buffer::CreateInfo info{};
+		info.InstanceCount = other.GetInstanceCount();
+		info.InstanceSize = other.GetAlignmentSize();
+		info.MemoryPropertyFlags = other.GetMemoryPropertyFlags();
+		info.MinOffsetAlignment = other.GetMinAlignment();
+		info.NoPool = other.GetNoPool();
+		info.UsageFlags = other.GetUsageFlags();
+
+		if (other)
+		{
+			if (m_Info.Initialized)
+				this->Destroy();
+
+			this->Init(info);
+		}
+	}
+
+	Buffer::Buffer(const Buffer::CreateInfo& createInfo)
+	{
+		Init(createInfo);
+	}
+
+	Buffer::~Buffer()
+	{
+		if (m_Info.Initialized)
+			Destroy();
 	}
 
 	/**
@@ -128,7 +187,7 @@ namespace Vulture
 	 */
 	VkResult Buffer::Map(VkDeviceSize size, VkDeviceSize offset)
 	{
-		return vmaMapMemory(Device::GetAllocator(), *m_Allocation, &m_Mapped);
+		return vmaMapMemory(Device::GetAllocator(), *m_Info.Allocation, &m_Info.Mapped);
 	}
 
 	/**
@@ -136,10 +195,10 @@ namespace Vulture
 	 */
 	void Buffer::Unmap()
 	{
-		if (m_Mapped)
+		if (m_Info.Mapped)
 		{
-			vmaUnmapMemory(Device::GetAllocator(), *m_Allocation);
-			m_Mapped = nullptr;
+			vmaUnmapMemory(Device::GetAllocator(), *m_Info.Allocation);
+			m_Info.Mapped = nullptr;
 		}
 	}
 
@@ -154,14 +213,14 @@ namespace Vulture
 	 */
 	void Buffer::WriteToBuffer(void* data, VkDeviceSize size, VkDeviceSize offset)
 	{
-		VL_CORE_ASSERT((size == VK_WHOLE_SIZE || size <= m_BufferSize), "Data size is larger than buffer size, either resize the buffer or create a larger one");
-		VL_CORE_ASSERT(m_Mapped, "Cannot copy to unmapped buffer");
+		VL_CORE_ASSERT((size == VK_WHOLE_SIZE || size <= m_Info.BufferSize), "Data size is larger than buffer size, either resize the buffer or create a larger one");
+		VL_CORE_ASSERT(m_Info.Mapped, "Cannot copy to unmapped buffer");
 		VL_CORE_ASSERT(data != nullptr, "invalid data");
 
-		if (size == VK_WHOLE_SIZE) { memcpy(m_Mapped, data, m_BufferSize); }
+		if (size == VK_WHOLE_SIZE) { memcpy(m_Info.Mapped, data, m_Info.BufferSize); }
 		else
 		{
-			char* memOffset = (char*)m_Mapped;
+			char* memOffset = (char*)m_Info.Mapped;
 			memOffset += offset;
 			memcpy(memOffset, data, size);
 		}
@@ -178,7 +237,7 @@ namespace Vulture
 	 */
 	void Buffer::WriteToBuffer(VkCommandBuffer cmdBuffer, void* data, VkDeviceSize size, VkDeviceSize offset)
 	{
-		vkCmdUpdateBuffer(cmdBuffer, m_Buffer, offset, size, data);
+		vkCmdUpdateBuffer(cmdBuffer, m_Info.Buffer, offset, size, data);
 	}
 
 	/**
@@ -197,7 +256,7 @@ namespace Vulture
 	 */
 	VkResult Buffer::Flush(VkDeviceSize size, VkDeviceSize offset)
 	{
-		return vmaFlushAllocation(Device::GetAllocator(), *m_Allocation, offset, size);;
+		return vmaFlushAllocation(Device::GetAllocator(), *m_Info.Allocation, offset, size);;
 	}
 
 	/**
@@ -213,7 +272,7 @@ namespace Vulture
 	 */
 	VkResult Buffer::Invalidate(VkDeviceSize size, VkDeviceSize offset)
 	{
-		return vmaInvalidateAllocation(Device::GetAllocator(), *m_Allocation, offset, size);
+		return vmaInvalidateAllocation(Device::GetAllocator(), *m_Info.Allocation, offset, size);
 	}
 
 	/**
@@ -228,7 +287,7 @@ namespace Vulture
 	{
 		return VkDescriptorBufferInfo
 		{
-			m_Buffer,
+			m_Info.Buffer,
 			offset,
 			size,
 		};

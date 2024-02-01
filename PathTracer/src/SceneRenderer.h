@@ -81,7 +81,7 @@ private:
 	
 	// SBT
 	Vulture::Ref<Vulture::Image> m_PresentedImage;
-	Vulture::Ref<Vulture::Buffer> m_RtSBTBuffer;
+	Vulture::Buffer m_RtSBTBuffer;
 	VkStridedDeviceAddressRegionKHR m_RgenRegion{};
 	VkStridedDeviceAddressRegionKHR m_MissRegion{};
 	VkStridedDeviceAddressRegionKHR m_HitRegion{};

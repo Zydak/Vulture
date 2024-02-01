@@ -68,7 +68,7 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 	m_PushContantRay.DoFStrength = m_DoFStrength;
 
 	static glm::mat4 previousMat{ 0.0f };
-	if (previousMat != m_CurrentSceneRendered->GetMainCamera()->ViewMat)
+	if (previousMat != m_CurrentSceneRendered->GetMainCamera()->ViewMat) // if camera moved
 	{
 		ResetFrame();
 		previousMat = m_CurrentSceneRendered->GetMainCamera()->ViewMat;
@@ -80,7 +80,7 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 			// tone map if finished
 			if (!m_ToneMapped)
 			{
-				Vulture::Renderer::BloomPass(m_PresentedImage, 7);
+				Vulture::Renderer::BloomPass(m_PresentedImage, 8);
 				m_PresentedImage->TransitionImageLayout(m_PresentedImage->GetLayout(), VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, Vulture::Renderer::GetCurrentCommandBuffer());
 				Vulture::Renderer::ToneMapPass(m_ToneMapUniforms, m_PresentedImage, m_Exposure);
 				m_ToneMapped = true;
@@ -527,8 +527,8 @@ void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 		m_RayTracingUniforms->AddAccelerationStructure(0, asInfo);
 		m_RayTracingUniforms->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), m_PathTracingImage->GetImageView(),
 			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-		m_RayTracingUniforms->AddStorageBuffer(2, sizeof(MeshAdresses) * 200, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
-		m_RayTracingUniforms->AddStorageBuffer(3, sizeof(Vulture::Material) * 200, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
+		m_RayTracingUniforms->AddStorageBuffer(2, sizeof(MeshAdresses) * 20'000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
+		m_RayTracingUniforms->AddStorageBuffer(3, sizeof(Vulture::Material) * 20'000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
 
 		auto view = scene.GetRegistry().view<Vulture::ModelComponent>();
 		for (auto& entity : view)
@@ -720,30 +720,31 @@ void SceneRenderer::CreateShaderBindingTable()
 
 	// Allocate a buffer for storing the SBT.
 	VkDeviceSize sbtSize = m_RgenRegion.size + m_MissRegion.size + m_HitRegion.size + m_CallRegion.size;
-	Vulture::Ref<Vulture::Buffer> StagingBuffer = std::make_shared<Vulture::Buffer>(
-		sbtSize,
-		1,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-	);
 
-	m_RtSBTBuffer = std::make_shared<Vulture::Buffer>(
-		sbtSize,
-		1,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
+	Vulture::Buffer::CreateInfo bufferInfo{};
+	bufferInfo.InstanceSize = sbtSize;
+	bufferInfo.InstanceCount = 1;
+	bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+	bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	Vulture::Buffer stagingBuffer;
+	stagingBuffer.Init(bufferInfo);
+
+	bufferInfo.InstanceSize = sbtSize;
+	bufferInfo.InstanceCount = 1;
+	bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+	bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	m_RtSBTBuffer.Init(bufferInfo);
 
 	// Find the SBT addresses of each group
-	m_RgenRegion.deviceAddress = m_RtSBTBuffer->GetDeviceAddress();
-	m_MissRegion.deviceAddress = m_RtSBTBuffer->GetDeviceAddress() + m_RgenRegion.size;
-	m_HitRegion.deviceAddress = m_RtSBTBuffer->GetDeviceAddress() + m_RgenRegion.size + m_MissRegion.size;
+	m_RgenRegion.deviceAddress = m_RtSBTBuffer.GetDeviceAddress();
+	m_MissRegion.deviceAddress = m_RtSBTBuffer.GetDeviceAddress() + m_RgenRegion.size;
+	m_HitRegion.deviceAddress = m_RtSBTBuffer.GetDeviceAddress() + m_RgenRegion.size + m_MissRegion.size;
 
 	auto getHandle = [&](int i) { return handles.data() + i * handleSize; };
 
 	// TODO maybe use WriteToBuffer?
-	StagingBuffer->Map();
-	uint8_t* pSBTBuffer = reinterpret_cast<uint8_t*>(StagingBuffer->GetMappedMemory());
+	stagingBuffer.Map();
+	uint8_t* pSBTBuffer = reinterpret_cast<uint8_t*>(stagingBuffer.GetMappedMemory());
 	uint8_t* pData = nullptr;
 	uint32_t handleIdx = 0;
 
@@ -771,9 +772,9 @@ void SceneRenderer::CreateShaderBindingTable()
 	}
 
 	// Copy the shader binding table to the device local buffer
-	Vulture::Buffer::CopyBuffer(StagingBuffer->GetBuffer(), m_RtSBTBuffer->GetBuffer(), sbtSize, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetCommandPool());
+	Vulture::Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_RtSBTBuffer.GetBuffer(), sbtSize, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetCommandPool());
 	
-	StagingBuffer->Unmap();
+	stagingBuffer.Unmap();
 }
 
 void SceneRenderer::CreateFramebuffers()

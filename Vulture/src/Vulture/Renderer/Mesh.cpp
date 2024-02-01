@@ -91,7 +91,13 @@ namespace Vulture
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT is Used to get memory heap that is host coherent.
 			We use this to copy the data into the buffer memory immediately.
 		*/
-		Buffer stagingBuffer(vertexSize, m_VertexCount, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		Buffer::CreateInfo bufferInfo{};
+		bufferInfo.InstanceSize = vertexSize;
+		bufferInfo.InstanceCount = m_VertexCount;
+		bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		Buffer stagingBuffer;
+		stagingBuffer.Init(bufferInfo);
 
 		/*
 			When buffer is created It is time to copy the vertex data to the buffer.
@@ -113,9 +119,14 @@ namespace Vulture
 		VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 		if (Device::IsRayTracingSupported())
 			usageFlags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		m_VertexBuffer = std::make_shared<Buffer>(vertexSize, m_VertexCount, usageFlags, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		
+		bufferInfo.InstanceSize = vertexSize;
+		bufferInfo.InstanceCount = m_VertexCount;
+		bufferInfo.UsageFlags = usageFlags;
+		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		m_VertexBuffer.Init(bufferInfo);
 
-		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_VertexBuffer->GetBuffer(), bufferSize, Device::GetGraphicsQueue(), Device::GetCommandPool());
+		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_VertexBuffer.GetBuffer(), bufferSize, Device::GetGraphicsQueue(), Device::GetCommandPool());
 	}
 
 	void Mesh::CreateIndexBuffer(const std::vector<uint32_t>& indices)
@@ -133,7 +144,13 @@ namespace Vulture
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT is Used to get memory heap that is host coherent.
 			We use this to copy the data into the buffer memory immediately.
 		*/
-		Buffer stagingBuffer(indexSize, m_IndexCount, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		Buffer::CreateInfo bufferInfo{};
+		bufferInfo.InstanceSize = indexSize;
+		bufferInfo.InstanceCount = m_IndexCount;
+		bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		Buffer stagingBuffer;
+		stagingBuffer.Init(bufferInfo);
 
 		/*
 			When buffer is created It is time to copy the index data to the buffer.
@@ -154,9 +171,14 @@ namespace Vulture
 		VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 		if (Device::IsRayTracingSupported())
 			usageFlags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		m_IndexBuffer = std::make_shared<Buffer>(indexSize, m_IndexCount, usageFlags, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		
+		bufferInfo.InstanceSize = indexSize;
+		bufferInfo.InstanceCount = m_IndexCount;
+		bufferInfo.UsageFlags = usageFlags;
+		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		m_IndexBuffer.Init(bufferInfo);
 
-		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_IndexBuffer->GetBuffer(), bufferSize, Device::GetGraphicsQueue(), Device::GetCommandPool());
+		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_IndexBuffer.GetBuffer(), bufferSize, Device::GetGraphicsQueue(), Device::GetCommandPool());
 	}
 
 	/**
@@ -164,13 +186,13 @@ namespace Vulture
 	*/
 	void Mesh::Bind(VkCommandBuffer commandBuffer)
 	{
-		VkBuffer buffers[] = { m_VertexBuffer->GetBuffer() };
+		VkBuffer buffers[] = { m_VertexBuffer.GetBuffer() };
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, buffers, offsets);
 
 		if (m_HasIndexBuffer) 
 		{ 
-			vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32); 
+			vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer.GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 		}
 	}
 
@@ -222,7 +244,18 @@ namespace Vulture
 
 	void Mesh::CreateEmptyBuffers(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags)
 	{
-		m_VertexBuffer = std::make_shared<Buffer>(sizeof(Vertex), vertexCount, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertexBufferFlags);
-		m_IndexBuffer =  std::make_shared<Buffer>(4, indexCount, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indexBufferFlags);
+		Buffer::CreateInfo bufferInfo{};
+
+		bufferInfo.InstanceSize = sizeof(Vertex);
+		bufferInfo.InstanceCount = vertexCount;
+		bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		bufferInfo.MemoryPropertyFlags = vertexBufferFlags;
+		m_VertexBuffer.Init(bufferInfo);
+
+		bufferInfo.InstanceSize = 4;
+		bufferInfo.InstanceCount = indexCount;
+		bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		bufferInfo.MemoryPropertyFlags = indexBufferFlags;
+		m_IndexBuffer.Init(bufferInfo);
 	}
 }

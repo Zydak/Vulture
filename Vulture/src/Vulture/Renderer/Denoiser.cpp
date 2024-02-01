@@ -194,7 +194,7 @@ namespace Vulture
         for (int i = 0; i < (int)imgIn.size(); i++)
         {
             imgIn[i]->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, cmdBuf);
-            vkCmdCopyImageToBuffer(cmdBuf, imgIn[i]->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_pixelBufferIn[i].BufferVk->GetBuffer(), 1, &region);
+            vkCmdCopyImageToBuffer(cmdBuf, imgIn[i]->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_pixelBufferIn[i].BufferVk.GetBuffer(), 1, &region);
             imgIn[i]->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, cmdBuf);
         }
     }
@@ -214,7 +214,7 @@ namespace Vulture
         };
 
         imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, cmdBuf);
-        vkCmdCopyBufferToImage(cmdBuf, m_pixelBufferOut.BufferVk->GetBuffer(), imgOut->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        vkCmdCopyBufferToImage(cmdBuf, m_pixelBufferOut.BufferVk.GetBuffer(), imgOut->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
         imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, cmdBuf);
     }
 
@@ -275,24 +275,33 @@ namespace Vulture
         VkDeviceSize inputBufferSize = ((VkDeviceSize)m_ImageSize.width) * m_ImageSize.height * m_SizeofPixel;
         VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-        {  // Path Tracing Result
-            m_pixelBufferIn[0].BufferVk = std::make_shared<Buffer>(outputBufferSize, 1, usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, true);
+		Buffer::CreateInfo BufferInfo{};
+		BufferInfo.InstanceSize = outputBufferSize;
+		BufferInfo.InstanceCount = 1;
+		BufferInfo.UsageFlags = usage;
+		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        BufferInfo.NoPool = true;
+
+        // Path Tracing Result
+        {
+            m_pixelBufferIn[0].BufferVk.Init(BufferInfo);
             CreateBufferHandles(m_pixelBufferIn[0]);  // Exporting the buffer to Cuda handle and pointers
         }
 
         // Albedo
         {
-            m_pixelBufferIn[1].BufferVk = std::make_shared<Buffer>(inputBufferSize, 1, usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, true);
+            m_pixelBufferIn[1].BufferVk.Init(BufferInfo);
             CreateBufferHandles(m_pixelBufferIn[1]);
         }
         // Normal
         {
-            m_pixelBufferIn[2].BufferVk = std::make_shared<Buffer>(inputBufferSize, 1, usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, true);
+            m_pixelBufferIn[2].BufferVk.Init(BufferInfo);
             CreateBufferHandles(m_pixelBufferIn[2]);
         }
 
         // Output image/buffer
-        m_pixelBufferOut.BufferVk = std::make_shared<Buffer>(outputBufferSize, 1, usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 1, true);
+        BufferInfo.InstanceSize = outputBufferSize;
+        m_pixelBufferOut.BufferVk.Init(BufferInfo);
         CreateBufferHandles(m_pixelBufferOut);
 
 
@@ -318,13 +327,13 @@ namespace Vulture
     void Denoiser::CreateBufferHandles(BufferCuda& buf)
     {
         VkMemoryGetWin32HandleInfoKHR info{ VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR };
-        VmaAllocationInfo memInfo = buf.BufferVk->GetMemoryInfo();
+        VmaAllocationInfo memInfo = buf.BufferVk.GetMemoryInfo();
         info.memory = memInfo.deviceMemory;
         info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
         VkResult res = Device::vkGetMemoryWin32HandleKHR(Device::GetDevice(), &info, &buf.Handle);
 
         VkMemoryRequirements memoryReq{};
-        vkGetBufferMemoryRequirements(Device::GetDevice(), buf.BufferVk->GetBuffer(), &memoryReq);
+        vkGetBufferMemoryRequirements(Device::GetDevice(), buf.BufferVk.GetBuffer(), &memoryReq);
 
         cudaExternalMemoryHandleDesc cudaExtMemHandleDesc{};
         cudaExtMemHandleDesc.size = memoryReq.size;

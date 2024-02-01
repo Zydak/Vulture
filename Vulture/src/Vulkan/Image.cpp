@@ -74,14 +74,19 @@ namespace Vulture
 			uint8_t a = (uint8_t)(color.a * 255.0f);
 			pixels[i] = (a << 24) | (b << 16) | (g << 8) | r;
 		}
-
-		auto buffer = std::make_unique<Buffer>(size, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		buffer->Map(size);
-		buffer->WriteToBuffer((void*)pixels, size);
-		buffer->Unmap();
+		Buffer::CreateInfo createInfo{};
+		createInfo.InstanceSize = size;
+		createInfo.InstanceCount = 1;
+		createInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		createInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		Buffer buffer;
+		buffer.Init(createInfo);
+		buffer.Map(size);
+		buffer.WriteToBuffer((void*)pixels, size);
+		buffer.Unmap();
 
 		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-		CopyBufferToImage(buffer->GetBuffer(), (uint32_t)m_Size.x, (uint32_t)m_Size.y);
+		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.x, (uint32_t)m_Size.y);
 		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 	}
@@ -210,10 +215,17 @@ namespace Vulture
 		float sizeOfPixel = HDR ? sizeof(float) * 4 : sizeof(uint8_t) * 4;
 		VkDeviceSize imageSize = (uint64_t)m_Size.x * (uint64_t)m_Size.y * sizeOfPixel;
 
-		auto buffer = std::make_unique<Buffer>(imageSize, 1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		auto res = buffer->Map(imageSize);
-		buffer->WriteToBuffer((void*)pixels, (uint32_t)imageSize);
-		buffer->Unmap();
+		Buffer buffer = Buffer();
+		Buffer::CreateInfo BufferInfo{};
+		BufferInfo.InstanceSize = imageSize;
+		BufferInfo.InstanceCount = 1;
+		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		buffer.Init(BufferInfo);
+
+		auto res = buffer.Map(imageSize);
+		buffer.WriteToBuffer((void*)pixels, (uint32_t)imageSize);
+		buffer.Unmap();
 
 		stbi_image_free(pixels);
 
@@ -246,7 +258,7 @@ namespace Vulture
 		range.layerCount = 1;
 
 		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, range);
-		CopyBufferToImage(buffer->GetBuffer(), (uint32_t)m_Size.x, (uint32_t)m_Size.y);
+		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.x, (uint32_t)m_Size.y);
 
 		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 

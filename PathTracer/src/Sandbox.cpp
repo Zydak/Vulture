@@ -47,9 +47,11 @@ void Sandbox::Init()
 	Vulture::Entity skybox = m_Scene.CreateEntity();
 	//auto& skyboxComponent = skybox.AddComponent<Vulture::SkyboxComponent>("assets/sky.hdr");
 	auto& skyboxComponent = skybox.AddComponent<Vulture::SkyboxComponent>("assets/sunrise.hdr");
+	//auto& skyboxComponent = skybox.AddComponent<Vulture::SkyboxComponent>("assets/black.hdr"); // TODO: possibility to have no skybox
 
 	// Load Scene
 	m_Scene.CreateModel("assets/cornellBox.gltf", Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.5f)));
+	//m_Scene.CreateModel("assets/panther.obj", Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(3.0f)));
 	//m_Scene.CreateModel("assets/ship.gltf", Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.5f)));
 	//m_Scene.CreateModel("assets/Sponza.gltf", Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.5f)));
 

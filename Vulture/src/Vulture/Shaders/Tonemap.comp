@@ -54,7 +54,7 @@ vec3 Uncharted2Filmic(vec3 v)
     return curr * white_scale;
 }
 
-vec3 Aces(vec3 v)
+vec3 AcesFit(vec3 v)
 {
     v = Mul(AcesInputMatrix, v);
     v = RttAndOdtFit(v);
@@ -71,7 +71,7 @@ void main()
     vec3 hdrColor = imageLoad(uInput, ivec2(gl_GlobalInvocationID.xy)).rgb;
 
     hdrColor *= pc.Exposure;
-    vec3 mapped = Aces(hdrColor);
+    vec3 mapped = AcesFit(hdrColor);
     //vec3 mapped = Uncharted2Filmic(hdrColor);
 
     imageStore(uInput, ivec2(gl_GlobalInvocationID.xy), vec4(mapped, 1.0f));

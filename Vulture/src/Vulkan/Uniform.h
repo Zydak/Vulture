@@ -30,7 +30,7 @@ namespace Vulture
 		Uniform(DescriptorPool& pool);
 		~Uniform();
 
-		inline Ref<Buffer> GetBuffer(const int& binding) { return m_Buffers[binding]; }
+		inline Buffer* GetBuffer(const int& binding) { return &m_Buffers[binding]; }
 
 		inline Ref<DescriptorSetLayout> GetDescriptorSetLayout() const { return m_DescriptorSetLayout; }
 
@@ -51,7 +51,7 @@ namespace Vulture
 	private:
 		DescriptorSetLayout::Builder m_SetBuilder{};
 
-		std::unordered_map<uint32_t, Ref<Buffer>> m_Buffers;
+		std::unordered_map<uint32_t, Buffer> m_Buffers;
 		Ref<DescriptorSetLayout> m_DescriptorSetLayout;
 		VkDescriptorSet m_DescriptorSet;
 

@@ -82,12 +82,18 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(m_Bindings.count(binding) == 0, "Binding already in use!");
 		VkBufferUsageFlags bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-		m_Buffers[binding] = std::make_shared<Buffer>(bufferSize, 1, bufferUsageFlags, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-		m_Buffers[binding]->Map();
+		m_Buffers[binding] = Buffer();
+		Buffer::CreateInfo info{};
+		info.InstanceCount = 1;
+		info.InstanceSize = bufferSize;
+		info.UsageFlags = bufferUsageFlags;
+		info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT; // TODO ability to create device local buffers?
+		m_Buffers[binding].Init(info);
+		m_Buffers[binding].Map();
 		m_SetBuilder.AddBinding(binding, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, stage);
 
 		Binding bin;
-		bin.BufferInfo = m_Buffers[binding]->DescriptorInfo();
+		bin.BufferInfo = m_Buffers[binding].DescriptorInfo();
 		bin.Type = BindingType::Buffer;
 		m_Bindings[binding] = bin;
 	}
@@ -105,12 +111,18 @@ namespace Vulture
 		VL_CORE_ASSERT(m_Bindings.count(binding) == 0, "Binding already in use!");
 		VkBufferUsageFlags bufferUsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		if (resizable) { bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT; }
-		m_Buffers[binding] = (std::make_shared<Buffer>(bufferSize, 1, bufferUsageFlags, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
-		m_Buffers[binding]->Map();
+		m_Buffers[binding] = Buffer();
+		Buffer::CreateInfo info{};
+		info.InstanceCount = 1;
+		info.InstanceSize = bufferSize;
+		info.UsageFlags = bufferUsageFlags;
+		info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT; // TODO ability to create device local buffers?
+		m_Buffers[binding].Init(info);
+		m_Buffers[binding].Map();
 		m_SetBuilder.AddBinding(binding, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, stage);
 
 		Binding bin;
-		bin.BufferInfo = m_Buffers[binding]->DescriptorInfo();
+		bin.BufferInfo = m_Buffers[binding].DescriptorInfo();
 		bin.Type = BindingType::Buffer;
 		m_Bindings[binding] = bin;
 	}
@@ -169,14 +181,20 @@ namespace Vulture
 	void Uniform::Resize(uint32_t binding, uint32_t newSize, VkQueue queue, VkCommandPool pool)
 	{
 		VL_CORE_ASSERT(binding < m_DescriptorSetLayout->GetDescriptorSetLayoutBindings().size(), "there isn't such binding! binding: {0}", binding);
-		VL_CORE_ASSERT(m_Buffers[binding]->GetUsageFlags() & VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "Resizable flag has to be set!");
+		VL_CORE_ASSERT(m_Buffers[binding].GetUsageFlags() & VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "Resizable flag has to be set!");
 		VL_CORE_ASSERT(m_DescriptorSetLayout->GetDescriptorSetLayoutBindings()[binding].descriptorType != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, "Can't resize an image!");
 		VL_CORE_ASSERT(m_DescriptorSetLayout->GetDescriptorSetLayoutBindings()[binding].descriptorType != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, "Binding has to be storage buffer!");
 
-		Ref<Buffer> oldBuffer = m_Buffers[binding];
-		m_Buffers[binding] = std::make_shared<Buffer>(newSize, 1, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-		m_Buffers[binding]->Map();
-		m_Bindings[binding].BufferInfo = m_Buffers[binding]->DescriptorInfo();
+		Buffer* oldBuffer = &m_Buffers[binding];
+		m_Buffers[binding] = Buffer();
+		Buffer::CreateInfo info{};
+		info.InstanceCount = 1;
+		info.InstanceSize = newSize;
+		info.UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT; // TODO ability to create device local buffers?
+		m_Buffers[binding].Init(info);
+		m_Buffers[binding].Map();
+		m_Bindings[binding].BufferInfo = m_Buffers[binding].DescriptorInfo();
 
 		// TODO: check whether we actually need to write to all bindings at resize
 		DescriptorWriter writer(*m_DescriptorSetLayout, m_Pool);
@@ -204,7 +222,7 @@ namespace Vulture
 		}
 
 		writer.Build(m_DescriptorSet);
-		Buffer::CopyBuffer(oldBuffer->GetBuffer(), m_Buffers[binding]->GetBuffer(), oldBuffer->GetBufferSize(), queue, pool);
+		Buffer::CopyBuffer(oldBuffer->GetBuffer(), m_Buffers[binding].GetBuffer(), oldBuffer->GetBufferSize(), queue, pool);
 	}
 
 	/*

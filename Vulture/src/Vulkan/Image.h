@@ -32,11 +32,14 @@ namespace Vulture
 		ImageType type = ImageType::Image2D;
 	};
 
+	class ObjectLoader;
+
 	// TODO Major rework, Add default constructors, change parameters to structs etc.
 	class Image
 	{
 	public:
 		Image(const ImageInfo& imageInfo);
+		// TODO make this protected function so that only obj loader can use it
 		Image(const std::string& filepath, SamplerInfo samplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST });
 		Image(const glm::vec4& color, const ImageInfo& imageInfo);
 		~Image();
@@ -74,6 +77,7 @@ namespace Vulture
 		VkImageUsageFlags m_Usage;
 		VkMemoryPropertyFlags m_MemoryProperties;
 		VkImageLayout m_Layout = VK_IMAGE_LAYOUT_UNDEFINED;
+
 	};
 
 }
