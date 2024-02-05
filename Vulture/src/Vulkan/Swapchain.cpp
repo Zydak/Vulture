@@ -214,7 +214,15 @@ namespace Vulture
 
 		for (int i = 0; i < m_PresentableImages.size(); i++)
 		{
-			Image::TransitionImageLayout(m_PresentableImages[i], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+			Image::TransitionImageLayout(
+				m_PresentableImages[i],
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				0,
+				0
+			);
 		}
 
 		m_SwapchainImageFormat = surfaceFormat.format;

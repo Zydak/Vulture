@@ -126,7 +126,7 @@ namespace Vulture
 		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		m_VertexBuffer.Init(bufferInfo);
 
-		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_VertexBuffer.GetBuffer(), bufferSize, Device::GetGraphicsQueue(), Device::GetCommandPool());
+		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_VertexBuffer.GetBuffer(), bufferSize, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 	}
 
 	void Mesh::CreateIndexBuffer(const std::vector<uint32_t>& indices)
@@ -178,7 +178,7 @@ namespace Vulture
 		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		m_IndexBuffer.Init(bufferInfo);
 
-		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_IndexBuffer.GetBuffer(), bufferSize, Device::GetGraphicsQueue(), Device::GetCommandPool());
+		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_IndexBuffer.GetBuffer(), bufferSize, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 	}
 
 	/**
@@ -198,7 +198,7 @@ namespace Vulture
 
 	void Mesh::Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance)
 	{
-		if (m_HasIndexBuffer) 
+		if (m_HasIndexBuffer)
 		{ 
 			vkCmdDrawIndexed(commandBuffer, m_IndexCount, instanceCount, 0, 0, firstInstance); 
 		}

@@ -26,7 +26,7 @@ void Sandbox::OnUpdate(double deltaTime)
 
 	UpdateScripts(deltaTime);
 
-	m_SceneRenderer.Render(m_Scene);
+	m_SceneRenderer->Render(m_Scene);
 }
 
 void Sandbox::InitScripts()
@@ -79,5 +79,6 @@ void Sandbox::Init()
 	auto& cameraScComponent = camera.AddComponent<Vulture::ScriptComponent>();
 	cameraScComponent.AddScript<CameraScript>();
 
-	m_SceneRenderer.UpdateStaticStorageBuffer(m_Scene);
+	m_SceneRenderer = std::make_unique<SceneRenderer>();
+	m_SceneRenderer->UpdateStaticStorageBuffer(m_Scene);
 }

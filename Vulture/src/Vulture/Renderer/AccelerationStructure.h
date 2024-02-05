@@ -15,7 +15,7 @@ namespace Vulture
 
 	struct AccelKHR
 	{
-		Vulture::Buffer Buffer;
+		Vulture::Ref<Vulture::Buffer> Buffer;
 		VkAccelerationStructureKHR Accel;
 	};
 

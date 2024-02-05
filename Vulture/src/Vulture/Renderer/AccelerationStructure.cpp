@@ -231,10 +231,10 @@ namespace Vulture
 		BufferInfo.UsageFlags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		BufferInfo.MinOffsetAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
-		As.Buffer.Init(BufferInfo);
+		As.Buffer = std::make_shared<Buffer>(BufferInfo);
 
 		// Setting the buffer
-		createInfo.buffer = As.Buffer.GetBuffer();
+		createInfo.buffer = As.Buffer->GetBuffer();
 
 		// Create the acceleration structure
 		Device::vkCreateAccelerationStructureKHR(Device::GetDevice(), &createInfo, &As.Accel);
@@ -293,7 +293,7 @@ namespace Vulture
 		{
 			const auto& [modelComponent, transformComponent] = view.get<ModelComponent, TransformComponent>(entity);
 
-			for (int i = 0; i < (int)modelComponent.Model.GetMeshCount(); i++)
+			for (int i = 0; i < (int)modelComponent.Model->GetMeshCount(); i++)
 			{
 				VkAccelerationStructureInstanceKHR instance{};
 				instance.transform = transformComponent.transform.GetKhrMat();
@@ -327,10 +327,10 @@ namespace Vulture
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		BufferInfo.MinOffsetAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
 		instancesBuffer.Init(BufferInfo);
-		instancesBuffer.CopyBuffer(stagingBuffer.GetBuffer(), instancesBuffer.GetBuffer(), instancesBuffer.GetBufferSize(), Device::GetGraphicsQueue(), Device::GetCommandPool());
+		instancesBuffer.CopyBuffer(stagingBuffer.GetBuffer(), instancesBuffer.GetBuffer(), instancesBuffer.GetBufferSize(), Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 
 		VkCommandBuffer cmdBuf;
-		Device::BeginSingleTimeCommands(cmdBuf, Device::GetCommandPool());
+		Device::BeginSingleTimeCommands(cmdBuf, Device::GetComputeCommandPool());
 
 		// Make sure the copy of the instance buffer are copied before triggering the acceleration structure build
 		VkMemoryBarrier barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
@@ -344,7 +344,7 @@ namespace Vulture
 		CmdCreateTlas(cmdBuf, instanceCount, instancesBuffer.GetDeviceAddress(), &scratchBuffer, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, false);
 
 		// Finalizing and destroying temporary data
-		Device::EndSingleTimeCommands(cmdBuf, Device::GetGraphicsQueue(), Device::GetCommandPool());
+		Device::EndSingleTimeCommands(cmdBuf, Device::GetComputeQueue(), Device::GetComputeCommandPool());
 		stagingBuffer.Unmap();
 	}
 
@@ -364,9 +364,9 @@ namespace Vulture
 		{
 			const ModelComponent& modelComponent = view.get<ModelComponent>(entity);
 
-			for (int i = 0; i < (int)modelComponent.Model.GetMeshCount(); i++)
+			for (int i = 0; i < (int)modelComponent.Model->GetMeshCount(); i++)
 			{
-				BlasInput blas = MeshToGeometry(modelComponent.Model.GetMesh(i));
+				BlasInput blas = MeshToGeometry(modelComponent.Model->GetMesh(i));
 
 				blases.emplace_back(blas);
 			}
@@ -452,16 +452,16 @@ namespace Vulture
 			if (batchSize >= batchLimit || i == blasCount - 1)
 			{
 				VkCommandBuffer cmdBuf;
-				Device::BeginSingleTimeCommands(cmdBuf, Device::GetCommandPool());
+				Device::BeginSingleTimeCommands(cmdBuf, Device::GetComputeCommandPool());
 				CmdCreateBlas(cmdBuf, indices, buildAs, scratchAddress, queryPool);
-				Device::EndSingleTimeCommands(cmdBuf, Device::GetGraphicsQueue(), Device::GetCommandPool());
+				Device::EndSingleTimeCommands(cmdBuf, Device::GetComputeQueue(), Device::GetComputeCommandPool());
 
 				if (queryPool)
 				{
 					VkCommandBuffer cmdBuf;
-					Device::BeginSingleTimeCommands(cmdBuf, Device::GetCommandPool());
+					Device::BeginSingleTimeCommands(cmdBuf, Device::GetGraphicsCommandPool());
 					CmdCompactBlas(cmdBuf, indices, buildAs, queryPool);
-					Device::EndSingleTimeCommands(cmdBuf, Device::GetGraphicsQueue(), Device::GetCommandPool());
+					Device::EndSingleTimeCommands(cmdBuf, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 
 					// Destroy the non-compacted version
 					DestroyNonCompacted(indices, buildAs);

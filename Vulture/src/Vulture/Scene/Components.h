@@ -37,6 +37,9 @@ namespace Vulture
 	class ScriptComponent
 	{
 	public:
+
+		~ScriptComponent();
+
 		// TODO delete vector from here
 		std::vector<ScriptInterface*> Scripts;
 
@@ -46,34 +49,11 @@ namespace Vulture
 			Scripts.push_back(new T());
 		}
 
-		void InitializeScripts()
-		{
-			for (auto& script : Scripts)
-			{
-				script->OnCreate();
-			}
-		}
+		void InitializeScripts();
+		void UpdateScripts(double deltaTime);
+		void DestroyScripts();
 
-		void UpdateScripts(double deltaTime)
-		{
-			for (auto& script : Scripts)
-			{
-				script->OnUpdate(deltaTime);
-			}
-		}
-
-		void DestroyScripts()
-		{
-			for (auto& script : Scripts)
-			{
-				script->OnDestroy();
-			}
-		}
-
-		std::vector<ScriptInterface*> GetScripts()
-		{
-			return Scripts;
-		}
+		inline std::vector<ScriptInterface*> GetScripts() const { return Scripts; }
 
 		/**
 		 * @brief Retrieves script at specified index.
@@ -97,14 +77,6 @@ namespace Vulture
 		}
 
 		inline uint32_t GetScriptCount() const { return (uint32_t)Scripts.size(); }
-
-		~ScriptComponent()
-		{
-			for (auto& script : Scripts)
-			{
-				delete script;
-			}
-		}
 	};
 
 	class SpriteComponent
@@ -112,16 +84,9 @@ namespace Vulture
 	public:
 		glm::vec2 AtlasOffsets;
 
-		SpriteComponent(const glm::vec2 atlasOffsets)
-			: AtlasOffsets(atlasOffsets)
-		{
+		SpriteComponent(const glm::vec2 atlasOffsets);
 
-		}
-
-		void Draw()
-		{
-
-		}
+		void Draw();
 	};
 
 	class TransformComponent
@@ -129,17 +94,8 @@ namespace Vulture
 	public:
 		Transform transform;
 
-		TransformComponent(const Transform& transform)
-			: transform(transform)
-		{
-
-		}
-
-		TransformComponent(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale)
-			: transform({translation, rotation, scale})
-		{
-
-		}
+		TransformComponent(const Transform& transform);
+		TransformComponent(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale);
 	};
 
 	class StaticTransformComponent
@@ -147,17 +103,8 @@ namespace Vulture
 	public:
 		Transform transform;
 
-		StaticTransformComponent(const Transform& transform)
-			: transform(transform)
-		{
-
-		}
-
-		StaticTransformComponent(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale)
-			: transform({ translation, rotation, scale })
-		{
-
-		}
+		StaticTransformComponent(const Transform& transform);
+		StaticTransformComponent(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale);
 	};
 
 	class CameraComponent
@@ -172,65 +119,19 @@ namespace Vulture
 		bool Main = false;
 		float Zoom = 1.0f;
 
-		CameraComponent() 
-		{
+		void SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far, float aspectRatio);
+		void SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far);
+		void SetZoom(float zoom);
 
-		};
+		void UpdateViewMatrix();
+		void UpdateViewMatrixCustom(const glm::mat4 mat);
 
-		void SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far, float aspectRatio)
-		{
-			ProjMat = glm::ortho(leftRightBottomTop.x * aspectRatio * Zoom, leftRightBottomTop.y * aspectRatio * Zoom, leftRightBottomTop.z * Zoom, leftRightBottomTop.w * Zoom, _near, _far);
-		}
+		void AddRotation(const glm::vec3& vec);
+		void AddPitch(float pitch);
+		void AddYaw(float yaw);
+		void AddRoll(float roll);
 
-		void SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far)
-		{
-			ProjMat = glm::perspective(glm::radians(fov), aspectRatio, _near, _far);
-		}
-
-		void SetZoom(float zoom)
-		{
-			Zoom = zoom;
-		}
-
-		void UpdateViewMatrix()
-		{
-			ViewMat = Rotation.GetMat4();
-			ViewMat = glm::translate(ViewMat, Translation);
-
-			// Invert Y axis so that image is not flipped
-			ViewMat = glm::scale(ViewMat, glm::vec3(1.0f, -1.0f, 1.0f));
-		}
-
-		void UpdateViewMatrixCustom(const glm::mat4 mat)
-		{
-			ViewMat = mat;
-		}
-
-		glm::mat4 GetViewProj()
-		{
-			return ProjMat * ViewMat;
-		}
-
-		void AddRotation(const glm::vec3& vec)
-		{
-			Rotation.AddAngles(vec);
-		}
-
-		void AddPitch(float pitch)
-		{
-			Rotation.AddPitch(pitch);
-		}
-
-		void AddYaw(float yaw)
-		{
-			Rotation.AddYaw(yaw);
-		}
-
-		void AddRoll(float roll)
-		{
-			Rotation.AddRoll(roll);
-		}
-
+		glm::mat4 GetViewProj();
 		inline const glm::vec3 GetFrontVec() const { return Rotation.GetFrontVec(); }
 		inline const glm::vec3 GetRightVec() const { return Rotation.GetRightVec(); }
 		inline const glm::vec3 GetUpVec() const { return Rotation.GetUpVec(); }
@@ -242,60 +143,26 @@ namespace Vulture
 		Vulture::Entity Entity;
 		std::string ColliderName;
 
-		ColliderComponent(const Vulture::Entity& entity, const std::string name)
-			: Entity(entity), ColliderName(name)
-		{
-			
-		}
+		ColliderComponent(const Vulture::Entity& entity, const std::string name);
 
-		bool CheckCollision(ColliderComponent& otherCollider)
-		{
-			TransformComponent transform = Entity.GetComponent<TransformComponent>().transform;
-			TransformComponent otherTransform = otherCollider.Entity.GetComponent<TransformComponent>().transform;
-
-			glm::vec2 position = transform.transform.GetTranslation() - transform.transform.GetScale();
-			glm::vec2 size = transform.transform.GetScale() * 2.0f;
-
-			glm::vec2 otherPosition = otherTransform.transform.GetTranslation() - otherTransform.transform.GetScale();
-			glm::vec2 otherSize = otherTransform.transform.GetScale() * 2.0f;
-
-			if (position.x < otherPosition.x + otherSize.x &&
-				position.x + size.x > otherPosition.x &&
-				position.y < otherPosition.y + otherSize.y &&
-				position.y + size.x > otherPosition.y)
-			{
-				return true;
-			}
-			return false;
-		}
+		bool CheckCollision(ColliderComponent& otherCollider);
 	};
 
 	class TextComponent
 	{
 	public:
 		Vulture::Text Text;
-		TextComponent(const std::string& text, Ref<FontAtlas> font, const glm::vec4& color, int maxLetterCount = 0, bool resizable = false, float kerningOffset = 0.0f)
-			: Text(text, font, color, kerningOffset, maxLetterCount, resizable)
-		{
+		TextComponent(const std::string& text, Ref<FontAtlas> font, const glm::vec4& color, int maxLetterCount = 0, bool resizable = false, float kerningOffset = 0.0f);
 
-		}
-
-		void ChangeText(const std::string& string, float kerningOffset = 0.0f)
-		{
-			Text.ChangeText(string, kerningOffset);
-		}
+		void ChangeText(const std::string& string, float kerningOffset = 0.0f);
 	};
 
 	class ModelComponent
 	{
 	public:
-		Vulture::Model Model;
+		Ref<Vulture::Model> Model; // todo: don't use Ref here?
 
-		ModelComponent(const std::string filepath)
-			: Model(filepath)
-		{
-
-		}
+		ModelComponent(const std::string filepath);
 
 		~ModelComponent() = default;
 
@@ -305,7 +172,6 @@ namespace Vulture
 	class SkyboxComponent
 	{
 	public:
-		// TODO see todo in Image.h, then delete ref from here
 		Ref<Vulture::Image> SkyboxImage;
 
 		SkyboxComponent(const std::string filepath);

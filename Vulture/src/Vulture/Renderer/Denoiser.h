@@ -34,7 +34,7 @@ public:
 
 	void AllocateBuffers(const VkExtent2D& imgSize);
 	void BufferToImage(const VkCommandBuffer& cmdBuf, Vulture::Image* imgOut);
-	void ImageToBuffer(VkCommandBuffer& cmdBuf, const std::vector<Ref<Vulture::Image>>& imgIn);
+	void ImageToBuffer(VkCommandBuffer& cmdBuf, const std::vector<Vulture::Image*>& imgIn);
 
 private:
 	bool Init(const OptixDenoiserOptions& options, OptixPixelFormat pixelFormat, bool hdr);

@@ -4,7 +4,7 @@
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
-#include "ObjectLoader.h"
+#include "AssetManager.h"
 
 namespace Vulture
 {
@@ -72,64 +72,64 @@ namespace Vulture
 				//albedoColor = aiColor3D(1.0f, 0.5f, 0.0f);
 			}
 
-			for (int i = 0; i < material->GetTextureCount(aiTextureType_BASE_COLOR); i++)
+			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_BASE_COLOR); i++)
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_BASE_COLOR, i, &str);
-				m_AlbedoTextures.push_back(ObjectLoader::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_AlbedoTextures.push_back(AssetManager::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
-			for (int i = 0; i < material->GetTextureCount(aiTextureType_NORMALS); i++)
+			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_NORMALS); i++)
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_NORMALS, i, &str);
-				m_NormalTextures.push_back(ObjectLoader::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_NormalTextures.push_back(AssetManager::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
-			for (int i = 0; i < material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS); i++)
+			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS); i++)
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, i, &str);
-				m_RoghnessTextures.push_back(ObjectLoader::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_RoghnessTextures.push_back(AssetManager::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
-			for (int i = 0; i < material->GetTextureCount(aiTextureType_METALNESS); i++)
+			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_METALNESS); i++)
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_METALNESS, i, &str);
-				m_MetallnessTextures.push_back(ObjectLoader::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_MetallnessTextures.push_back(AssetManager::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
-			ImageInfo info{};
-			info.width = 1;
-			info.height = 1;
-			info.format = VK_FORMAT_R8G8B8A8_UNORM;
-			info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-			info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-			info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-			info.tiling = VK_IMAGE_TILING_OPTIMAL;
-			info.samplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR };
+			Image::CreateInfo info{};
+			info.Width = 1;
+			info.Height = 1;
+			info.Format = VK_FORMAT_R8G8B8A8_UNORM;
+			info.Usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+			info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+			info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+			info.Tiling = VK_IMAGE_TILING_OPTIMAL;
+			info.SamplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR };
 
 			// Create Empty Texture if none are found
 			if (material->GetTextureCount(aiTextureType_BASE_COLOR) == 0)
 			{
-				m_AlbedoTextures.push_back(std::make_shared<Image>(glm::vec4(1.0f), info));
+				m_AlbedoTextures.push_back(AssetManager::CreateTexture(glm::vec4(1.0f), info));
 			}
 			if (material->GetTextureCount(aiTextureType_NORMALS) == 0)
 			{
-				m_NormalTextures.push_back(std::make_shared<Image>(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f), info));
+				m_NormalTextures.push_back(AssetManager::CreateTexture(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f), info));
 			}
 			if (material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS) == 0)
 			{
-				m_RoghnessTextures.push_back(std::make_shared<Image>(glm::vec4(1.0f), info));
+				m_RoghnessTextures.push_back(AssetManager::CreateTexture(glm::vec4(1.0f), info));
 			}
 			if (material->GetTextureCount(aiTextureType_METALNESS) == 0)
 			{
-				m_MetallnessTextures.push_back(std::make_shared<Image>(glm::vec4(0.0f), info));
+				m_MetallnessTextures.push_back(AssetManager::CreateTexture(glm::vec4(0.0f), info));
 			}
 
 			m_Materials[index].Color = glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, albedoColor.a);

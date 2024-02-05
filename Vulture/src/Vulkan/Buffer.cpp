@@ -49,8 +49,7 @@ namespace Vulture
 	 * Returns the minimum instance size required to be compatible with devices minOffsetAlignment
 	 *
 	 * @param instanceSize The size of an instance
-	 * @param minOffsetAlignment The minimum required alignment in bytes for the offset member
-	 * minUniformBufferOffsetAlignment)
+	 * @param minOffsetAlignment The minimum required alignment in bytes
 	 */
 	VkDeviceSize Buffer::GetAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment)
 	{
@@ -95,18 +94,22 @@ namespace Vulture
 		m_Info.Initialized = false;
 	}
 
-	void Buffer::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkQueue queue, VkCommandPool pool)
+	void Buffer::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkQueue queue, VkCommandBuffer cmd, VkCommandPool pool)
 	{
-		VkCommandBuffer commandBuffer;
-		Device::BeginSingleTimeCommands(commandBuffer, pool);
+		bool hasCmd = cmd;
+		if (hasCmd == 0)
+		{
+			Device::BeginSingleTimeCommands(cmd, pool);
+		}
 
 		VkBufferCopy copyRegion{};
 		copyRegion.srcOffset = 0;    // Optional
 		copyRegion.dstOffset = 0;    // Optional
 		copyRegion.size = size;
-		vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+		vkCmdCopyBuffer(cmd, srcBuffer, dstBuffer, 1, &copyRegion);
 
-		Device::EndSingleTimeCommands(commandBuffer, queue, pool);
+		if (hasCmd == 0)
+			Device::EndSingleTimeCommands(cmd, queue, pool);
 	}
 
 	VmaAllocationInfo Buffer::GetMemoryInfo() const
@@ -138,6 +141,7 @@ namespace Vulture
 
 		if (other)
 		{
+			VL_CORE_WARN("Running Buffer copy costructor!");
 			if (m_Info.Initialized)
 				this->Destroy();
 
@@ -160,6 +164,7 @@ namespace Vulture
 
 		if (other)
 		{
+			VL_CORE_WARN("Running Buffer copy costructor!");
 			if (m_Info.Initialized)
 				this->Destroy();
 

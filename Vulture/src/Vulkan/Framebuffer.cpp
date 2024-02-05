@@ -21,7 +21,7 @@ namespace Vulture
 	 * @param customBits - Additional custom Vulkan image usage flags.
 	 */
 	Framebuffer::Framebuffer(const std::vector<FramebufferAttachment>& attachmentsFormats,
-		VkRenderPass renderPass, VkExtent2D extent, VkFormat depthFormat, int layers, ImageType type, VkImageUsageFlags customBits)
+		VkRenderPass renderPass, VkExtent2D extent, VkFormat depthFormat, int layers, Image::ImageType type, VkImageUsageFlags customBits)
 		: m_Extent(extent), m_DepthFormat(depthFormat)
 	{
 		m_ColorAttachments.reserve(attachmentsFormats.size());
@@ -38,6 +38,7 @@ namespace Vulture
 			case FramebufferAttachment::ColorRGB16: CreateColorAttachment(VK_FORMAT_R16G16B16_UNORM, layers, type, customBits); break;
 			case FramebufferAttachment::ColorRGB8: CreateColorAttachment(VK_FORMAT_R8G8B8_UNORM, layers, type, customBits); break;
 
+			case FramebufferAttachment::ColorRG8: CreateColorAttachment(VK_FORMAT_R8G8_UNORM, layers, type, customBits); break;
 			case FramebufferAttachment::ColorRG16: CreateColorAttachment(VK_FORMAT_R16G16_UNORM, layers, type, customBits); break;
 			case FramebufferAttachment::ColorRG32: CreateColorAttachment(VK_FORMAT_R32G32_SFLOAT, layers, type, customBits); break;
 
@@ -47,8 +48,8 @@ namespace Vulture
 			}
 		}
 
-		for (int i = 0; i < m_ColorAttachments.size(); i++) m_Attachments.push_back(m_ColorAttachments[i]->GetImageView());
-		for (int i = 0; i < m_DepthAttachments.size(); i++) m_Attachments.push_back(m_DepthAttachments[i]->GetImageView());
+		for (int i = 0; i < m_ColorAttachments.size(); i++) m_Attachments.push_back(m_ColorAttachments[i].GetImageView());
+		for (int i = 0; i < m_DepthAttachments.size(); i++) m_Attachments.push_back(m_DepthAttachments[i].GetImageView());
 
 		{
 			VkFramebufferCreateInfo framebufferInfo = {};
@@ -72,8 +73,8 @@ namespace Vulture
 			for (int i = 0; i < layers; i++)
 			{
 				m_Attachments.clear();
-				for (int j = 0; j < m_ColorAttachments.size(); j++) m_Attachments.push_back(m_ColorAttachments[j]->GetLayerView(i));
-				for (int j = 0; j < m_DepthAttachments.size(); j++) m_Attachments.push_back(m_DepthAttachments[j]->GetLayerView(i));
+				for (int j = 0; j < m_ColorAttachments.size(); j++) m_Attachments.push_back(m_ColorAttachments[j].GetLayerView(i));
+				for (int j = 0; j < m_DepthAttachments.size(); j++) m_Attachments.push_back(m_DepthAttachments[j].GetLayerView(i));
 				VkFramebufferCreateInfo framebufferInfo = {};
 				framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 				framebufferInfo.renderPass = renderPass;
@@ -108,21 +109,21 @@ namespace Vulture
 	 * @param type - The image type of the color attachment.
 	 * @param customBits - Additional custom Vulkan image usage flags.
 	 */
-	void Framebuffer::CreateColorAttachment(VkFormat format, int layers, ImageType type, VkImageUsageFlags customBits)
+	void Framebuffer::CreateColorAttachment(VkFormat format, int layers, Image::ImageType type, VkImageUsageFlags customBits)
 	{
-		ImageInfo imageInfo;
-		imageInfo.width = m_Extent.width;
-		imageInfo.height = m_Extent.height;
-		imageInfo.format = format;
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.usage = customBits | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		imageInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		imageInfo.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageInfo.samplerInfo = SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR);
-		imageInfo.layerCount = layers;
-		imageInfo.type = type;
+		Image::CreateInfo imageInfo;
+		imageInfo.Width = m_Extent.width;
+		imageInfo.Height = m_Extent.height;
+		imageInfo.Format = format;
+		imageInfo.Tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.Usage = customBits | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageInfo.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		imageInfo.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageInfo.SamplerInfo = SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR);
+		imageInfo.LayerCount = layers;
+		imageInfo.Type = type;
 
-		m_ColorAttachments.emplace_back(std::make_shared<Image>(imageInfo));
+		m_ColorAttachments.emplace_back(imageInfo);
 	}
 
 	/**
@@ -133,22 +134,22 @@ namespace Vulture
 	 * @param type - The image type of the color attachment.
 	 * @param customBits - Additional custom Vulkan image usage flags.
 	 */
-	void Framebuffer::CreateDepthAttachment(int layers, ImageType type, VkImageUsageFlags customBits)
+	void Framebuffer::CreateDepthAttachment(int layers, Image::ImageType type, VkImageUsageFlags customBits)
 	{
 		customBits &= ~VK_IMAGE_USAGE_STORAGE_BIT; // Don't use storage bit on depth attachments
-		ImageInfo imageInfo;
-		imageInfo.width = m_Extent.width;
-		imageInfo.height = m_Extent.height;
-		imageInfo.format = m_DepthFormat;
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.usage = customBits | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		imageInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		imageInfo.aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
-		imageInfo.samplerInfo = SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR);
-		imageInfo.layerCount = layers;
-		imageInfo.type = type;
+		Image::CreateInfo imageInfo;
+		imageInfo.Width = m_Extent.width;
+		imageInfo.Height = m_Extent.height;
+		imageInfo.Format = m_DepthFormat;
+		imageInfo.Tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.Usage = customBits | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		imageInfo.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		imageInfo.Aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+		imageInfo.SamplerInfo = SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR);
+		imageInfo.LayerCount = layers;
+		imageInfo.Type = type;
 
-		m_DepthAttachments.emplace_back(std::make_shared<Image>(imageInfo));
+		m_DepthAttachments.emplace_back(imageInfo);
 	}
 
 }

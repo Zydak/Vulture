@@ -9,27 +9,30 @@ namespace Vulture
 	{
         m_AtlasTexture = std::make_shared<Image>(filepath);
 
-		// Create a uniform for the texture atlas
-		m_AtlasUniform = std::make_shared<Uniform>(Renderer::GetDescriptorPool());
-		m_AtlasUniform->AddImageSampler(
+		// Create a descriptor set for the texture atlas
+
+		DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+		DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT };
+
+		m_AtlasDescriptorSet = std::make_shared<DescriptorSet>();
+		m_AtlasDescriptorSet->Init(&Renderer::GetDescriptorPool(), { bin, bin1 });
+		m_AtlasDescriptorSet->AddImageSampler(
 			0,
 			m_AtlasTexture->GetSampler(),
 			m_AtlasTexture->GetImageView(),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_SHADER_STAGE_FRAGMENT_BIT
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
-		m_AtlasUniform->AddUniformBuffer(
+		m_AtlasDescriptorSet->AddUniformBuffer(
 			1,
-			sizeof(AtlasInfoBuffer),
-			VK_SHADER_STAGE_FRAGMENT_BIT
+			sizeof(AtlasInfoBuffer)
 		);
-		m_AtlasUniform->Build();
+		m_AtlasDescriptorSet->Build();
 
 		// Update the uniform buffer with atlas information
 		AtlasInfoBuffer atlasInfo;
 		atlasInfo.TilingSize = glm::vec4((float)m_TilingSize);
-		m_AtlasUniform->GetBuffer(1)->WriteToBuffer(&atlasInfo, sizeof(AtlasInfoBuffer), 0);
-		m_AtlasUniform->GetBuffer(1)->Flush();
+		m_AtlasDescriptorSet->GetBuffer(1)->WriteToBuffer(&atlasInfo, sizeof(AtlasInfoBuffer), 0);
+		m_AtlasDescriptorSet->GetBuffer(1)->Flush();
 	}
 
 	TextureAtlas::~TextureAtlas()
@@ -49,13 +52,13 @@ namespace Vulture
     }
 
     /**
-     * @brief Retrieves the uniform associated with the texture atlas.
+     * @brief Retrieves the descriptor set associated with the texture atlas.
      *
-     * @return Pointer to the texture atlas uniform.
+     * @return Pointer to the texture atlas descriptor set.
      */
-    Ref<Uniform> TextureAtlas::GetAtlasUniform() const
+    Ref<DescriptorSet> TextureAtlas::GetAtlasDescriptorSet() const
     {
-        return m_AtlasUniform;
+        return m_AtlasDescriptorSet;
     }
 
     /*

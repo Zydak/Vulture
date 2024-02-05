@@ -1,9 +1,8 @@
 #version 460
 
 layout (location = 0) out vec4 outAlbedo;
-layout (location = 1) out vec4 outRoughness;
-layout (location = 2) out vec4 outMetallness;
-layout (location = 3) out vec4 outNormal;
+layout (location = 1) out vec4 outNormal;
+layout (location = 2) out vec2 outRoughnessMetallness;
 
 struct Material
 {
@@ -28,7 +27,7 @@ void main()
 	normalMapTest = normalMapTest * 2.0f - 1.0f;
 
 	outAlbedo = dataIn.material.Albedo;
-	outRoughness = vec4(dataIn.material.Roughness);
-	outMetallness = vec4(dataIn.material.Metallic);
+	vec2 roughnessMetallness = vec2(dataIn.material.Metallic, dataIn.material.Roughness);
+	outRoughnessMetallness = roughnessMetallness;
 	outNormal = 0.5 * (vec4(normalize(dataIn.TBN * normalMapTest), 1.0f) + 1.0f);
 }

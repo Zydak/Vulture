@@ -2,6 +2,7 @@
 #include "Renderer.h"
 #include "Scene/Scene.h"
 #include "Scene/Components.h"
+#include "AssetManager.h"
 
 #ifdef VL_IMGUI
 #include <backends/imgui_impl_glfw.h>
@@ -11,43 +12,11 @@
 
 namespace Vulture
 {
-	void Renderer::ImageMemoryBarrier(VkImage image, VkCommandBuffer commandBuffer, VkImageAspectFlagBits aspect,
-		VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount, uint32_t baseLayer)
-	{
-		VkImageMemoryBarrier barrier = {};
-		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.oldLayout = oldLayout;
-		barrier.newLayout = newLayout;
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.image = image;
-
-		barrier.subresourceRange.aspectMask = aspect;
-		barrier.subresourceRange.baseMipLevel = 0;
-		barrier.subresourceRange.levelCount = 1;
-		barrier.subresourceRange.baseArrayLayer = baseLayer;
-		barrier.subresourceRange.layerCount = layerCount;
-
-		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		// Add a dependency on the fragment shader stage
-		vkCmdPipelineBarrier(
-			commandBuffer,
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			0,
-			0, nullptr,
-			0, nullptr,
-			1, &barrier
-		);
-	}
-
 	void Renderer::Destroy()
 	{
 		s_IsInitialized = false;
 		vkDeviceWaitIdle(Device::GetDevice());
-		vkFreeCommandBuffers(Device::GetDevice(), Device::GetCommandPool(), (uint32_t)s_CommandBuffers.size(), s_CommandBuffers.data());
+		vkFreeCommandBuffers(Device::GetDevice(), Device::GetGraphicsCommandPool(), (uint32_t)s_CommandBuffers.size(), s_CommandBuffers.data());
 		
 		s_Swapchain.release();
 	}
@@ -83,6 +52,7 @@ namespace Vulture
 			0, 1, 2,  // First triangle
 			0, 2, 3   // Second triangle
 		};
+
 		s_QuadMesh.CreateMesh(vertices, indices);
 
 #ifdef VL_IMGUI
@@ -105,9 +75,9 @@ namespace Vulture
 		ImGui_ImplVulkan_Init(&info, s_Swapchain->GetSwapchainRenderPass());
 
 		VkCommandBuffer cmdBuffer;
-		Device::BeginSingleTimeCommands(cmdBuffer, Device::GetCommandPool());
+		Device::BeginSingleTimeCommands(cmdBuffer, Device::GetGraphicsCommandPool());
 		ImGui_ImplVulkan_CreateFontsTexture(cmdBuffer);
-		Device::EndSingleTimeCommands(cmdBuffer, Device::GetGraphicsQueue(), Device::GetCommandPool());
+		Device::EndSingleTimeCommands(cmdBuffer, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 
 		vkDeviceWaitIdle(Device::GetDevice());
 		ImGui_ImplVulkan_DestroyFontUploadObjects();
@@ -268,13 +238,14 @@ namespace Vulture
 	}
 
 	/**
-	 * @brief Takes Uniform with single combined image sampler descriptor and copies data
+	 * @brief Takes descriptor set with single combined image sampler descriptor and copies data
 	 * from the image onto presentable swapchain framebuffer
 	 * 
-	 * @param uniformWithImageSampler - Uniform with single image sampler
+	 * @param descriptorWithImageSampler - descriptor set with single image sampler
 	 */
-	void Renderer::FramebufferCopyPassImGui(Ref<Uniform> uniformWithImageSampler)
+	void Renderer::FramebufferCopyPassImGui(Ref<DescriptorSet> descriptorWithImageSampler)
 	{
+		Vulture::AssetManager::Cleanup();
 		std::vector<VkClearValue> clearColors;
 		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
 		// Begin the render pass
@@ -287,7 +258,7 @@ namespace Vulture
 		// Bind the geometry pipeline
 		s_HDRToPresentablePipeline.Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS);
 
-		uniformWithImageSampler->Bind(
+		descriptorWithImageSampler->Bind(
 			0,
 			s_HDRToPresentablePipeline.GetPipelineLayout(),
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -307,11 +278,20 @@ namespace Vulture
 	// TODO description, note that image has to be in transfer src optimal layout
 	void Renderer::FramebufferCopyPassBlit(Ref<Image> image)
 	{
-		Image::TransitionImageLayout(s_Swapchain->GetPresentableImage(GetCurrentFrameIndex()), VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, GetCurrentCommandBuffer());
+		Image::TransitionImageLayout(
+			s_Swapchain->GetPresentableImage(GetCurrentFrameIndex()),
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_TRANSFER_READ_BIT,
+			GetCurrentCommandBuffer()
+		);
 		 
 		VkImageBlit blit{};
 		blit.srcOffsets[0] = { 0, 0, 0 };
-		blit.srcOffsets[1] = { (int32_t)image->GetImageSize().x, (int32_t)image->GetImageSize().y, 1 };
+		blit.srcOffsets[1] = { (int32_t)image->GetImageSize().width, (int32_t)image->GetImageSize().height, 1 };
 		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		blit.srcSubresource.layerCount = 1;
 		blit.dstOffsets[0] = { 0, 0, 0 };
@@ -330,12 +310,21 @@ namespace Vulture
 			VK_FILTER_NEAREST
 		);
 
-		Image::TransitionImageLayout(s_Swapchain->GetPresentableImage(GetCurrentFrameIndex()), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, GetCurrentCommandBuffer());
+		Image::TransitionImageLayout(
+			s_Swapchain->GetPresentableImage(GetCurrentFrameIndex()),
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_TRANSFER_READ_BIT,
+			GetCurrentCommandBuffer()
+		);
 	}
 
 	// TODO description
-	// TODO why the fuck are there uniform AND image?
-	void Renderer::ToneMapPass(Ref<Uniform> uniformWithImageSampler, Ref<Image> image, float exposure)
+	// TODO why the fuck is there uniform AND image?
+	void Renderer::ToneMapPass(Ref<DescriptorSet> descriptorWithImageSampler, Ref<Image> image, float exposure)
 	{
 		VkImageMemoryBarrier barrierWrite{};
 		barrierWrite.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -362,7 +351,7 @@ namespace Vulture
 
 		s_ToneMapPipeline.Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
 
-		uniformWithImageSampler->Bind(
+		descriptorWithImageSampler->Bind(
 			0,
 			s_ToneMapPipeline.GetPipelineLayout(),
 			VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -378,7 +367,7 @@ namespace Vulture
 			&exposure
 		);
 
-		vkCmdDispatch(GetCurrentCommandBuffer(), ((int)image->GetImageSize().x) / 32 + 1, ((int)image->GetImageSize().x) / 32 + 1, 1);
+		vkCmdDispatch(GetCurrentCommandBuffer(), ((int)image->GetImageSize().width) / 8 + 1, ((int)image->GetImageSize().width) / 8 + 1, 1);
 	
 		VkImageMemoryBarrier barrierRead{};
 		barrierRead.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -406,8 +395,9 @@ namespace Vulture
 
 	void Renderer::BloomPass(Ref<Image> image, int mipsCount)
 	{
-		if (image->GetImageSize() != s_MipSize || mipsCount != m_PrevMipsCount)
+		if ((image->GetImageSize().width != s_MipSize.width && image->GetImageSize().height != s_MipSize.height) || mipsCount != m_PrevMipsCount)
 		{
+			VL_CORE_INFO("Recreating bloom framebuffers");
 			m_PrevMipsCount = mipsCount;
 			CreateBloomImages(image, mipsCount);
 		}
@@ -422,7 +412,7 @@ namespace Vulture
 		);
 
 		s_BloomSeparateBrightnessPipeline.Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
-		s_BloomSeparateBrightnessUniform->Bind(0, s_BloomSeparateBrightnessPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
+		s_BloomSeparateBrightnessDescriptorSet->Bind(0, s_BloomSeparateBrightnessPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
 
 		float threshold = 1.0f;
 		vkCmdPushConstants(
@@ -434,7 +424,7 @@ namespace Vulture
 			&threshold
 		);
 
-		vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[0]->GetImageSize().x / 32 + 1, s_BloomImages[0]->GetImageSize().y / 32 + 1, 1);
+		vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[0]->GetImageSize().width / 8 + 1, s_BloomImages[0]->GetImageSize().height / 8 + 1, 1);
 		
 		for (int i = 0; i < (int)s_BloomImages.size(); i++)
 		{
@@ -450,9 +440,9 @@ namespace Vulture
 		s_BloomDownSamplePipeline.Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
 		for (int i = 1; i < (int)s_BloomImages.size(); i++)
 		{
-			s_BloomDownSampleUniform[i-1]->Bind(0, s_BloomDownSamplePipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
+			s_BloomDownSampleDescriptorSet[i-1]->Bind(0, s_BloomDownSamplePipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
 		
-			vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[i-1]->GetImageSize().x / 32 + 1, s_BloomImages[i-1]->GetImageSize().y / 32 + 1, 1);
+			vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[i-1]->GetImageSize().width / 8 + 1, s_BloomImages[i-1]->GetImageSize().height / 8 + 1, 1);
 		
 			s_BloomImages[i]->TransitionImageLayout(
 				VK_IMAGE_LAYOUT_GENERAL,
@@ -476,7 +466,7 @@ namespace Vulture
 			);
 		}
 		s_BloomAccumulatePipeline.Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
-		s_BloomAccumulateUniform->Bind(0, s_BloomAccumulatePipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
+		s_BloomAccumulateDescriptorSet->Bind(0, s_BloomAccumulatePipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
 
 		vkCmdPushConstants(
 			GetCurrentCommandBuffer(),
@@ -487,24 +477,27 @@ namespace Vulture
 			&mipsCount
 		);
 
-		vkCmdDispatch(GetCurrentCommandBuffer(), image->GetImageSize().x / 32 + 1, image->GetImageSize().y / 32 + 1, 1);
+		vkCmdDispatch(GetCurrentCommandBuffer(), image->GetImageSize().width / 8 + 1, image->GetImageSize().height / 8 + 1, 1);
 	}
 
 	void Renderer::EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap)
 	{
 		{
-			s_EnvToCubemapUniform = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
-			s_EnvToCubemapUniform->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), envMap->GetImageView(),
-				VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			s_EnvToCubemapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
+			s_EnvToCubemapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+			s_EnvToCubemapDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), envMap->GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
-			s_EnvToCubemapUniform->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), cubemap->GetImageView(),
-				VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+			s_EnvToCubemapDescriptorSet->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), cubemap->GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
 			);
-			s_EnvToCubemapUniform->Build();
+			s_EnvToCubemapDescriptorSet->Build();
 		}
 
 		VkCommandBuffer cmdBuf;
-		Device::BeginSingleTimeCommands(cmdBuf, Device::GetCommandPool());
+		Device::BeginSingleTimeCommands(cmdBuf, Device::GetGraphicsCommandPool());
 
 		// TODO automatically deduce layer count for range in cubemaps
 		VkImageSubresourceRange range{};
@@ -513,15 +506,6 @@ namespace Vulture
 		range.levelCount = 1;
 		range.baseArrayLayer = 0;
 		range.layerCount = 6;
-
-		envMap->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf
-		);
 
 		cubemap->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL,
@@ -534,21 +518,21 @@ namespace Vulture
 		);
 
 		s_EnvToCubemapPipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
-		s_EnvToCubemapUniform->Bind(0, s_EnvToCubemapPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
+		s_EnvToCubemapDescriptorSet->Bind(0, s_EnvToCubemapPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
 	
-		vkCmdDispatch(cmdBuf, cubemap->GetImageSize().x / 32 + 1, cubemap->GetImageSize().y / 32 + 1, 1);
+		vkCmdDispatch(cmdBuf, cubemap->GetImageSize().width / 8 + 1, cubemap->GetImageSize().height / 8 + 1, 1);
 
 		cubemap->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
 			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			cmdBuf,
 			range
 		);
 
-		Device::EndSingleTimeCommands(cmdBuf, Device::GetGraphicsQueue(), Device::GetCommandPool());
+		Device::EndSingleTimeCommands(cmdBuf, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 	}
 
 	/*
@@ -570,7 +554,7 @@ namespace Vulture
 		// Recreate the swapchain
 		if (s_Swapchain == nullptr)
 		{
-			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::Immediate);
+			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::VSync);
 		}
 		else
 		{
@@ -578,7 +562,7 @@ namespace Vulture
 			std::shared_ptr<Swapchain> oldSwapchain = std::move(s_Swapchain);
 
 			// Create a new swapchain using the old one as a reference
-			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::Immediate, oldSwapchain);
+			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::VSync, oldSwapchain);
 
 			// Check if the swap formats are consistent
 			VL_CORE_ASSERT(oldSwapchain->CompareSwapFormats(*s_Swapchain), "Swap chain image or depth formats have changed!");
@@ -600,7 +584,7 @@ namespace Vulture
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = Device::GetCommandPool();
+		allocInfo.commandPool = Device::GetGraphicsCommandPool();
 		allocInfo.commandBufferCount = (uint32_t)s_CommandBuffers.size();
 
 		// Allocate primary command buffers
@@ -616,16 +600,14 @@ namespace Vulture
 	 */
 	void Renderer::CreatePool()
 	{
-		auto poolBuilder = DescriptorPool::Builder();
-		poolBuilder.SetMaxSets((Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000);
-		poolBuilder.SetPoolFlags(VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
-		poolBuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000);
-		poolBuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000);
-		poolBuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000);
-		poolBuilder.AddPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000);
-
 		// Create and initialize the descriptor pool
-		s_Pool = std::make_unique<DescriptorPool>(poolBuilder);
+		std::vector<DescriptorPool::PoolSize> poolSizes;
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 100 });
+		s_Pool = std::make_unique<DescriptorPool>(poolSizes, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 	}
 
 	/**
@@ -638,9 +620,8 @@ namespace Vulture
 		//
 
 		{
-			auto imageLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
-			imageLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-			auto imageLayout = std::make_shared<Vulture::DescriptorSetLayout>(imageLayoutBuilder);
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+			DescriptorSetLayout imageLayout({bin});
 
 			PipelineCreateInfo info{};
 			info.AttributeDesc = Mesh::Vertex::GetAttributeDescriptions();
@@ -659,9 +640,9 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout->GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayout()
 			};
-			info.UniformSetLayouts = layouts;
+			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
 			s_HDRToPresentablePipeline.CreatePipeline(info);
@@ -674,9 +655,8 @@ namespace Vulture
 			range.offset = 0;
 			range.size = sizeof(float);
 
-			auto imageLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
-			imageLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
-			auto imageLayout = std::make_shared<Vulture::DescriptorSetLayout>(imageLayoutBuilder);
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin });
 
 			PipelineCreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Tonemap.comp.spv");
@@ -684,9 +664,9 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout->GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayout()
 			};
-			info.UniformSetLayouts = layouts;
+			info.DescriptorSetLayouts = layouts;
 			info.PushConstants = &range;
 
 			// Create the graphics pipeline
@@ -695,10 +675,9 @@ namespace Vulture
 
 		// Env to cubemap
 		{
-			auto imageLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
-			imageLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT);
-			imageLayoutBuilder.AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
-			auto imageLayout = std::make_shared<Vulture::DescriptorSetLayout>(imageLayoutBuilder);
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			PipelineCreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/EnvToCubemap.comp.spv");
@@ -706,16 +685,16 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout->GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayout()
 			};
-			info.UniformSetLayouts = layouts;
+			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
 			s_EnvToCubemapPipeline.CreatePipeline(info);
 		}
 	}
 
-	void Renderer::CreateUniforms()
+	void Renderer::CreateDescriptorSets()
 	{
 		
 	}
@@ -727,31 +706,31 @@ namespace Vulture
 			s_BloomImages.clear();
 			m_MipsCount = 0;
 			m_PrevMipsCount = 0;
-			s_MipSize = glm::vec2(0.0f);
+			s_MipSize = VkExtent2D{ 0, 0 };
 			return;
 		}
 		s_MipSize = image->GetImageSize();
 		s_BloomImages.clear();
 
-		ImageInfo info{};
-		info.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		info.width = image->GetImageSize().x;
-		info.height = image->GetImageSize().y;
-		info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-		info.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		info.tiling = VK_IMAGE_TILING_OPTIMAL;
-		info.properties = image->GetMemoryProperties();
-		info.layerCount = 1;
-		info.samplerInfo = SamplerInfo{};
-		info.type = ImageType::Image2D;
+		Image::CreateInfo info{};
+		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		info.Width = image->GetImageSize().width;
+		info.Height = image->GetImageSize().height;
+		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		info.Usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
+		info.Properties = image->GetMemoryProperties();
+		info.LayerCount = 1;
+		info.SamplerInfo = SamplerInfo{};
+		info.Type = Image::ImageType::Image2D;
 
 		// First Image is just a copy with separated bright values
 		s_BloomImages.push_back(std::make_shared<Image>(info));
 
 		for (int i = 0; i < mipsCount; i++)
 		{
-			info.width = glm::max(1, (int)info.width / 2);
-			info.height = glm::max(1, (int)info.height / 2);
+			info.Width = glm::max(1, (int)info.Width / 2);
+			info.Height = glm::max(1, (int)info.Height / 2);
 			s_BloomImages.push_back(std::make_shared<Image>(info));
 		}
 
@@ -768,10 +747,9 @@ namespace Vulture
 			range.offset = 0;
 			range.size = sizeof(int);
 
-			auto imageLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
-			imageLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
-			imageLayoutBuilder.AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
-			auto imageLayout = std::make_shared<Vulture::DescriptorSetLayout>(imageLayoutBuilder);
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			PipelineCreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/SeparateBrightValues.comp.spv");
@@ -780,9 +758,9 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout->GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayout()
 			};
-			info.UniformSetLayouts = layouts;
+			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
 			s_BloomSeparateBrightnessPipeline.CreatePipeline(info);
@@ -795,10 +773,9 @@ namespace Vulture
 			range.offset = 0;
 			range.size = sizeof(int);
 
-			auto imageLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
-			imageLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
-			imageLayoutBuilder.AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT, mipsCount);
-			auto imageLayout = std::make_shared<Vulture::DescriptorSetLayout>(imageLayoutBuilder);
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, (uint32_t)mipsCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			PipelineCreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Bloom.comp.spv");
@@ -807,9 +784,9 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout->GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayout()
 			};
-			info.UniformSetLayouts = layouts;
+			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
 			s_BloomAccumulatePipeline.CreatePipeline(info);
@@ -817,10 +794,9 @@ namespace Vulture
 
 		// Bloom Down Sample
 		{
-			auto imageLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
-			imageLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
-			imageLayoutBuilder.AddBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
-			auto imageLayout = std::make_shared<Vulture::DescriptorSetLayout>(imageLayoutBuilder);
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			PipelineCreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/BloomDownSample.comp.spv");
@@ -829,9 +805,9 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout->GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayout()
 			};
-			info.UniformSetLayouts = layouts;
+			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
 			s_BloomDownSamplePipeline.CreatePipeline(info);
@@ -839,49 +815,57 @@ namespace Vulture
 
 
 		//-----------------------------------------------
-		// Uniforms
+		// Descriptor sets
 		//-----------------------------------------------
 
 		// Bloom Separate Bright Values
 		{
-			s_BloomSeparateBrightnessUniform = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
-			s_BloomSeparateBrightnessUniform->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), image->GetImageView(),
-				VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+
+			s_BloomSeparateBrightnessDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
+			s_BloomSeparateBrightnessDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+			s_BloomSeparateBrightnessDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), image->GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
 			);
-			s_BloomSeparateBrightnessUniform->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[0]->GetImageView(),
-				VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+			s_BloomSeparateBrightnessDescriptorSet->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[0]->GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
 			);
-			s_BloomSeparateBrightnessUniform->Build();
+			s_BloomSeparateBrightnessDescriptorSet->Build();
 		}
 
 		// Bloom Accumulate
 		{
-			s_BloomAccumulateUniform = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
-			s_BloomAccumulateUniform->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), image->GetImageView(),
-				VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
-			);
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, (uint32_t)mipsCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+
+			s_BloomAccumulateDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
+			s_BloomAccumulateDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+			s_BloomAccumulateDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), image->GetImageView(),VK_IMAGE_LAYOUT_GENERAL);
 			for (int i = 1; i < mipsCount+1; i++)
 			{
-				s_BloomAccumulateUniform->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[i]->GetImageView(),
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_COMPUTE_BIT, mipsCount
-				);
+				s_BloomAccumulateDescriptorSet->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[i]->GetImageView(),VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			}
-			s_BloomAccumulateUniform->Build();
+			s_BloomAccumulateDescriptorSet->Build();
 		}
 
 		// Bloom Down Sample
 		{
-			s_BloomDownSampleUniform.resize(mipsCount);
-			for (int i = 0; i < s_BloomDownSampleUniform.size(); i++)
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+
+			s_BloomDownSampleDescriptorSet.resize(mipsCount);
+			for (int i = 0; i < s_BloomDownSampleDescriptorSet.size(); i++)
 			{
-				s_BloomDownSampleUniform[i] = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
-				s_BloomDownSampleUniform[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[i]->GetImageView(),
-					VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+				s_BloomDownSampleDescriptorSet[i] = std::make_shared<Vulture::DescriptorSet>();
+				s_BloomDownSampleDescriptorSet[i]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+				s_BloomDownSampleDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[i]->GetImageView(),
+					VK_IMAGE_LAYOUT_GENERAL 
 				);
-				s_BloomDownSampleUniform[i]->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[i+1]->GetImageView(),
-					VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+				s_BloomDownSampleDescriptorSet[i]->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[i+1]->GetImageView(),
+					VK_IMAGE_LAYOUT_GENERAL
 				);
-				s_BloomDownSampleUniform[i]->Build();
+				s_BloomDownSampleDescriptorSet[i]->Build();
 			}
 		}
 	}
@@ -926,11 +910,11 @@ namespace Vulture
 	std::vector<Ref<Image>> Renderer::s_BloomImages;
 	Mesh Renderer::s_QuadMesh;
 	Scope<Sampler> Renderer::s_RendererSampler;
-	Ref<Vulture::Uniform> Renderer::s_BloomSeparateBrightnessUniform;
-	Ref<Vulture::Uniform> Renderer::s_BloomAccumulateUniform;
-	std::vector<Ref<Vulture::Uniform>> Renderer::s_BloomDownSampleUniform;
-	Ref<Vulture::Uniform> Renderer::s_EnvToCubemapUniform;
-	glm::vec2 Renderer::s_MipSize = { 0.0f, 0.0f };
+	Ref<Vulture::DescriptorSet> Renderer::s_BloomSeparateBrightnessDescriptorSet;
+	Ref<Vulture::DescriptorSet> Renderer::s_BloomAccumulateDescriptorSet;
+	std::vector<Ref<Vulture::DescriptorSet>> Renderer::s_BloomDownSampleDescriptorSet;
+	Ref<Vulture::DescriptorSet> Renderer::s_EnvToCubemapDescriptorSet;
+	VkExtent2D Renderer::s_MipSize = { 0, 0 };
 	int Renderer::m_PrevMipsCount = 0;
 	int Renderer::m_MipsCount = 0;
 	std::function<void()> Renderer::s_ImGuiFunction;

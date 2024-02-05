@@ -34,12 +34,13 @@ struct MeshAdresses
 class SceneRenderer
 {
 public:
-	SceneRenderer(Vulture::Scene& scene);
+	SceneRenderer();
 	~SceneRenderer();
 
 	void Render(Vulture::Scene& scene);
 
-	void CreateRayTracingUniforms(Vulture::Scene& scene);
+	void CreateRayTracingDescriptorSets(Vulture::Scene& scene);
+	void SetSkybox(Vulture::SkyboxComponent& skybox);
 private:
 	void RayTrace(const glm::vec4& clearColor);
 	void DrawGBuffer();
@@ -50,33 +51,34 @@ private:
 	void FixCameraAspectRatio();
 
 	void CreateRenderPasses();
-	void CreateUniforms();
-	void RecreateUniforms();
+	void CreateDescriptorSets();
+	void RecreateDescriptorSets();
 	void CreatePipelines();
 	void CreateRayTracingPipeline();
 	void CreateShaderBindingTable();
 	void CreateFramebuffers();
-	void UpdateUniformData();
+	void UpdateDescriptorSetsData();
 
 	void ImGuiPass();
 
 	enum GBufferImage
 	{
 		Albedo,
-		Roughness,
-		Metallness,
 		Normal,
+		RoughnessMetallness,
 		Count
 	};
 	Vulture::Ref<Vulture::Framebuffer> m_GBufferFramebuffer;
 
+	Vulture::Ref<Vulture::Image> m_Skybox;
+
 	Vulture::Ref<Vulture::Image> m_DenoisedImage;
 	Vulture::Ref<Vulture::Image> m_PathTracingImage;
-	Vulture::Ref<Vulture::Uniform> m_HDRUniforms;
-	Vulture::Ref<Vulture::Uniform> m_ToneMapUniforms;
+	Vulture::Ref<Vulture::DescriptorSet> m_HDRDescriptorSet;
+	Vulture::Ref<Vulture::DescriptorSet> m_ToneMapDescriptorSet;
 
-	Vulture::Ref<Vulture::Uniform> m_RayTracingUniforms; // we have only one uniform for ray tracing
-	std::vector<Vulture::Ref<Vulture::Uniform>> m_GlobalUniforms;
+	Vulture::Ref<Vulture::DescriptorSet> m_RayTracingDescriptorSet; // there is only one set for ray tracing
+	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_GlobalDescriptorSets;
 	Vulture::Pipeline m_RtPipeline;
 	
 	// SBT
@@ -98,7 +100,7 @@ private:
 
 	float m_Exposure = 1.0f;
 
-	int m_MaxRayDepth = 5;
+	int m_MaxRayDepth = 20;
 	PushConstantRay m_PushContantRay{};
 
 	VkFence m_DenoiseFence;

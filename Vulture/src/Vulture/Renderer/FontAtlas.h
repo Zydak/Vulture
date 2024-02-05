@@ -7,11 +7,11 @@
 #include "msdf-atlas-gen/FontGeometry.h"
 
 #include "Vulkan/Image.h"
-#include "Vulkan/Uniform.h"
-
+#include "Vulkan/DescriptorSet.h"
 
 namespace Vulture
 {
+	// TODO: use asset manager
 	class FontAtlas
 	{
 	public:
@@ -21,16 +21,15 @@ namespace Vulture
 		const std::vector<msdf_atlas::GlyphGeometry>& GetGlyphs() const { return m_Glyphs; }
 		const msdf_atlas::FontGeometry& GetGeometry() const { return m_FontGeometry; }
 		inline std::string GetFontName() const { return m_FontName; }
-		inline Ref<Uniform> GetUniform() const { return m_Uniform; }
+		inline const DescriptorSet* GetUniform() const { return &m_DescriptorSet; }
 
 	private:
 		std::string m_FontName;
 		std::vector<msdf_atlas::GlyphGeometry> m_Glyphs;
 		msdf_atlas::FontGeometry m_FontGeometry;
-		Ref<Uniform> m_Uniform;
+		DescriptorSet m_DescriptorSet;
 		Sampler m_Sampler;
 
 		Ref<Image> m_AtlasTexture;
 	};
-
 }

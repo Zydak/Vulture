@@ -18,5 +18,5 @@ private:
 
 	Vulture::Scene m_Scene;
 
-	SceneRenderer m_SceneRenderer;
+	Vulture::Scope<SceneRenderer> m_SceneRenderer;
 };

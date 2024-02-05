@@ -22,10 +22,12 @@ namespace Vulture
 	{
 		uint32_t GraphicsFamily;
 		uint32_t PresentFamily;
+		uint32_t ComputeFamily;
 		bool GraphicsFamilyHasValue = false;
 		bool PresentFamilyHasValue = false;
+		bool ComputeFamilyHasValue = false;
 
-		bool IsComplete() { return GraphicsFamilyHasValue && PresentFamilyHasValue; }
+		bool IsComplete() { return GraphicsFamilyHasValue && PresentFamilyHasValue && ComputeFamilyHasValue; }
 	};
 
 	struct Extension
@@ -51,9 +53,11 @@ namespace Vulture
 		static inline SwapchainSupportDetails GetSwapchainSupport() { return QuerySwapchainSupport(s_PhysicalDevice); }
 		static inline VkSurfaceKHR GetSurface() { return s_Surface; }
 		static inline QueueFamilyIndices FindPhysicalQueueFamilies() { return FindQueueFamilies(s_PhysicalDevice); }
-		static inline VkCommandPool GetCommandPool() { return s_CommandPool; }
+		static inline VkCommandPool GetGraphicsCommandPool() { return s_GraphicsCommandPool; }
+		static inline VkCommandPool GetComputeCommandPool() { return s_ComputeCommandPool; }
 		static inline VkQueue GetGraphicsQueue() { return s_GraphicsQueue; }
 		static inline VkQueue GetPresentQueue() { return s_PresentQueue; }
+		static inline VkQueue GetComputeQueue() { return s_ComputeQueue; }
 		static inline VkPhysicalDeviceAccelerationStructurePropertiesKHR GetAccelerationProperties() { return s_AccelerationStructureProperties; }
 
 		static inline VmaAllocator GetAllocator() { return s_Allocator; }
@@ -98,7 +102,7 @@ namespace Vulture
 		static void CreateSurface();
 		static void PickPhysicalDevice();
 		static void CreateLogicalDevice();
-		static void CreateCommandPool();
+		static void CreateCommandPools();
 
 		static void PopulateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 		static bool CheckValidationLayerSupport();
@@ -127,8 +131,10 @@ namespace Vulture
 
 		static VkQueue s_GraphicsQueue;
 		static VkQueue s_PresentQueue;
+		static VkQueue s_ComputeQueue;
 
-		static VkCommandPool s_CommandPool;
+		static VkCommandPool s_GraphicsCommandPool;
+		static VkCommandPool s_ComputeCommandPool;
 
 		static std::vector<const char*> s_ValidationLayers;
 		static std::vector<const char*> s_DeviceExtensions;

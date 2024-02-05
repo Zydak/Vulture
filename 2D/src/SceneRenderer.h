@@ -44,8 +44,8 @@ private:
 	void UpdateTextBuffers();
 
 	void CreateRenderPasses();
-	void CreateUniforms();
-	void RecreateUniforms();
+	void CreateDescriptorSets();
+	void RecreateDescriptorSets();
 	void CreatePipelines();
 	void CreateFramebuffers();
 
@@ -63,12 +63,12 @@ private:
 	std::vector<std::vector<StorageBufferCacheEntry>> m_StorageBufferTransforms;
 	std::vector<std::vector<StorageBufferCacheEntry>> m_TextStorageBufferTransforms;
 
-	std::vector<Vulture::Ref<Vulture::Uniform>> m_ObjectsUbos;
-	std::vector<Vulture::Ref<Vulture::Uniform>> m_MainUbos;
-	std::vector<Vulture::Ref<Vulture::Uniform>> m_TextUbos;
-	Vulture::Ref<Vulture::Uniform> m_StaticObjectsUbos;
+	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_ObjectsUbos;
+	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_MainUbos;
+	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_TextUbos;
+	Vulture::Ref<Vulture::DescriptorSet> m_StaticObjectsUbos;
 
-	std::vector<Vulture::Ref<Vulture::Uniform>> m_HDRUniforms;
+	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_HDRDescriptorSet;
 	std::shared_ptr<Vulture::DescriptorSetLayout> m_AtlasSetLayout;
 	std::shared_ptr<Vulture::DescriptorSetLayout> m_FontAtlasSetLayout;
 };

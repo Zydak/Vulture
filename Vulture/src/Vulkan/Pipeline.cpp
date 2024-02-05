@@ -2,9 +2,6 @@
 #include "Utility/Utility.h"
 
 #include "Pipeline.h"
-
-#include "Descriptors.h"
-
 #include <vulkan/vulkan_core.h>
 
 namespace Vulture
@@ -199,7 +196,7 @@ namespace Vulture
 			vkDestroyPipeline(Device::GetDevice(), m_Pipeline, nullptr);
 			vkDestroyPipelineLayout(Device::GetDevice(), m_PipelineLayout, nullptr);
 		}
-		CreatePipelineLayout(info.UniformSetLayouts, info.PushConstants);
+		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
 		PipelineConfigInfo configInfo{};
 		configInfo.RenderPass = info.RenderPass;
 		configInfo.DepthClamp = info.DepthClamp;
@@ -338,33 +335,45 @@ namespace Vulture
 	void Pipeline::CreateRayTracingPipeline(std::vector<VkRayTracingShaderGroupCreateInfoKHR>& rtShaderGroups, RayTracingPipelineCreateInfo& info)
 	{
 		// All stages
-		std::array<VkPipelineShaderStageCreateInfo, 3> stages{};
+		int count = (int)info.RayGenShaderFilepaths.size() + (int)info.MissShaderFilepaths.size() + (int)info.HitShaderFilepaths.size();
+		std::vector<VkPipelineShaderStageCreateInfo> stages(count);
 		VkPipelineShaderStageCreateInfo stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
 		stage.pName = "main";  // All the same entry point
 		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 
+		int stageCount = 0;
+		
 		// Ray gen
+		for (int i = 0; i < info.RayGenShaderFilepaths.size(); i++)
 		{
-			auto code = ReadFile("src/shaders/spv/raytrace.rgen.spv");
+			//auto code = ReadFile("src/shaders/spv/raytrace.rgen.spv");
+			auto code = ReadFile(info.RayGenShaderFilepaths[i]);
 			CreateShaderModule(code, &stage.module);
 			stage.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-			stages[RayTracingStages::Raygen] = stage;
+			stages[stageCount] = stage;
+			stageCount++;
 		}
 
 		// Miss
+		for (int i = 0; i < info.MissShaderFilepaths.size(); i++)
 		{
-			auto code = ReadFile("src/shaders/spv/raytrace.rmiss.spv");
+			//auto code = ReadFile("src/shaders/spv/raytrace.rmiss.spv");
+			auto code = ReadFile(info.MissShaderFilepaths[i]);
 			CreateShaderModule(code, &stage.module);
 			stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
-			stages[RayTracingStages::Miss] = stage;
+			stages[stageCount] = stage;
+			stageCount++;
 		}
 
 		// Hit Group - Closest Hit
+		for (int i = 0; i < info.HitShaderFilepaths.size(); i++)
 		{
-			auto code = ReadFile("src/shaders/spv/raytrace.rchit.spv");
+			//auto code = ReadFile("src/shaders/spv/raytrace.rchit.spv");
+			auto code = ReadFile(info.HitShaderFilepaths[i]);
 			CreateShaderModule(code, &stage.module);
 			stage.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-			stages[RayTracingStages::ClosestHit] = stage;
+			stages[stageCount] = stage;
+			stageCount++;
 		}
 
 		// Shader groups
@@ -375,24 +384,37 @@ namespace Vulture
 		group.intersectionShader = VK_SHADER_UNUSED_KHR;
 
 		// Ray gen
-		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-		group.generalShader = RayTracingStages::Raygen;
-		rtShaderGroups.push_back(group);
+		stageCount = 0;
+		for (int i = 0; i < info.RayGenShaderFilepaths.size(); i++)
+		{
+			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+			group.generalShader = stageCount;
+			rtShaderGroups.push_back(group);
+			stageCount++;
+		}
 
 		// Miss
-		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-		group.generalShader = RayTracingStages::Miss;
-		rtShaderGroups.push_back(group);
+		for (int i = 0; i < info.MissShaderFilepaths.size(); i++)
+		{
+			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+			group.generalShader = stageCount;
+			rtShaderGroups.push_back(group);
+			stageCount++;
+		}
 
 		group.generalShader = VK_SHADER_UNUSED_KHR;
 
 		// closest hit shader
-		group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-		group.closestHitShader = RayTracingStages::ClosestHit;
-		rtShaderGroups.push_back(group);
+		for (int i = 0; i < info.HitShaderFilepaths.size(); i++)
+		{
+			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+			group.closestHitShader = stageCount;
+			rtShaderGroups.push_back(group);
+			stageCount++;
+		}
 
 		// create layout
-		CreatePipelineLayout(info.UniformSetLayouts, info.PushConstants);
+		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
 
 		// Assemble the shader stages and recursion depth info into the ray tracing pipeline
 		VkRayTracingPipelineCreateInfoKHR rayPipelineInfo{ VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR };

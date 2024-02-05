@@ -76,22 +76,22 @@ namespace Vulture
 			s_DeviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
+			//s_DeviceExtensions.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+			//s_DeviceExtensions.push_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+			//s_DeviceExtensions.push_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+			//s_DeviceExtensions.push_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+			//s_DeviceExtensions.push_back(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME);
+			//s_DeviceExtensions.push_back(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
+			//s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
 
 			s_DeviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_FENCE_EXTENSION_NAME);
+			//s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
+			//s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_FENCE_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
 			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
+			//s_DeviceExtensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
 		}
 
 		CreateInstance();
@@ -99,13 +99,14 @@ namespace Vulture
 		CreateSurface();
 		PickPhysicalDevice();
 		CreateLogicalDevice();
-		CreateCommandPool();
+		CreateCommandPools();
 		CreateMemoryAllocator();
 	}
 
 	Device::~Device()
 	{
-		vkDestroyCommandPool(s_Device, s_CommandPool, nullptr);
+		vkDestroyCommandPool(s_Device, s_GraphicsCommandPool, nullptr);
+		vkDestroyCommandPool(s_Device, s_ComputeCommandPool, nullptr);
 		vkDestroyDevice(s_Device, nullptr);
 		if (s_EnableValidationLayers) { DestroyDebugUtilsMessengerEXT(s_Instance, s_DebugMessenger, nullptr); }
 
@@ -288,6 +289,11 @@ namespace Vulture
 			{
 				indices.GraphicsFamily = i;
 				indices.GraphicsFamilyHasValue = true;
+			}
+			if ((queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) && !(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT))
+			{
+				indices.ComputeFamily = i;
+				indices.ComputeFamilyHasValue = true;
 			}
 			VkBool32 presentSupport = false;
 			vkGetPhysicalDeviceSurfaceSupportKHR(device, i, s_Surface, &presentSupport);
@@ -652,6 +658,7 @@ namespace Vulture
 
 		vkGetDeviceQueue(s_Device, indices.GraphicsFamily, 0, &s_GraphicsQueue);
 		vkGetDeviceQueue(s_Device, indices.PresentFamily, 0, &s_PresentQueue);
+		vkGetDeviceQueue(s_Device, indices.ComputeFamily, 0, &s_ComputeQueue);
 	}
 
 	/*
@@ -776,19 +783,35 @@ namespace Vulture
 	 *
 	 * @note The function asserts if the command pool creation fails.
 	 */
-	void Device::CreateCommandPool()
+	void Device::CreateCommandPools()
 	{
 		QueueFamilyIndices queueFamilyIndices = FindPhysicalQueueFamilies();
+		// Graphics
+		{
 
-		VkCommandPoolCreateInfo poolInfo = {};
-		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		poolInfo.queueFamilyIndex = queueFamilyIndices.GraphicsFamily;
-		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+			VkCommandPoolCreateInfo poolInfo = {};
+			poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+			poolInfo.queueFamilyIndex = queueFamilyIndices.GraphicsFamily;
+			poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-		VL_CORE_RETURN_ASSERT(vkCreateCommandPool(s_Device, &poolInfo, nullptr, &s_CommandPool),
-			VK_SUCCESS,
-			"failed to create command pool!"
-		);
+			VL_CORE_RETURN_ASSERT(vkCreateCommandPool(s_Device, &poolInfo, nullptr, &s_GraphicsCommandPool),
+				VK_SUCCESS,
+				"failed to create command pool!"
+			);
+		}
+
+		// Compute
+		{
+			VkCommandPoolCreateInfo poolInfo = {};
+			poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+			poolInfo.queueFamilyIndex = queueFamilyIndices.ComputeFamily;
+			poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+			VL_CORE_RETURN_ASSERT(vkCreateCommandPool(s_Device, &poolInfo, nullptr, &s_ComputeCommandPool),
+				VK_SUCCESS,
+				"failed to create command pool!"
+			);
+		}
 	}
 
 	/*
@@ -902,7 +925,10 @@ namespace Vulture
 	Window* Device::s_Window = {};
 	VkQueue Device::s_GraphicsQueue = {};
 	VkQueue Device::s_PresentQueue = {};
-	VkCommandPool Device::s_CommandPool = {};
+	VkQueue Device::s_ComputeQueue = {};
+	VkCommandPool Device::s_GraphicsCommandPool = {};
+	VkCommandPool Device::s_ComputeCommandPool = {};
+
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR Device::s_RayTracingProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
 	VkPhysicalDeviceAccelerationStructurePropertiesKHR Device::s_AccelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
 

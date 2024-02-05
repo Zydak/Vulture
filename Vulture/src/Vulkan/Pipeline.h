@@ -1,11 +1,10 @@
 #pragma once
 #include "pch.h"
 
-#include "Descriptors.h"
 #include "Device.h"
 
 #include <vulkan/vulkan_core.h>
-#include "Uniform.h"
+#include "DescriptorSet.h"
 
 namespace Vulture
 {
@@ -45,7 +44,7 @@ namespace Vulture
 		bool DepthTestEnable;
 		bool DepthClamp = false;
 		bool BlendingEnable;
-		std::vector<VkDescriptorSetLayout> UniformSetLayouts;
+		std::vector<VkDescriptorSetLayout> DescriptorSetLayouts;
 		VkPushConstantRange* PushConstants;
 		VkRenderPass RenderPass;
 		int ColorAttachmentCount = 1;
@@ -53,16 +52,11 @@ namespace Vulture
 
 	struct RayTracingPipelineCreateInfo
 	{
-		std::vector<std::string> ShaderFilepaths;
+		std::vector<std::string> RayGenShaderFilepaths;
+		std::vector<std::string> MissShaderFilepaths;
+		std::vector<std::string> HitShaderFilepaths;
 		VkPushConstantRange* PushConstants;
-		std::vector<VkDescriptorSetLayout> UniformSetLayouts;
-	};
-
-	enum RayTracingStages
-	{
-		Raygen,
-		Miss,
-		ClosestHit
+		std::vector<VkDescriptorSetLayout> DescriptorSetLayouts;
 	};
 
 	class Pipeline

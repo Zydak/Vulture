@@ -27,6 +27,20 @@ layout(set = 0, binding = 5) uniform sampler2D normalTextures[];
 layout(set = 0, binding = 6) uniform sampler2D roghnessTextures[];
 layout(set = 0, binding = 7) uniform sampler2D metallnessTextures[];
 
+vec3 Slerp(vec3 p0, vec3 p1, float t)
+{
+    float dotp = dot(normalize(p0), normalize(p1));
+    if ((dotp > 0.9999) || (dotp < -0.9999))
+    {
+        if (t<=0.5)
+            return p0;
+        return p1;
+    }
+    float theta = acos(dotp);
+    vec3 P = ((p0*sin((1-t)*theta) + p1*sin(t*theta)) / sin(theta));
+    return P;
+}
+
 void main() 
 {
     Material material = materials.i[gl_InstanceCustomIndexEXT];
@@ -65,7 +79,7 @@ void main()
     vec3 reflectDirection = reflect(prd.RayDirection, worldNrm);
 
     float roughness = texture(roghnessTextures[gl_InstanceCustomIndexEXT], texCoord).r * material.Roughness;
-    vec3 rayDirection = mix(reflectDirection, randomDirection, roughness);
+    vec3 rayDirection = Slerp(reflectDirection, randomDirection, roughness);
 
     const float cos_theta = dot(rayDirection, worldNrm);
     const float p = cos_theta / M_PI;

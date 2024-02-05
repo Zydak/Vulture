@@ -3,9 +3,8 @@
 #include "../Utility/Utility.h"
 
 #include "Vulkan/Swapchain.h"
-#include "Vulkan/Descriptors.h"
 #include "Vulkan/Pipeline.h"
-#include "Vulkan/Uniform.h"
+#include "Vulkan/DescriptorSet.h"
 #include "Mesh.h"
 #include "RenderPass.h"
 
@@ -39,15 +38,12 @@ namespace Vulture
 
 		static void RenderImGui(std::function<void()> fn);
 
-		static void ImageMemoryBarrier(VkImage image, VkCommandBuffer commandBuffer, VkImageAspectFlagBits aspect,
-			VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCount, uint32_t baseLayer);
-
 		static VkCommandBuffer GetCurrentCommandBuffer();
 		static int GetFrameIndex();
 
-		static void FramebufferCopyPassImGui(Ref<Uniform> uniformWithImageSampler);
+		static void FramebufferCopyPassImGui(Ref<DescriptorSet> descriptorWithImageSampler);
 		static void FramebufferCopyPassBlit(Ref<Image> image);
-		static void ToneMapPass(Ref<Uniform> uniformWithImageSampler, Ref<Image> image, float exposure = 1.0f);
+		static void ToneMapPass(Ref<DescriptorSet> descriptorWithImageSampler, Ref<Image> image, float exposure = 1.0f);
 		static void BloomPass(Ref<Image> image, int mipsCount);
 		static void EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap);
 
@@ -61,7 +57,7 @@ namespace Vulture
 		static void CreateCommandBuffers();
 		static void CreatePool();
 		static void CreatePipeline();
-		static void CreateUniforms();
+		static void CreateDescriptorSets();
 		static void CreateBloomImages(Ref<Image> image, int mipsCount);
 
 		static Scope<DescriptorPool> s_Pool;
@@ -81,11 +77,11 @@ namespace Vulture
 		static Mesh s_QuadMesh;
 		static Scope<Sampler> s_RendererSampler;
 
-		static Ref<Uniform> s_BloomSeparateBrightnessUniform;
-		static Ref<Uniform> s_BloomAccumulateUniform;
-		static std::vector<Ref<Uniform>> s_BloomDownSampleUniform;
+		static Ref<DescriptorSet> s_BloomSeparateBrightnessDescriptorSet;
+		static Ref<DescriptorSet> s_BloomAccumulateDescriptorSet;
+		static std::vector<Ref<DescriptorSet>> s_BloomDownSampleDescriptorSet;
 
-		static Ref<Uniform> s_EnvToCubemapUniform;
+		static Ref<DescriptorSet> s_EnvToCubemapDescriptorSet;
 
 		static Pipeline s_HDRToPresentablePipeline;
 		static Pipeline s_ToneMapPipeline;
@@ -98,7 +94,7 @@ namespace Vulture
 
 		static std::function<void()> s_ImGuiFunction;
 
-		static glm::vec2 s_MipSize;
+		static VkExtent2D s_MipSize;
 		static int m_PrevMipsCount;
 		static int m_MipsCount;
 		friend class RenderPass;

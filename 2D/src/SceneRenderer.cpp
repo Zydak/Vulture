@@ -10,7 +10,7 @@ SceneRenderer::SceneRenderer()
 	CreateRenderPasses();
 
 	CreateFramebuffers();
-	CreateUniforms();
+	CreateDescriptorSets();
 	CreatePipelines();
 
 	m_StorageBufferTransforms.resize(Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT);
@@ -34,7 +34,7 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 		UpdateTextBuffers();
 		GeometryPass();
 
-		Vulture::Renderer::FramebufferCopyPass(&(*m_HDRUniforms[Vulture::Renderer::GetCurrentFrameIndex()]));
+		Vulture::Renderer::FramebufferCopyPassImGui(m_HDRDescriptorSet[Vulture::Renderer::GetCurrentFrameIndex()]);
 
 		if (!Vulture::Renderer::EndFrame())
 			RecreateResources();
@@ -48,7 +48,7 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 void SceneRenderer::RecreateResources()
 {
 	CreateFramebuffers();
-	RecreateUniforms();
+	RecreateDescriptorSets();
 	CreatePipelines();
 
 	FixCameraAspectRatio();
@@ -210,7 +210,7 @@ void SceneRenderer::UpdateTextBuffers()
 void SceneRenderer::UpdateStaticStorageBuffer(Vulture::Scene& scene)
 {
 	m_StaticObjectsCount = 0;
-	m_StaticObjectsUbos = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
+	m_StaticObjectsUbos = std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool());
 	m_StaticObjectsUbos->AddStorageBuffer(0, sizeof(StorageBufferEntry) * 1000, VK_SHADER_STAGE_VERTEX_BIT, true);
 	m_StaticObjectsUbos->Build();
 
@@ -279,7 +279,7 @@ void SceneRenderer::GeometryPass()
 		Vulture::Renderer::GetCurrentCommandBuffer()
 	);
 
-	m_CurrentSceneRendered->GetAtlas()->GetAtlasUniform()->Bind(
+	m_CurrentSceneRendered->GetAtlas()->GetAtlasDescriptorSet()->Bind(
 		2,
 		m_HDRPass.GetPipeline().GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -419,48 +419,48 @@ void SceneRenderer::CreateRenderPasses()
 	m_HDRPass.CreateRenderPass(renderPassInfo);
 }
 
-void SceneRenderer::CreateUniforms()
+void SceneRenderer::CreateDescriptorSets()
 {
 	// Create and initialize uniform buffers
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
-		m_ObjectsUbos.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
-		m_ObjectsUbos[i]->AddStorageBuffer(0, sizeof(StorageBufferEntry), VK_SHADER_STAGE_VERTEX_BIT, true);
+		m_ObjectsUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
+		m_ObjectsUbos[i]->AddStorageBuffer(0, sizeof(StorageBufferEntry) * 200, VK_SHADER_STAGE_VERTEX_BIT, false);
 		m_ObjectsUbos[i]->Build();
 
 		// Resize test
 		// TODO: automatic resize when needed
-		m_ObjectsUbos[i]->Resize(0, sizeof(StorageBufferEntry) * 33000, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetCommandPool());
+		//m_ObjectsUbos[i]->Resize(0, sizeof(StorageBufferEntry) * 200, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetGraphicsCommandPool());
 	}
 
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
-		m_TextUbos.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
-		m_TextUbos[i]->AddStorageBuffer(0, sizeof(glm::mat4), VK_SHADER_STAGE_VERTEX_BIT, true);
+		m_TextUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
+		m_TextUbos[i]->AddStorageBuffer(0, sizeof(glm::mat4) * 100, VK_SHADER_STAGE_VERTEX_BIT, true);
 		m_TextUbos[i]->Build();
 
-		// Resize test
+		// Resize test	
 		// TODO: automatic resize when needed
-		m_TextUbos[i]->Resize(0, sizeof(glm::mat4) * 100, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetCommandPool());
+		//m_TextUbos[i]->Resize(0, sizeof(glm::mat4) * 100, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetGraphicsCommandPool());
 	}
 
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
-		m_MainUbos.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
+		m_MainUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
 		m_MainUbos[i]->AddUniformBuffer(0, sizeof(MainUbo), VK_SHADER_STAGE_VERTEX_BIT);
 		m_MainUbos[i]->Build();
 	}
 
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_HDRUniforms.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
-		m_HDRUniforms[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
+		m_HDRDescriptorSet.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
+		m_HDRDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_FRAGMENT_BIT
 		);
-		m_HDRUniforms[i]->Build();
+		m_HDRDescriptorSet[i]->Build();
 	}
 
 	// Create descriptor set layout for atlas
@@ -474,25 +474,25 @@ void SceneRenderer::CreateUniforms()
 	m_FontAtlasSetLayout = std::make_shared<Vulture::DescriptorSetLayout>(fontAtlasLayoutBuilder);
 }
 
-void SceneRenderer::RecreateUniforms()
+void SceneRenderer::RecreateDescriptorSets()
 {
 	m_MainUbos.clear();
-	m_HDRUniforms.clear();
+	m_HDRDescriptorSet.clear();
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
-		m_MainUbos.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
+		m_MainUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
 		m_MainUbos[i]->AddUniformBuffer(0, sizeof(MainUbo), VK_SHADER_STAGE_VERTEX_BIT);
 		m_MainUbos[i]->Build();
 	}
 
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_HDRUniforms.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
-		m_HDRUniforms[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
+		m_HDRDescriptorSet.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
+		m_HDRDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_FRAGMENT_BIT
 		);
-		m_HDRUniforms[i]->Build();
+		m_HDRDescriptorSet[i]->Build();
 	}
 }
 
@@ -509,7 +509,7 @@ void SceneRenderer::CreatePipelines()
 		info.ShaderFilepaths.push_back("src/shaders/spv/Geometry.frag.spv");
 		info.BlendingEnable = true;
 		info.DepthTestEnable = true;
-		info.CullMode = VK_CULL_MODE_BACK_BIT;
+		info.CullMode = VK_CULL_MODE_FRONT_BIT;
 		info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
 		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
@@ -522,7 +522,7 @@ void SceneRenderer::CreatePipelines()
 			m_MainUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
 			m_AtlasSetLayout->GetDescriptorSetLayout()
 		};
-		info.UniformSetLayouts = layouts;
+		info.DescriptorSetLayouts = layouts;
 
 		m_HDRPass.CreatePipeline(info);
 	}
@@ -544,7 +544,7 @@ void SceneRenderer::CreatePipelines()
 		info.ShaderFilepaths.push_back("src/shaders/spv/Font.frag.spv");
 		info.BlendingEnable = true;
 		info.DepthTestEnable = true;
-		info.CullMode = VK_CULL_MODE_FRONT_BIT; // it's front bit for some reason
+		info.CullMode = VK_CULL_MODE_BACK_BIT;
 		info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
 		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
@@ -558,7 +558,7 @@ void SceneRenderer::CreatePipelines()
 			m_TextUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
 			m_FontAtlasSetLayout->GetDescriptorSetLayout()
 		};
-		info.UniformSetLayouts = layouts;
+		info.DescriptorSetLayouts = layouts;
 
 		m_FontPipeline.CreatePipeline(info);
 	}
@@ -582,7 +582,7 @@ void SceneRenderer::ImGuiPass()
 
 	ImGui::Begin("Settings");
 
-	ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.Elapsed());
+	ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.ElapsedSeconds());
 	m_Timer.Reset();
 
 	ImGui::End();

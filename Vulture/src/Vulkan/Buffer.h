@@ -42,7 +42,7 @@ namespace Vulture
 		VkResult Flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 		VkDescriptorBufferInfo DescriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 		VkResult Invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
-		static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkQueue queue, VkCommandPool pool);
+		static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkQueue queue, VkCommandBuffer cmd, VkCommandPool pool = 0);
 
 		operator bool() const
 		{
@@ -62,7 +62,7 @@ namespace Vulture
 			VkDeviceSize AlignmentSize = 1;
 			VkBufferUsageFlags UsageFlags = 0;
 			VkMemoryPropertyFlags MemoryPropertyFlags = 0;
-			VkDeviceSize MinOffsetAlignment = 1;
+			VkDeviceSize MinOffsetAlignment = 1; // Stored only for copies of the buffer
 			bool NoPool = false;
 
 			bool Initialized = false;

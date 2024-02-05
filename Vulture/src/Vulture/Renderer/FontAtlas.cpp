@@ -24,14 +24,14 @@ namespace Vulture
 
 		msdfgen::BitmapConstRef<T, N> bitmap = (msdfgen::BitmapConstRef<T, N>)generator.atlasStorage();
 
-		ImageInfo info;
-		info.width = bitmap.width;
-		info.height = bitmap.height;
-		info.format = VK_FORMAT_R8G8B8A8_UNORM;
-		info.tiling = VK_IMAGE_TILING_OPTIMAL;
-		info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		Image::CreateInfo info;
+		info.Width = bitmap.width;
+		info.Height = bitmap.height;
+		info.Format = VK_FORMAT_R8G8B8A8_UNORM;
+		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
+		info.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		Ref<Image> tex = std::make_shared<Image>(info);
 		
 		Buffer::CreateInfo BufferInfo{};
@@ -114,9 +114,10 @@ namespace Vulture
 
 		msdfgen::destroyFont(font);
 		msdfgen::deinitializeFreetype(ft);
-		
-		m_Uniform = std::make_shared<Uniform>(Vulture::Renderer::GetDescriptorPool());
-		m_Uniform->AddImageSampler(0, m_Sampler.GetSampler(), m_AtlasTexture->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_FRAGMENT_BIT);
-		m_Uniform->Build();
+
+		DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+		m_DescriptorSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
+		m_DescriptorSet.AddImageSampler(0, m_Sampler.GetSampler(), m_AtlasTexture->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		m_DescriptorSet.Build();
 	}
 }

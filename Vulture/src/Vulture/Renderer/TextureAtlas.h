@@ -1,7 +1,7 @@
 #pragma once
 #include "pch.h"
 #include "Vulkan/Image.h"
-#include "Vulkan/Uniform.h"
+#include "Vulkan/DescriptorSet.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -21,13 +21,13 @@ namespace Vulture
 		~TextureAtlas();
 
 		glm::vec2 GetTextureOffset(const glm::vec2& tileOffset) const;
-		Ref<Uniform> GetAtlasUniform() const;
+		Ref<DescriptorSet> GetAtlasDescriptorSet() const;
 
 		void SetTiling(int tiling);
 
 	private:
 		Ref<Image> m_AtlasTexture;
-		Ref<Uniform> m_AtlasUniform;
+		Ref<DescriptorSet> m_AtlasDescriptorSet;
 		int m_TilingSize = 32;
 	};
 

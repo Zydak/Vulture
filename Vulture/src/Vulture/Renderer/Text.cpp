@@ -155,8 +155,8 @@ namespace Vulture
 			pr += x;
 			pt += y;
 
-			float texelWidth = 1.0f / fontAtlas->GetImageSize().x;
-			float texelHeight = 1.0f / fontAtlas->GetImageSize().y;
+			float texelWidth = 1.0f / fontAtlas->GetImageSize().width;
+			float texelHeight = 1.0f / fontAtlas->GetImageSize().height;
 
 			al *= texelWidth;
 			ab *= texelHeight;

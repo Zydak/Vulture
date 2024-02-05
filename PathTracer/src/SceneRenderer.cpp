@@ -7,15 +7,31 @@
 
 #include "CameraScript.h"
 
-SceneRenderer::SceneRenderer(Vulture::Scene& scene)
+SceneRenderer::SceneRenderer()
 {
-	m_CurrentSceneRendered = &scene;
+	Vulture::Ref<Vulture::Image> tempImage = std::make_shared<Vulture::Image>("../Vulture/assets/black.hdr");
+
+	Vulture::Image::CreateInfo imageInfo = {};
+	imageInfo.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+	imageInfo.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	imageInfo.Height = 1024;
+	imageInfo.Width = 1024;
+	imageInfo.LayerCount = 6;
+	imageInfo.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	imageInfo.SamplerInfo = {};
+	imageInfo.Tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageInfo.Type = Vulture::Image::ImageType::Cubemap;
+	imageInfo.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	m_Skybox = std::make_shared<Vulture::Image>(imageInfo);
+
+	Vulture::Renderer::EnvMapToCubemapPass(tempImage, m_Skybox);
+
 	CreateRenderPasses();
 
 	CreateFramebuffers();
 	m_PresentedImage = m_PathTracingImage;
 
-	CreateUniforms();
+	CreateDescriptorSets();
 	CreatePipelines();
 
 	m_Denoiser = std::make_shared<Vulture::Denoiser>();
@@ -39,7 +55,7 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 
 	if (Vulture::Renderer::BeginFrame())
 	{
-		UpdateUniformData();
+		UpdateDescriptorSetsData();
 		RayTrace(glm::vec4(0.1f));
 
 		// Run denoised if requested
@@ -49,7 +65,7 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 			m_RunDenoising = false;
 		}
 
-		Vulture::Renderer::FramebufferCopyPassImGui(m_HDRUniforms);
+		Vulture::Renderer::FramebufferCopyPassImGui(m_HDRDescriptorSet);
 		
 		if (!Vulture::Renderer::EndFrame())
 			RecreateResources();
@@ -82,7 +98,7 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 			{
 				Vulture::Renderer::BloomPass(m_PresentedImage, 8);
 				m_PresentedImage->TransitionImageLayout(m_PresentedImage->GetLayout(), VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, Vulture::Renderer::GetCurrentCommandBuffer());
-				Vulture::Renderer::ToneMapPass(m_ToneMapUniforms, m_PresentedImage, m_Exposure);
+				Vulture::Renderer::ToneMapPass(m_ToneMapDescriptorSet, m_PresentedImage, m_Exposure);
 				m_ToneMapped = true;
 			}
 			
@@ -96,13 +112,13 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 	m_Time = m_TotalTimer.ElapsedSeconds();
 
 	m_RtPipeline.Bind(Vulture::Renderer::GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
-	m_RayTracingUniforms->Bind(
+	m_RayTracingDescriptorSet->Bind(
 		0,
 		m_RtPipeline.GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
 		Vulture::Renderer::GetCurrentCommandBuffer()
 	);
-	m_GlobalUniforms[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
+	m_GlobalDescriptorSets[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
 		1,
 		m_RtPipeline.GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
@@ -119,8 +135,8 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 		&m_MissRegion, 
 		&m_HitRegion, 
 		&m_CallRegion,
-		(uint32_t)m_PathTracingImage->GetImageSize().x,
-		(uint32_t)m_PathTracingImage->GetImageSize().y,
+		(uint32_t)m_PathTracingImage->GetImageSize().width,
+		(uint32_t)m_PathTracingImage->GetImageSize().height,
 		1
 	);
 }
@@ -132,15 +148,17 @@ void SceneRenderer::DrawGBuffer()
 	clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
 	clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
 	clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
-	clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
 	VkClearValue clearVal{};
 	clearVal.depthStencil = { 1.0f, 1 };
 	clearColors.push_back(clearVal);
 
 	m_GBufferPass.SetRenderTarget(&(*m_GBufferFramebuffer));
 	m_GBufferPass.BeginRenderPass(clearColors);
+	m_GBufferFramebuffer->GetColorImageNoVk(0)->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_GBufferFramebuffer->GetColorImageNoVk(1)->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_GBufferFramebuffer->GetColorImageNoVk(2)->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	m_GlobalUniforms[Vulture::Renderer::GetCurrentFrameIndex()]->Bind
+	m_GlobalDescriptorSets[Vulture::Renderer::GetCurrentFrameIndex()]->Bind
 	(
 		0,
 		m_GBufferPass.GetPipeline().GetPipelineLayout(),
@@ -153,11 +171,11 @@ void SceneRenderer::DrawGBuffer()
 	{
 		auto& [modelComp, TransformComp] = m_CurrentSceneRendered->GetRegistry().get<Vulture::ModelComponent, Vulture::TransformComponent>(entity);
 		
-		std::vector<Vulture::Ref<Vulture::Mesh>> meshes = modelComp.Model.GetMeshes();
-		for (uint32_t i = 0; i < modelComp.Model.GetMeshCount(); i++)
+		std::vector<Vulture::Ref<Vulture::Mesh>> meshes = modelComp.Model->GetMeshes();
+		for (uint32_t i = 0; i < modelComp.Model->GetMeshCount(); i++)
 		{
 			PushConstantGBuffer push;
-			push.Material = modelComp.Model.GetMaterial(i);
+			push.Material = modelComp.Model->GetMaterial(i);
 			push.Model = TransformComp.transform.GetMat4();
 
 			vkCmdPushConstants(
@@ -200,11 +218,11 @@ void SceneRenderer::Denoise()
 		0, nullptr);
 
 	// copy images to cuda buffers
-	std::vector<Vulture::Ref<Vulture::Image>> vec = 
-	{ 
-		(m_PathTracingImage), // Path Tracing Result
-		(m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Albedo)), // Albedo
-		(m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Normal)) // Normal
+	std::vector<Vulture::Image*> vec = 
+	{
+		&(*m_PathTracingImage), // Path Tracing Result
+		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Albedo))), // Albedo
+		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Normal))) // Normal
 	};
 	m_Denoiser->ImageToBuffer(cmd, vec);
 
@@ -293,7 +311,7 @@ void SceneRenderer::RecreateResources()
 		m_PresentedImage = m_PathTracingImage;
 	}
 
-	RecreateUniforms();
+	RecreateDescriptorSets();
 }
 
 void SceneRenderer::FixCameraAspectRatio()
@@ -372,39 +390,11 @@ void SceneRenderer::CreateRenderPasses()
 		albedoAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		albedoAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		albedoAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		albedoAttachment.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
+		albedoAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 		VkAttachmentReference albedoAttachmentRef = {};
 		albedoAttachmentRef.attachment = 0;
 		albedoAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription roughnessAttachment = {};
-		roughnessAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		roughnessAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		roughnessAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		roughnessAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		roughnessAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		roughnessAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		roughnessAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		roughnessAttachment.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-		VkAttachmentReference roughnessAttachmentRef = {};
-		roughnessAttachmentRef.attachment = 1;
-		roughnessAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription metallnessAttachment = {};
-		metallnessAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		metallnessAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		metallnessAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		metallnessAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		metallnessAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		metallnessAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		metallnessAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		metallnessAttachment.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-		VkAttachmentReference metallnessAttachmentRef = {};
-		metallnessAttachmentRef.attachment = 2;
-		metallnessAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentDescription normalAttachment = {};
 		normalAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT;
@@ -414,11 +404,25 @@ void SceneRenderer::CreateRenderPasses()
 		normalAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		normalAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		normalAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		normalAttachment.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
+		normalAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 		VkAttachmentReference normalAttachmentRef = {};
-		normalAttachmentRef.attachment = 3;
+		normalAttachmentRef.attachment = 1;
 		normalAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentDescription rougnessMetallnessAttachment = {};
+		rougnessMetallnessAttachment.format = VK_FORMAT_R8G8_UNORM;
+		rougnessMetallnessAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		rougnessMetallnessAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		rougnessMetallnessAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		rougnessMetallnessAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		rougnessMetallnessAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		rougnessMetallnessAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		rougnessMetallnessAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		VkAttachmentReference RoghnessMetallnessAttachmentRef = {};
+		RoghnessMetallnessAttachmentRef.attachment = 2;
+		RoghnessMetallnessAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentDescription depthAttachment = {};
 		depthAttachment.format = Vulture::Swapchain::FindDepthFormat();
@@ -431,14 +435,14 @@ void SceneRenderer::CreateRenderPasses()
 		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentReference depthAttachmentRef = {};
-		depthAttachmentRef.attachment = 4;
+		depthAttachmentRef.attachment = 3;
 		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		std::vector<VkAttachmentReference> references { albedoAttachmentRef, roughnessAttachmentRef, metallnessAttachmentRef, normalAttachmentRef };
+		std::vector<VkAttachmentReference> references { albedoAttachmentRef, normalAttachmentRef, RoghnessMetallnessAttachmentRef };
 
 		VkSubpassDescription subpass = {};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 4;
+		subpass.colorAttachmentCount = 3;
 		subpass.pColorAttachments = references.data();
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
@@ -460,7 +464,7 @@ void SceneRenderer::CreateRenderPasses()
 
 		std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
 
-		std::vector<VkAttachmentDescription> attachments { albedoAttachment, roughnessAttachment, metallnessAttachment, normalAttachment, depthAttachment };
+		std::vector<VkAttachmentDescription> attachments { albedoAttachment, normalAttachment, rougnessMetallnessAttachment, depthAttachment };
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.attachmentCount = (uint32_t)attachments.size();
@@ -474,97 +478,111 @@ void SceneRenderer::CreateRenderPasses()
 	}
 }
 
-void SceneRenderer::CreateUniforms()
+void SceneRenderer::CreateDescriptorSets()
 {
-	m_GlobalUniforms.clear();
+	m_GlobalDescriptorSets.clear();
 
 	{
+		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+		
 		m_PresentedImage = m_PathTracingImage;
-		m_HDRUniforms = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
-		m_HDRUniforms->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
-			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_FRAGMENT_BIT
+		m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
+		m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
+		m_HDRDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
+			VK_IMAGE_LAYOUT_GENERAL
 		);
-		m_HDRUniforms->Build();
+		m_HDRDescriptorSet->Build();
 	}
 
 	{
-		m_ToneMapUniforms = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
-		m_ToneMapUniforms->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
-			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
+		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+
+		m_ToneMapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
+		m_ToneMapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
+		m_ToneMapDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
+			VK_IMAGE_LAYOUT_GENERAL 
 		);
-		m_ToneMapUniforms->Build();
+		m_ToneMapDescriptorSet->Build();
 	}
 
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_GlobalUniforms.push_back(std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool()));
-		m_GlobalUniforms[i]->AddUniformBuffer(0, sizeof(GlobalUbo), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR };
+		Vulture::DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR };
 
-		auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::SkyboxComponent>();
-		for(auto& entity : view)
-		{
-			auto& skyboxComp = m_CurrentSceneRendered->GetRegistry().get<Vulture::SkyboxComponent>(entity);
-			m_GlobalUniforms[i]->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), skyboxComp.SkyboxImage->GetImageView(),
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_MISS_BIT_KHR
-			);
-			break; // there can be only one skybox
-		}
+		m_GlobalDescriptorSets.push_back(std::make_shared<Vulture::DescriptorSet>());
+		m_GlobalDescriptorSets[i]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+		m_GlobalDescriptorSets[i]->AddUniformBuffer(0, sizeof(GlobalUbo));
 
-		m_GlobalUniforms[i]->Build();
+		m_GlobalDescriptorSets[i]->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), m_Skybox->GetImageView(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		);
+
+		m_GlobalDescriptorSets[i]->Build();
 	}
 }
 
-void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
+void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 {
 	{
-		m_RayTracingUniforms = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
+		uint32_t texturesCount = scene.GetMeshCount();
+		Vulture::DescriptorSetLayout::Binding bin0{ 0, 1, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
+		Vulture::DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR };
+		Vulture::DescriptorSetLayout::Binding bin2{ 2, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
+		Vulture::DescriptorSetLayout::Binding bin3{ 3, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
+		Vulture::DescriptorSetLayout::Binding bin4{ 4, texturesCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
+		Vulture::DescriptorSetLayout::Binding bin5{ 5, texturesCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
+		Vulture::DescriptorSetLayout::Binding bin6{ 6, texturesCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
+		Vulture::DescriptorSetLayout::Binding bin7{ 7, texturesCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
+
+		m_RayTracingDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
+		m_RayTracingDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin0, bin1, bin2, bin3, bin4, bin5, bin6, bin7 });
 
 		VkAccelerationStructureKHR tlas = scene.GetAccelerationStructure()->GetTlas().Accel;
 		VkWriteDescriptorSetAccelerationStructureKHR asInfo{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR };
 		asInfo.accelerationStructureCount = 1;
 		asInfo.pAccelerationStructures = &tlas;
 
-		m_RayTracingUniforms->AddAccelerationStructure(0, asInfo);
-		m_RayTracingUniforms->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), m_PathTracingImage->GetImageView(),
-			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_RAYGEN_BIT_KHR, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-		m_RayTracingUniforms->AddStorageBuffer(2, sizeof(MeshAdresses) * 20'000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
-		m_RayTracingUniforms->AddStorageBuffer(3, sizeof(Vulture::Material) * 20'000, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, true);
+		m_RayTracingDescriptorSet->AddAccelerationStructure(0, asInfo);
+		m_RayTracingDescriptorSet->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
+		m_RayTracingDescriptorSet->AddStorageBuffer(2, sizeof(MeshAdresses) * 20'000, true);
+		m_RayTracingDescriptorSet->AddStorageBuffer(3, sizeof(Vulture::Material) * 20'000, true);
 
 		auto view = scene.GetRegistry().view<Vulture::ModelComponent>();
 		for (auto& entity : view)
 		{
 			auto& modelComp = scene.GetRegistry().get<Vulture::ModelComponent>(entity);
-			for (int j = 0; j < (int)modelComp.Model.GetAlbedoTextureCount(); j++)
+			for (int j = 0; j < (int)modelComp.Model->GetAlbedoTextureCount(); j++)
 			{
-				m_RayTracingUniforms->AddImageSampler(4, Vulture::Renderer::GetSampler().GetSampler(), 
-					modelComp.Model.GetAlbedoTexture(j)->GetImageView(),
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, scene.GetMeshCount()
+				m_RayTracingDescriptorSet->AddImageSampler(4, Vulture::Renderer::GetSampler().GetSampler(), 
+					modelComp.Model->GetAlbedoTexture(j)->GetImageView(),
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
 			}
-			for (int j = 0; j < (int)modelComp.Model.GetNormalTextureCount(); j++)
+			for (int j = 0; j < (int)modelComp.Model->GetNormalTextureCount(); j++)
 			{
-				m_RayTracingUniforms->AddImageSampler(5, Vulture::Renderer::GetSampler().GetSampler(),
-					modelComp.Model.GetNormalTexture(j)->GetImageView(),
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, scene.GetMeshCount()
+				m_RayTracingDescriptorSet->AddImageSampler(5, Vulture::Renderer::GetSampler().GetSampler(),
+					modelComp.Model->GetNormalTexture(j)->GetImageView(),
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
 			}
-			for (int j = 0; j < (int)modelComp.Model.GetRoughnessTextureCount(); j++)
+			for (int j = 0; j < (int)modelComp.Model->GetRoughnessTextureCount(); j++)
 			{
-				m_RayTracingUniforms->AddImageSampler(6, Vulture::Renderer::GetSampler().GetSampler(),
-					modelComp.Model.GetRoughnessTexture(j)->GetImageView(),
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, scene.GetMeshCount()
+				m_RayTracingDescriptorSet->AddImageSampler(6, Vulture::Renderer::GetSampler().GetSampler(),
+					modelComp.Model->GetRoughnessTexture(j)->GetImageView(),
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
 			}
-			for (int j = 0; j < (int)modelComp.Model.GetMetallnessTextureCount(); j++)
+			for (int j = 0; j < (int)modelComp.Model->GetMetallnessTextureCount(); j++)
 			{
-				m_RayTracingUniforms->AddImageSampler(7, Vulture::Renderer::GetSampler().GetSampler(),
-					modelComp.Model.GetMetallnessTexture(j)->GetImageView(),
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, scene.GetMeshCount()
+				m_RayTracingDescriptorSet->AddImageSampler(7, Vulture::Renderer::GetSampler().GetSampler(),
+					modelComp.Model->GetMetallnessTexture(j)->GetImageView(),
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
 			}
 		}
 		
-		m_RayTracingUniforms->Build();
+		m_RayTracingDescriptorSet->Build();
 	}
 
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
@@ -577,58 +595,77 @@ void SceneRenderer::CreateRayTracingUniforms(Vulture::Scene& scene)
 		for (auto& entity : modelView)
 		{
 			auto& [modelComp, transformComp] = scene.GetRegistry().get<Vulture::ModelComponent, Vulture::TransformComponent>(entity);
-			for (int i = 0; i < (int)modelComp.Model.GetMeshCount(); i++)
+			for (int i = 0; i < (int)modelComp.Model->GetMeshCount(); i++)
 			{
 				MeshAdresses adr{};
-				adr.VertexAddress = modelComp.Model.GetMesh(i).GetVertexBuffer()->GetDeviceAddress();
-				adr.IndexAddress = modelComp.Model.GetMesh(i).GetIndexBuffer()->GetDeviceAddress();
+				adr.VertexAddress = modelComp.Model->GetMesh(i).GetVertexBuffer()->GetDeviceAddress();
+				adr.IndexAddress = modelComp.Model->GetMesh(i).GetIndexBuffer()->GetDeviceAddress();
 
-				Vulture::Material material = modelComp.Model.GetMaterial(i);
+				Vulture::Material material = modelComp.Model->GetMaterial(i);
 
 				materials.push_back(material);
 				meshAddresses.push_back(adr);
 			}
-			meshSizes += sizeof(MeshAdresses) * modelComp.Model.GetMeshCount();
-			materialSizes += sizeof(Vulture::Material) * modelComp.Model.GetMeshCount();
+			meshSizes += sizeof(MeshAdresses) * modelComp.Model->GetMeshCount();
+			materialSizes += sizeof(Vulture::Material) * modelComp.Model->GetMeshCount();
 		}
 
 		if (!meshSizes)
 			VL_CORE_ASSERT(false, "No meshes found?");
 
-		m_RayTracingUniforms->GetBuffer(2)->WriteToBuffer(meshAddresses.data(), meshSizes, 0);
-		m_RayTracingUniforms->GetBuffer(3)->WriteToBuffer(materials.data(), materialSizes, 0);
+		m_RayTracingDescriptorSet->GetBuffer(2)->WriteToBuffer(meshAddresses.data(), meshSizes, 0);
+		m_RayTracingDescriptorSet->GetBuffer(3)->WriteToBuffer(materials.data(), materialSizes, 0);
 
-		m_RayTracingUniforms->GetBuffer(2)->Flush(meshSizes, 0);
-		m_RayTracingUniforms->GetBuffer(3)->Flush(materialSizes, 0);
+		m_RayTracingDescriptorSet->GetBuffer(2)->Flush(meshSizes, 0);
+		m_RayTracingDescriptorSet->GetBuffer(3)->Flush(materialSizes, 0);
 	}
 
 	CreateRayTracingPipeline();
 	CreateShaderBindingTable();
 }
 
-void SceneRenderer::RecreateUniforms()
+void SceneRenderer::SetSkybox(Vulture::SkyboxComponent& skybox)
+{
+	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		m_GlobalDescriptorSets[i]->UpdateImageSampler(
+			1,
+			skybox.SkyboxImage->GetImageView(),
+			Vulture::Renderer::GetSampler().GetSampler(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		);
+	}
+}
+
+void SceneRenderer::RecreateDescriptorSets()
 {
 	{
-		m_HDRUniforms = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
-		m_HDRUniforms->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
-			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_FRAGMENT_BIT
-		);
-		m_HDRUniforms->Build();
+		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+		
+		m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
+		m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
+		m_HDRDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),VK_IMAGE_LAYOUT_GENERAL);
+		m_HDRDescriptorSet->Build();
 	}
 	{
-		m_ToneMapUniforms = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
-		m_ToneMapUniforms->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
-			VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_COMPUTE_BIT, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE
-		);
-		m_ToneMapUniforms->Build();
+		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+
+		m_ToneMapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
+		m_ToneMapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
+		m_ToneMapDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),VK_IMAGE_LAYOUT_GENERAL);
+		m_ToneMapDescriptorSet->Build();
 	}
 
 	{
-		m_RayTracingUniforms->UpdateImageSampler(1, m_PathTracingImage->GetImageView(), Vulture::Renderer::GetSampler().GetSampler(),
-			VK_IMAGE_LAYOUT_GENERAL);
+		m_RayTracingDescriptorSet->UpdateImageSampler(
+			1,
+			m_PathTracingImage->GetImageView(),
+			Vulture::Renderer::GetSampler().GetSampler(),
+			VK_IMAGE_LAYOUT_GENERAL
+		);
 	}
 
-	CreateRayTracingUniforms(*m_CurrentSceneRendered);
+	CreateRayTracingDescriptorSets(*m_CurrentSceneRendered);
 }
 
 void SceneRenderer::CreatePipelines()
@@ -653,14 +690,14 @@ void SceneRenderer::CreatePipelines()
 		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
 		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
 		info.PushConstants = &range;
-		info.ColorAttachmentCount = 4;
+		info.ColorAttachmentCount = 3;
 
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts
 		{
-			m_GlobalUniforms[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout()
+			m_GlobalDescriptorSets[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout()
 		};
-		info.UniformSetLayouts = layouts;
+		info.DescriptorSetLayouts = layouts;
 
 		m_GBufferPass.CreatePipeline(info);
 	}
@@ -679,16 +716,17 @@ void SceneRenderer::CreateRayTracingPipeline()
 
 		Vulture::RayTracingPipelineCreateInfo info{};
 		info.PushConstants = &range;
-		// TODO
-		//info.ShaderFilepaths = something;
+		info.RayGenShaderFilepaths.push_back("src/shaders/spv/raytrace.rgen.spv");
+		info.HitShaderFilepaths.push_back("src/shaders/spv/raytrace.rchit.spv");
+		info.MissShaderFilepaths.push_back("src/shaders/spv/raytrace.rmiss.spv");
 
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts
 		{
-			m_RayTracingUniforms->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
-			m_GlobalUniforms[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout()
+			m_RayTracingDescriptorSet->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
+			m_GlobalDescriptorSets[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout()
 		};
-		info.UniformSetLayouts = layouts;
+		info.DescriptorSetLayouts = layouts;
 
 		m_RtPipeline.CreateRayTracingPipeline(m_RtShaderGroups, info);
 	}
@@ -696,6 +734,7 @@ void SceneRenderer::CreateRayTracingPipeline()
 
 void SceneRenderer::CreateShaderBindingTable()
 {
+	// TODO SBT class
 	uint32_t missCount = 1;
 	uint32_t hitCount = 1;
 	uint32_t handleCount = 1 + missCount + hitCount;
@@ -772,7 +811,7 @@ void SceneRenderer::CreateShaderBindingTable()
 	}
 
 	// Copy the shader binding table to the device local buffer
-	Vulture::Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_RtSBTBuffer.GetBuffer(), sbtSize, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetCommandPool());
+	Vulture::Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_RtSBTBuffer.GetBuffer(), sbtSize, Vulture::Device::GetGraphicsQueue(), 0, Vulture::Device::GetGraphicsCommandPool());
 	
 	stagingBuffer.Unmap();
 }
@@ -781,52 +820,77 @@ void SceneRenderer::CreateFramebuffers()
 {
 	// Path Tracing
 	{
-		Vulture::ImageInfo info{};
-		info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-		info.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		info.height = Vulture::Renderer::GetSwapchain().GetHeight();
-		info.width = Vulture::Renderer::GetSwapchain().GetWidth();
-		info.layerCount = 1;
-		info.tiling = VK_IMAGE_TILING_OPTIMAL;
-		info.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		info.samplerInfo = Vulture::SamplerInfo{};
-		info.type = Vulture::ImageType::Image2D;
+		Vulture::Image::CreateInfo info{};
+		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
+		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
+		info.LayerCount = 1;
+		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
+		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		info.SamplerInfo = Vulture::SamplerInfo{};
+		info.Type = Vulture::Image::ImageType::Image2D;
 		m_PathTracingImage = std::make_shared<Vulture::Image>(info);
-		Vulture::Image::TransitionImageLayout(m_PathTracingImage->GetImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		m_PathTracingImage->TransitionImageLayout(
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_TRANSFER_READ_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT
+		);
 	}
 
 	// Denoised
 	{
-		Vulture::ImageInfo info{};
-		info.width = Vulture::Renderer::GetSwapchain().GetWidth();
-		info.height = Vulture::Renderer::GetSwapchain().GetHeight();
-		info.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		info.tiling = VK_IMAGE_TILING_OPTIMAL;
-		info.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		info.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-		info.layerCount = 1;
-		info.samplerInfo = Vulture::SamplerInfo{};
-		info.type = Vulture::ImageType::Image2D;
+		Vulture::Image::CreateInfo info{};
+		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
+		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
+		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
+		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		info.LayerCount = 1;
+		info.SamplerInfo = Vulture::SamplerInfo{};
+		info.Type = Vulture::Image::ImageType::Image2D;
 
 		m_DenoisedImage = std::make_shared<Vulture::Image>(info);
-		Vulture::Image::TransitionImageLayout(m_DenoisedImage->GetImage(), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		Vulture::Image::TransitionImageLayout(
+			m_DenoisedImage->GetImage(),
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_TRANSFER_READ_BIT
+		);
 	}
 
+	// TODO use this gbuffer to speed up path tracing and maybe do something with the formats?
 	// GBuffer
 	{
-		std::vector<Vulture::FramebufferAttachment> attachments{ Vulture::FramebufferAttachment::ColorRGBA32, Vulture::FramebufferAttachment::ColorRGBA32, Vulture::FramebufferAttachment::ColorRGBA32, Vulture::FramebufferAttachment::ColorRGBA32, Vulture::FramebufferAttachment::Depth };
+		std::vector<Vulture::FramebufferAttachment> attachments
+		{ 
+			Vulture::FramebufferAttachment::ColorRGBA32, // This has to be 32 per channel otherwise optix won't work
+			Vulture::FramebufferAttachment::ColorRGBA32, // This has to be 32 per channel otherwise optix won't work
+			Vulture::FramebufferAttachment::ColorRG8,
+			Vulture::FramebufferAttachment::Depth
+		};
 		
-		m_GBufferFramebuffer = std::make_shared<Vulture::Framebuffer>(attachments, m_GBufferPass.GetRenderPass(), Vulture::Renderer::GetSwapchain().GetSwapchainExtent(), Vulture::Swapchain::FindDepthFormat(), 1, Vulture::ImageType::Image2D, VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
-		Vulture::Image::TransitionImageLayout(m_GBufferFramebuffer->GetColorImage(GBufferImage::Albedo), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-		Vulture::Image::TransitionImageLayout(m_GBufferFramebuffer->GetColorImage(GBufferImage::Roughness), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-		Vulture::Image::TransitionImageLayout(m_GBufferFramebuffer->GetColorImage(GBufferImage::Metallness), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-		Vulture::Image::TransitionImageLayout(m_GBufferFramebuffer->GetColorImage(GBufferImage::Normal), VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		m_GBufferFramebuffer = std::make_shared<Vulture::Framebuffer>(
+			attachments,
+			m_GBufferPass.GetRenderPass(),
+			Vulture::Renderer::GetSwapchain().GetSwapchainExtent(),
+			Vulture::Swapchain::FindDepthFormat(),
+			1,
+			Vulture::Image::ImageType::Image2D,
+			VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+		);
 	}
 }
 
-void SceneRenderer::UpdateUniformData()
+void SceneRenderer::UpdateDescriptorSetsData()
 {
 	auto cameraView = m_CurrentSceneRendered->GetRegistry().view<Vulture::CameraComponent>();
 	Vulture::CameraComponent* camComp = nullptr;
@@ -847,9 +911,9 @@ void SceneRenderer::UpdateUniformData()
 	ubo.ProjInverse = glm::inverse(camComp->ProjMat);
 	ubo.ViewInverse = glm::inverse(camComp->ViewMat);
 	ubo.ViewProjectionMat = camComp->GetViewProj();
-	m_GlobalUniforms[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&ubo);
+	m_GlobalDescriptorSets[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&ubo);
 
-	m_GlobalUniforms[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
+	m_GlobalDescriptorSets[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
 }
 
 void SceneRenderer::ImGuiPass()
@@ -901,8 +965,14 @@ void SceneRenderer::ImGuiPass()
 	ImGui::SliderInt("Max Depth", &m_MaxRayDepth, 0, 20);
 
 	ImGui::Separator();
-	ImGui::Text("Samples Per Pixel: %i", m_CurrentSamplesPerPixel);
 	ImGui::Text("Time: %fs", m_Time);
+	ImGui::Text("Samples Per Pixel: %i", m_CurrentSamplesPerPixel);
+	if (ImGui::Button("Reset"))
+	{
+		ResetFrame();
+	}
+
+	ImGui::Separator();
 
 	if (ImGui::Checkbox("Show Denoised Image", &m_ShowDenoised))
 	{
@@ -910,37 +980,38 @@ void SceneRenderer::ImGuiPass()
 		{
 			m_PresentedImage = m_DenoisedImage;
 			{
-				m_HDRUniforms = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
-				m_HDRUniforms->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
-					VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_FRAGMENT_BIT
+				Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+
+				m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
+				m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
+				m_HDRDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
+					VK_IMAGE_LAYOUT_GENERAL
 				);
-				m_HDRUniforms->Build();
+				m_HDRDescriptorSet->Build();
 			}
 		}
 		else
 		{
 			m_PresentedImage = m_PathTracingImage;
 			{
-				m_HDRUniforms = std::make_shared<Vulture::Uniform>(Vulture::Renderer::GetDescriptorPool());
-				m_HDRUniforms->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
-					VK_IMAGE_LAYOUT_GENERAL, VK_SHADER_STAGE_FRAGMENT_BIT
+				Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+
+				m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
+				m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
+				m_HDRDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
+					VK_IMAGE_LAYOUT_GENERAL
 				);
-				m_HDRUniforms->Build();
+				m_HDRDescriptorSet->Build();
 			}
 		}
 	}
-
-	ImGui::SliderInt("Samples Per Pixel", &m_MaxSamplesPerPixel, 1, 50'000);
 
 	if (ImGui::Button("Denoise"))
 	{
 		m_RunDenoising = true;
 	}
 
-	if (ImGui::Button("Reset"))
-	{
-		ResetFrame();
-	}
+	ImGui::SliderInt("Samples Per Pixel", &m_MaxSamplesPerPixel, 1, 50'000);
 
 	ImGui::SliderFloat("Focal Length", &m_FocalLength, 1.0f, 100.0f);
 	ImGui::SliderFloat("DoF Strength", &m_DoFStrength, 1.0f, 100.0f);
