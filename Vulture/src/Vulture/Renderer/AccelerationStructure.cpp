@@ -273,10 +273,24 @@ namespace Vulture
 		return Device::vkGetAccelerationStructureDeviceAddressKHR(Device::GetDevice(), &addressInfo);
 	}
 
+	void AccelerationStructure::Destroy()
+	{
+		for (int i = 0; i < m_Blas.size(); i++)
+		{
+			Device::vkDestroyAccelerationStructureKHR(Device::GetDevice(), m_Blas[i].As.Accel);
+		}
+		Device::vkDestroyAccelerationStructureKHR(Device::GetDevice(), m_Tlas.Accel);
+	}
+
 	void AccelerationStructure::Init(Scene& scene)
 	{
 		CreateBottomLevelAS(scene);
 		CreateTopLevelAS(scene);
+	}
+
+	AccelerationStructure::~AccelerationStructure()
+	{
+		Destroy(); // todo
 	}
 
 	/**

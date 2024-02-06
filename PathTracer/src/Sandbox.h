@@ -9,6 +9,8 @@ public:
 	Sandbox(Vulture::ApplicationInfo appInfo, float width, float height);
 	~Sandbox();
 
+	void Destroy() override;
+
 	void OnUpdate(double deltaTime) override;
 	void InitScripts();
 	void UpdateScripts(double deltaTime);
@@ -16,7 +18,7 @@ public:
 private:
 	void Init();
 
-	Vulture::Scene m_Scene;
+	Vulture::Scope<Vulture::Scene> m_Scene;
 
 	Vulture::Scope<SceneRenderer> m_SceneRenderer;
 };

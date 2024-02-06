@@ -17,6 +17,8 @@ namespace Vulture
 	class Scene
 	{
 	public:
+
+		void Destroy();
 		Scene(Ref<Window> window);
 		~Scene();
 

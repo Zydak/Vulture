@@ -3,10 +3,25 @@
 
 namespace Vulture
 {
+
+	void Mesh::Destroy()
+	{
+		m_VertexBuffer.Destroy();
+		m_IndexBuffer.Destroy();
+		m_Initialized = false;
+	}
+
+	Mesh::~Mesh()
+	{
+		if (m_Initialized)
+			Destroy();
+	}
+
 	void Mesh::CreateMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
 	{
 		CreateVertexBuffer(vertices);
 		CreateIndexBuffer(indices);
+		m_Initialized = true;
 	}
 
 	void Mesh::CreateMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 mat)
@@ -77,6 +92,8 @@ namespace Vulture
 
 		CreateVertexBuffer(vertices);
 		CreateIndexBuffer(indices);
+
+		m_Initialized = true;
 	}
 
 	void Mesh::CreateVertexBuffer(const std::vector<Vertex>& vertices)

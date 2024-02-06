@@ -18,7 +18,7 @@ namespace Vulture
 		m_AtlasDescriptorSet->Init(&Renderer::GetDescriptorPool(), { bin, bin1 });
 		m_AtlasDescriptorSet->AddImageSampler(
 			0,
-			m_AtlasTexture->GetSampler(),
+			m_AtlasTexture->GetSamplerHandle(),
 			m_AtlasTexture->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);

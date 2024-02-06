@@ -98,7 +98,5 @@ namespace Vulture
 		static int m_PrevMipsCount;
 		static int m_MipsCount;
 		friend class RenderPass;
-
-
 	};
 }

@@ -30,12 +30,12 @@ namespace Vulture
 
 		bool AllocateDescriptorSets(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor) const;
 
-		inline VkDescriptorPool GetDescriptorPool() { return m_DescriptorPool; }
+		inline VkDescriptorPool GetDescriptorPoolHandle() { return m_DescriptorPoolHandle; }
 
 		void ResetPool();
 
 	private:
-		VkDescriptorPool m_DescriptorPool;
+		VkDescriptorPool m_DescriptorPoolHandle;
 		std::vector<PoolSize> m_PoolSizes;
 
 		friend class DescriptorWriter;

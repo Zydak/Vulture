@@ -8,8 +8,11 @@
 namespace Vulture
 {
 
-	Sampler::Sampler(SamplerInfo samplerInfo)
+	void Sampler::Init(const SamplerInfo& samplerInfo)
 	{
+		if (m_Initialized)
+			Destroy();
+
 		VkSamplerCreateInfo samplerCreateInfo{};
 		samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 		samplerCreateInfo.magFilter = samplerInfo.FilterMode;
@@ -27,15 +30,29 @@ namespace Vulture
 		samplerCreateInfo.anisotropyEnable = VK_FALSE;
 		samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
 		samplerCreateInfo.compareEnable = VK_FALSE;
-		VL_CORE_RETURN_ASSERT(vkCreateSampler(Device::GetDevice(), &samplerCreateInfo, nullptr, &m_Sampler),
+		VL_CORE_RETURN_ASSERT(vkCreateSampler(Device::GetDevice(), &samplerCreateInfo, nullptr, &m_SamplerHandle),
 			VK_SUCCESS,
 			"failed to create texture sampler"
 		);
+
+		m_Initialized = true;
+	}
+
+	void Sampler::Destroy()
+	{
+		vkDestroySampler(Device::GetDevice(), m_SamplerHandle, nullptr);
+		m_Initialized = false;
+	}
+
+	Sampler::Sampler(const SamplerInfo& samplerInfo)
+	{
+		Init(samplerInfo);
 	}
 
 	Sampler::~Sampler()
 	{
-		vkDestroySampler(Device::GetDevice(), m_Sampler, nullptr);
+		if (m_Initialized)
+			Destroy();
 	}
 
 }

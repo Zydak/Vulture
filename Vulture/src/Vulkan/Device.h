@@ -40,6 +40,8 @@ namespace Vulture
 	{
 	public:
 		static void Init(Window& window, bool rayTracingSupport);
+		static void Destroy();
+
 		~Device();
 
 		Device(const Device&) = delete;

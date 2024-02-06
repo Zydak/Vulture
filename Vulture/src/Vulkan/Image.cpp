@@ -13,11 +13,11 @@ namespace Vulture
 	void Image::Init(const CreateInfo& createInfo)
 	{
 		VL_CORE_ASSERT(createInfo, "Incorectly initialized image create info! Values");
-		m_Info.Usage = createInfo.Usage;
-		m_Info.MemoryProperties = createInfo.Properties;
-		m_Info.Allocation = new VmaAllocation();
-		m_Info.Size.width = createInfo.Width;
-		m_Info.Size.height = createInfo.Height;
+		m_Usage = createInfo.Usage;
+		m_MemoryProperties = createInfo.Properties;
+		m_Allocation = new VmaAllocation();
+		m_Size.width = createInfo.Width;
+		m_Size.height = createInfo.Height;
 		CreateImage(createInfo);
 
 		if (createInfo.Type == ImageType::Cubemap)
@@ -33,18 +33,20 @@ namespace Vulture
 			CreateImageView(createInfo.Format, createInfo.Aspect, createInfo.LayerCount, VK_IMAGE_VIEW_TYPE_2D);
 		}
 		CreateImageSampler(createInfo.SamplerInfo);
+
+		m_Initialized = true;
 	}
 
 	void Image::Init(const std::string& filepath, SamplerInfo samplerInfo /*= { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST }*/)
 	{
 		bool HDR = filepath.find(".hdr") != std::string::npos;
 
-		m_Info.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		m_Info.MemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		m_Info.Allocation = new VmaAllocation();
+		m_Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		m_MemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		m_Allocation = new VmaAllocation();
 		int texChannels;
 		stbi_set_flip_vertically_on_load(true);
-		int sizeX = (int)m_Info.Size.width, sizeY = (int)m_Info.Size.height;
+		int sizeX = (int)m_Size.width, sizeY = (int)m_Size.height;
 		void* pixels;
 		if (HDR)
 		{
@@ -58,11 +60,11 @@ namespace Vulture
 
 		std::filesystem::path cwd = std::filesystem::current_path();
 		VL_CORE_ASSERT(pixels, "failed to load texture image! Path: {0}, Current working directory: {1}", filepath, cwd.string());
-		m_Info.Size.width = (uint32_t)sizeX;
-		m_Info.Size.height = (uint32_t)sizeY;
+		m_Size.width = (uint32_t)sizeX;
+		m_Size.height = (uint32_t)sizeY;
 		//m_MipLevels = static_cast<uint32_t>(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
 		uint64_t sizeOfPixel = HDR ? sizeof(float) * 4 : sizeof(uint8_t) * 4;
-		VkDeviceSize imageSize = (uint64_t)m_Info.Size.width * (uint64_t)m_Info.Size.height * sizeOfPixel;
+		VkDeviceSize imageSize = (uint64_t)m_Size.width * (uint64_t)m_Size.height * sizeOfPixel;
 
 		Buffer buffer = Buffer();
 		Buffer::CreateInfo BufferInfo{};
@@ -90,8 +92,8 @@ namespace Vulture
 			info.Format = VK_FORMAT_R8G8B8A8_UNORM;
 		}
 
-		info.Height = (uint32_t)m_Info.Size.height;
-		info.Width = (uint32_t)m_Info.Size.width;
+		info.Height = (uint32_t)m_Size.height;
+		info.Width = (uint32_t)m_Size.width;
 		info.LayerCount = 1;
 		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -116,7 +118,7 @@ namespace Vulture
 			range
 		);
 
-		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Info.Size.width, (uint32_t)m_Info.Size.height);
+		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height);
 
 		TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -128,16 +130,18 @@ namespace Vulture
 
 		CreateImageView(info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
 		CreateImageSampler(samplerInfo);
+
+		m_Initialized = true;
 	}
 
 	void Image::Init(const glm::vec4& color, const CreateInfo& createInfo)
 	{
 		VL_CORE_ASSERT(createInfo, "Incorectly initialized image create info! Values");
-		m_Info.Usage = createInfo.Usage;
-		m_Info.MemoryProperties = createInfo.Properties;
-		m_Info.Allocation = new VmaAllocation();
-		m_Info.Size.width = (uint32_t)createInfo.Width;
-		m_Info.Size.height = (uint32_t)createInfo.Height;
+		m_Usage = createInfo.Usage;
+		m_MemoryProperties = createInfo.Properties;
+		m_Allocation = new VmaAllocation();
+		m_Size.width = (uint32_t)createInfo.Width;
+		m_Size.height = (uint32_t)createInfo.Height;
 		CreateImage(createInfo);
 
 		if (createInfo.Type == ImageType::Cubemap)
@@ -183,7 +187,7 @@ namespace Vulture
 			0,
 			VK_PIPELINE_STAGE_TRANSFER_BIT
 		);
-		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Info.Size.width, (uint32_t)m_Info.Size.height);
+		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height);
 		TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			VK_ACCESS_TRANSFER_WRITE_BIT,
@@ -191,19 +195,22 @@ namespace Vulture
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
 		);
+
+		m_Initialized = true;
 	}
 
 	void Image::Destroy()
 	{
-		//vkDeviceWaitIdle(Device::GetDevice());
-		vkDestroyImageView(Device::GetDevice(), m_Info.ImageView, nullptr);
-		vmaDestroyImage(Device::GetAllocator(), m_Info.ImageHandle, *m_Info.Allocation);
-		delete m_Info.Allocation;
+		vkDestroyImageView(Device::GetDevice(), m_ImageView, nullptr);
+		vmaDestroyImage(Device::GetAllocator(), m_ImageHandle, *m_Allocation);
+		delete m_Allocation;
 
-		for (auto view : m_Info.LayersView)
+		for (auto view : m_LayersView)
 		{
 			vkDestroyImageView(Device::GetDevice(), view, nullptr);
 		}
+
+		m_Initialized = false;
 	}
 
 	/**
@@ -236,7 +243,7 @@ namespace Vulture
 
 	Image::~Image()
 	{
-		if (m_Info.Initialized)
+		if (m_Initialized)
 		{
 			Destroy();
 		}
@@ -256,15 +263,15 @@ namespace Vulture
 		{
 			VkImageViewCreateInfo viewInfo{};
 			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			viewInfo.image = m_Info.ImageHandle;
+			viewInfo.image = m_ImageHandle;
 			viewInfo.viewType = imageType;
 			viewInfo.format = format;
 			viewInfo.subresourceRange.aspectMask = aspect;
 			viewInfo.subresourceRange.baseMipLevel = 0;
-			viewInfo.subresourceRange.levelCount = m_Info.MipLevels;
+			viewInfo.subresourceRange.levelCount = m_MipLevels;
 			viewInfo.subresourceRange.baseArrayLayer = 0;
 			viewInfo.subresourceRange.layerCount = layerCount;
-			VL_CORE_RETURN_ASSERT(vkCreateImageView(Device::GetDevice(), &viewInfo, nullptr, &m_Info.ImageView),
+			VL_CORE_RETURN_ASSERT(vkCreateImageView(Device::GetDevice(), &viewInfo, nullptr, &m_ImageView),
 				VK_SUCCESS, 
 				"failed to create image view!"
 			);
@@ -272,20 +279,20 @@ namespace Vulture
 
 		if (layerCount > 1)
 		{
-			m_Info.LayersView.resize(layerCount);
+			m_LayersView.resize(layerCount);
 			for (int i = 0; i < layerCount; i++)
 			{
 				VkImageViewCreateInfo viewInfo{};
 				viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-				viewInfo.image = m_Info.ImageHandle;
+				viewInfo.image = m_ImageHandle;
 				viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 				viewInfo.format = format;
 				viewInfo.subresourceRange.aspectMask = aspect;
 				viewInfo.subresourceRange.baseMipLevel = 0;
-				viewInfo.subresourceRange.levelCount = m_Info.MipLevels;
+				viewInfo.subresourceRange.levelCount = m_MipLevels;
 				viewInfo.subresourceRange.baseArrayLayer = i;
 				viewInfo.subresourceRange.layerCount = 1;
-				VL_CORE_RETURN_ASSERT(vkCreateImageView(Device::GetDevice(), &viewInfo, nullptr, &m_Info.LayersView[i]),
+				VL_CORE_RETURN_ASSERT(vkCreateImageView(Device::GetDevice(), &viewInfo, nullptr, &m_LayersView[i]),
 					VK_SUCCESS,
 					"failed to create image view layer!"
 				);
@@ -315,7 +322,7 @@ namespace Vulture
 		if (createInfo.Type == ImageType::Cubemap)
 			imageCreateInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
-		Device::CreateImage(imageCreateInfo, m_Info.ImageHandle, *m_Info.Allocation, createInfo.Properties);
+		Device::CreateImage(imageCreateInfo, m_ImageHandle, *m_Allocation, createInfo.Properties);
 	}
 
 	/*
@@ -325,7 +332,7 @@ namespace Vulture
 	 */
 	void Image::CreateImageSampler(SamplerInfo samplerInfo)
 	{
-		m_Sampler = std::make_shared<Sampler>(samplerInfo);
+		m_Sampler.Init(samplerInfo);
 	}
 
 	/*
@@ -338,7 +345,7 @@ namespace Vulture
 
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.image = m_Info.ImageHandle;
+		barrier.image = m_ImageHandle;
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -346,10 +353,10 @@ namespace Vulture
 		barrier.subresourceRange.layerCount = 1;
 		barrier.subresourceRange.levelCount = 1;
 
-		int32_t mipWidth =  (int32_t)m_Info.Size.width;
-		int32_t mipHeight = (int32_t)m_Info.Size.height;
+		int32_t mipWidth =  (int32_t)m_Size.width;
+		int32_t mipHeight = (int32_t)m_Size.height;
 
-		for (uint32_t i = 1; i < m_Info.MipLevels; i++)
+		for (uint32_t i = 1; i < m_MipLevels; i++)
 		{
 			barrier.subresourceRange.baseMipLevel = i - 1;
 			barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -382,8 +389,8 @@ namespace Vulture
 			blit.dstSubresource.layerCount = 1;
 
 			vkCmdBlitImage(commandBuffer,
-				m_Info.ImageHandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				m_Info.ImageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				m_ImageHandle, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				m_ImageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				1, &blit,
 				VK_FILTER_LINEAR
 			);
@@ -404,7 +411,7 @@ namespace Vulture
 			if (mipHeight > 1) mipHeight /= 2;
 		}
 
-		barrier.subresourceRange.baseMipLevel = m_Info.MipLevels - 1;
+		barrier.subresourceRange.baseMipLevel = m_MipLevels - 1;
 		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -440,11 +447,11 @@ namespace Vulture
 
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.oldLayout = m_Info.Layout;
+		barrier.oldLayout = m_Layout;
 		barrier.newLayout = newLayout;
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.image = m_Info.ImageHandle;
+		barrier.image = m_ImageHandle;
 		barrier.subresourceRange = subresourceRange;
 		barrier.srcAccessMask = srcAccess;
 		barrier.dstAccessMask = dstAccess;
@@ -456,7 +463,7 @@ namespace Vulture
 		if (!cmdBuffer)
 			Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 
-		m_Info.Layout = newLayout;
+		m_Layout = newLayout;
 	}
 
 	void Image::TransitionImageLayout(const VkImage& image, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkCommandBuffer cmdBuffer /*= 0*/, const VkImageSubresourceRange& subresourceRange /*= { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }*/)
@@ -512,7 +519,7 @@ namespace Vulture
 		region.imageOffset = offset;
 		region.imageExtent = { width, height, 1 };
 
-		vkCmdCopyBufferToImage(commandBuffer, buffer, m_Info.ImageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+		vkCmdCopyBufferToImage(commandBuffer, buffer, m_ImageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
 		Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 	}
@@ -548,7 +555,7 @@ namespace Vulture
 		region.dstOffset = dstOffset;
 		region.extent = { width, height, 1 };
 
-		vkCmdCopyImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_Info.ImageHandle, layout, 1, &region);
+		vkCmdCopyImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_ImageHandle, layout, 1, &region);
 
 		Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 	}

@@ -8,6 +8,8 @@
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_vulkan.h>
 #include <imgui.h>
+
+void ImGui_ImplVulkan_DestroyDeviceObjects();
 #endif
 
 namespace Vulture
@@ -18,7 +20,29 @@ namespace Vulture
 		vkDeviceWaitIdle(Device::GetDevice());
 		vkFreeCommandBuffers(Device::GetDevice(), Device::GetGraphicsCommandPool(), (uint32_t)s_CommandBuffers.size(), s_CommandBuffers.data());
 		
-		s_Swapchain.release();
+		s_Swapchain.reset();
+
+		s_EnvToCubemapDescriptorSet.reset();
+		s_BloomSeparateBrightnessDescriptorSet.reset();
+		s_BloomDownSampleDescriptorSet.clear();
+		s_BloomAccumulateDescriptorSet.reset();
+
+		s_BloomImages.clear();
+		s_RendererSampler.reset();
+
+		s_HDRToPresentablePipeline.Destroy();
+		s_ToneMapPipeline.Destroy();
+		s_BloomSeparateBrightnessPipeline.Destroy();
+		s_BloomAccumulatePipeline.Destroy();
+		s_BloomDownSamplePipeline.Destroy();
+		s_EnvToCubemapPipeline.Destroy();
+
+		s_QuadMesh.Destroy();
+		s_Pool.reset();
+
+#ifdef VL_IMGUI
+		ImGui_ImplVulkan_DestroyDeviceObjects();
+#endif
 	}
 
 	static void CheckVkResult(VkResult err)
@@ -67,7 +91,7 @@ namespace Vulture
 		info.PhysicalDevice = Device::GetPhysicalDevice();
 		info.Device = Device::GetDevice();
 		info.Queue = Device::GetGraphicsQueue();
-		info.DescriptorPool = s_Pool->GetDescriptorPool();
+		info.DescriptorPool = s_Pool->GetDescriptorPoolHandle();
 		info.Subpass = 0;
 		info.MinImageCount = 2;
 		info.ImageCount = s_Swapchain->GetImageCount();
@@ -487,10 +511,10 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			s_EnvToCubemapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 			s_EnvToCubemapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			s_EnvToCubemapDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), envMap->GetImageView(),
+			s_EnvToCubemapDescriptorSet->AddImageSampler(0, envMap->GetSamplerHandle(), envMap->GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
-			s_EnvToCubemapDescriptorSet->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), cubemap->GetImageView(),
+			s_EnvToCubemapDescriptorSet->AddImageSampler(1, cubemap->GetSamplerHandle(), cubemap->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
 			s_EnvToCubemapDescriptorSet->Build();
@@ -640,7 +664,7 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout.GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayoutHandle()
 			};
 			info.DescriptorSetLayouts = layouts;
 
@@ -664,7 +688,7 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout.GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayoutHandle()
 			};
 			info.DescriptorSetLayouts = layouts;
 			info.PushConstants = &range;
@@ -685,7 +709,7 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout.GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayoutHandle()
 			};
 			info.DescriptorSetLayouts = layouts;
 
@@ -758,7 +782,7 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout.GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayoutHandle()
 			};
 			info.DescriptorSetLayouts = layouts;
 
@@ -784,7 +808,7 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout.GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayoutHandle()
 			};
 			info.DescriptorSetLayouts = layouts;
 
@@ -805,7 +829,7 @@ namespace Vulture
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
 			{
-				imageLayout.GetDescriptorSetLayout()
+				imageLayout.GetDescriptorSetLayoutHandle()
 			};
 			info.DescriptorSetLayouts = layouts;
 
@@ -825,10 +849,10 @@ namespace Vulture
 
 			s_BloomSeparateBrightnessDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 			s_BloomSeparateBrightnessDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			s_BloomSeparateBrightnessDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), image->GetImageView(),
+			s_BloomSeparateBrightnessDescriptorSet->AddImageSampler(0, image->GetSamplerHandle(), image->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
-			s_BloomSeparateBrightnessDescriptorSet->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[0]->GetImageView(),
+			s_BloomSeparateBrightnessDescriptorSet->AddImageSampler(1, s_BloomImages[0]->GetSamplerHandle(), s_BloomImages[0]->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
 			s_BloomSeparateBrightnessDescriptorSet->Build();
@@ -841,10 +865,10 @@ namespace Vulture
 
 			s_BloomAccumulateDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 			s_BloomAccumulateDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			s_BloomAccumulateDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), image->GetImageView(),VK_IMAGE_LAYOUT_GENERAL);
+			s_BloomAccumulateDescriptorSet->AddImageSampler(0, image->GetSamplerHandle(), image->GetImageView(),VK_IMAGE_LAYOUT_GENERAL);
 			for (int i = 1; i < mipsCount+1; i++)
 			{
-				s_BloomAccumulateDescriptorSet->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[i]->GetImageView(),VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+				s_BloomAccumulateDescriptorSet->AddImageSampler(1, s_BloomImages[i]->GetSamplerHandle(), s_BloomImages[i]->GetImageView(),VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 			}
 			s_BloomAccumulateDescriptorSet->Build();
 		}
@@ -859,10 +883,10 @@ namespace Vulture
 			{
 				s_BloomDownSampleDescriptorSet[i] = std::make_shared<Vulture::DescriptorSet>();
 				s_BloomDownSampleDescriptorSet[i]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-				s_BloomDownSampleDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[i]->GetImageView(),
+				s_BloomDownSampleDescriptorSet[i]->AddImageSampler(0, s_BloomImages[i]->GetSamplerHandle(), s_BloomImages[i]->GetImageView(),
 					VK_IMAGE_LAYOUT_GENERAL 
 				);
-				s_BloomDownSampleDescriptorSet[i]->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), s_BloomImages[i+1]->GetImageView(),
+				s_BloomDownSampleDescriptorSet[i]->AddImageSampler(1, s_BloomImages[i + 1]->GetSamplerHandle(), s_BloomImages[i+1]->GetImageView(),
 					VK_IMAGE_LAYOUT_GENERAL
 				);
 				s_BloomDownSampleDescriptorSet[i]->Build();

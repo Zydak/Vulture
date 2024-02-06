@@ -12,6 +12,8 @@ namespace Vulture
 		AssetManager() = delete;
 		AssetManager(const AssetManager&) = delete;
 
+		static void Destroy();
+
 		static Ref<Image> LoadTexture(const std::string& filepath);
 		static Ref<Image> CreateTexture(const glm::vec4& color, const Image::CreateInfo& info);
 		static Ref<Image> CreateTexture(const Image::CreateInfo& info);

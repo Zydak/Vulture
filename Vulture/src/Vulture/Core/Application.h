@@ -20,6 +20,7 @@ namespace Vulture
 		Application(const ApplicationInfo& appInfo, float windowWidth = 600, float windowHeight = 600);
 		virtual ~Application();
 
+		virtual void Destroy() = 0;
 		virtual void OnUpdate(double delta) = 0;
 
 		void Run();

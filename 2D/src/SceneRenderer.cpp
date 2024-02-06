@@ -457,7 +457,7 @@ void SceneRenderer::CreateDescriptorSets()
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		m_HDRDescriptorSet.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
-		m_HDRDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
+		m_HDRDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSamplerHandle().GetSamplerHandle(), m_HDRFramebuffer[i]->GetColorImageView(0),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_FRAGMENT_BIT
 		);
 		m_HDRDescriptorSet[i]->Build();
@@ -489,7 +489,7 @@ void SceneRenderer::RecreateDescriptorSets()
 	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		m_HDRDescriptorSet.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
-		m_HDRDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_HDRFramebuffer[i]->GetColorImageView(0),
+		m_HDRDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSamplerHandle().GetSamplerHandle(), m_HDRFramebuffer[i]->GetColorImageView(0),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_FRAGMENT_BIT
 		);
 		m_HDRDescriptorSet[i]->Build();
@@ -518,9 +518,9 @@ void SceneRenderer::CreatePipelines()
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts
 		{
-			m_ObjectsUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
-			m_MainUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
-			m_AtlasSetLayout->GetDescriptorSetLayout()
+			m_ObjectsUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
+			m_MainUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
+			m_AtlasSetLayout->GetDescriptorSetLayoutHandle()
 		};
 		info.DescriptorSetLayouts = layouts;
 
@@ -554,9 +554,9 @@ void SceneRenderer::CreatePipelines()
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts
 		{
-			m_MainUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
-			m_TextUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
-			m_FontAtlasSetLayout->GetDescriptorSetLayout()
+			m_MainUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
+			m_TextUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
+			m_FontAtlasSetLayout->GetDescriptorSetLayoutHandle()
 		};
 		info.DescriptorSetLayouts = layouts;
 

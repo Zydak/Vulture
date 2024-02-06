@@ -8,6 +8,13 @@
 
 namespace Vulture
 {
+
+	void Scene::Destroy()
+	{
+		m_Registry.clear<ModelComponent>();
+		m_Registry.clear<SkyboxComponent>();
+	}
+
 	Scene::Scene(Ref<Window> window)
 		: m_Window(window)
 	{
@@ -16,7 +23,7 @@ namespace Vulture
 
 	Scene::~Scene()
 	{
-
+		VL_CORE_WARN("SCENE DES");
 	}
 
 	Entity Scene::CreateEntity()

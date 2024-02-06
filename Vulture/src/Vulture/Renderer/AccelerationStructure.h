@@ -31,7 +31,10 @@ namespace Vulture
 	class AccelerationStructure
 	{
 	public:
+		void Destroy();
 		void Init(Scene& scene);
+
+		~AccelerationStructure();
 
 		AccelKHR GetTlas() const { return m_Tlas; }
 		AccelKHR GetBlas(int index) const { return m_Blas[index].As; }

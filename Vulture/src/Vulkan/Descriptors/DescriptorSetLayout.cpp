@@ -26,7 +26,7 @@ namespace Vulture
 		descriptorSetLayoutInfo.bindingCount = (uint32_t)setLayoutBindings.size();
 		descriptorSetLayoutInfo.pBindings = setLayoutBindings.data();
 
-		VL_CORE_RETURN_ASSERT(vkCreateDescriptorSetLayout(Device::GetDevice(), &descriptorSetLayoutInfo, nullptr, &m_DescriptorSetLayout),
+		VL_CORE_RETURN_ASSERT(vkCreateDescriptorSetLayout(Device::GetDevice(), &descriptorSetLayoutInfo, nullptr, &m_DescriptorSetLayoutHandle),
 			VK_SUCCESS,
 			"failed to create descriptor set layout!"
 		);
@@ -39,6 +39,6 @@ namespace Vulture
 
 	DescriptorSetLayout::~DescriptorSetLayout()
 	{
-		vkDestroyDescriptorSetLayout(Device::GetDevice(), m_DescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(Device::GetDevice(), m_DescriptorSetLayoutHandle, nullptr);
 	}
 }

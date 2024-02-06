@@ -26,8 +26,8 @@ namespace Vulture
 
 		void Bind(VkCommandBuffer commandBuffer, VkPipelineBindPoint bindPoint);
 
-		inline VkPipelineLayout GetPipelineLayout() const { return m_Info.PipelineLayout; }
-		inline VkPipeline GetPipeline() const { return m_Info.Pipeline; }
+		inline VkPipelineLayout GetPipelineLayout() const { return m_PipelineLayout; }
+		inline VkPipeline GetPipeline() const { return m_PipelineHandle; }
 
 	public:
 		struct CreateInfo
@@ -88,17 +88,12 @@ namespace Vulture
 		void CreateShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
 		void CreatePipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSetsLayouts, VkPushConstantRange* pushConstants);
 	
-		struct Info
-		{
-			VkPipeline Pipeline = 0;
-			VkPipelineLayout PipelineLayout = 0;
+		VkPipeline m_PipelineHandle = 0;
+		VkPipelineLayout m_PipelineLayout = 0;
 
-			Vulture::Pipeline::PipelineType PipelineType = PipelineType::Undefined;
+		PipelineType m_PipelineType = PipelineType::Undefined;
 
-			bool Initialized = false;
-		};
-
-		Info m_Info;
+		bool m_Initialized = false;
 	};
 
 }

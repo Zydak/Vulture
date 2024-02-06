@@ -27,11 +27,11 @@ namespace Vulture
 		DescriptorSetLayout(const std::vector<Binding>& bindings);
 		~DescriptorSetLayout();
 
-		inline VkDescriptorSetLayout GetDescriptorSetLayout() const { return m_DescriptorSetLayout; }
+		inline VkDescriptorSetLayout GetDescriptorSetLayoutHandle() const { return m_DescriptorSetLayoutHandle; }
 		inline std::vector<Binding> GetDescriptorSetLayoutBindings() { return m_Bindings; }
 
 	private:
-		VkDescriptorSetLayout m_DescriptorSetLayout;
+		VkDescriptorSetLayout m_DescriptorSetLayoutHandle;
 		std::vector<Binding> m_Bindings;
 
 		friend class DescriptorWriter;

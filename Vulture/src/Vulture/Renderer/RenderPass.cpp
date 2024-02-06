@@ -60,7 +60,7 @@ namespace Vulture
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = m_RenderPass;
-		renderPassInfo.framebuffer = m_Target->GetFramebuffer();
+		renderPassInfo.framebuffer = m_Target->GetFramebufferHandle();
 		renderPassInfo.renderArea.offset = { 0, 0 };
 		renderPassInfo.renderArea.extent = VkExtent2D{ (uint32_t)extent.x, (uint32_t)extent.y };
 		renderPassInfo.clearValueCount = (uint32_t)clearColors.size();

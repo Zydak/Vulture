@@ -13,6 +13,11 @@ namespace Vulture
 		m_DescriptorSetLayout.Init(bindings);
 	}
 
+	void DescriptorSet::Destroy()
+	{
+		m_Initialized = false;
+	}
+
 	DescriptorSet::DescriptorSet(DescriptorPool* pool, const std::vector<DescriptorSetLayout::Binding>& bindings)
 	{
 		Init(pool, bindings);
@@ -20,7 +25,8 @@ namespace Vulture
 
 	DescriptorSet::~DescriptorSet()
 	{
-
+		if (m_Initialized)
+			Destroy();
 	}
 
 	/**
@@ -43,8 +49,8 @@ namespace Vulture
 		imageDescriptor.imageView = imageView;
 		imageDescriptor.imageLayout = imageLayout;
 
-		m_BindingsWriteInfo[binding].ImageInfo.push_back(imageDescriptor);
-		m_BindingsWriteInfo[binding].Type = BindingType::Image;
+		m_BindingsWriteInfo[binding].m_ImageInfo.push_back(imageDescriptor);
+		m_BindingsWriteInfo[binding].m_Type = BindingType::Image;
 	}
 
 	// TODO description
@@ -52,8 +58,8 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() >= binding, "There is no such binding: {0}");
 
-		m_BindingsWriteInfo[binding].AccelInfo.push_back(asInfo);
-		m_BindingsWriteInfo[binding].Type = BindingType::AS;
+		m_BindingsWriteInfo[binding].m_AccelInfo.push_back(asInfo);
+		m_BindingsWriteInfo[binding].m_Type = BindingType::AS;
 	}
 
 	/*
@@ -77,8 +83,8 @@ namespace Vulture
 		m_Buffers[binding][m_Buffers[binding].size()-1].Init(info);
 		m_Buffers[binding][m_Buffers[binding].size()-1].Map();
 
-		m_BindingsWriteInfo[binding].BufferInfo.push_back(m_Buffers[binding][m_Buffers[binding].size()-1].DescriptorInfo());
-		m_BindingsWriteInfo[binding].Type = BindingType::Buffer;
+		m_BindingsWriteInfo[binding].m_BufferInfo.push_back(m_Buffers[binding][m_Buffers[binding].size()-1].DescriptorInfo());
+		m_BindingsWriteInfo[binding].m_Type = BindingType::Buffer;
 	}
 
 	/*
@@ -104,8 +110,8 @@ namespace Vulture
 		m_Buffers[binding][m_Buffers[binding].size() - 1].Init(info);
 		m_Buffers[binding][m_Buffers[binding].size() - 1].Map();
 
-		m_BindingsWriteInfo[binding].BufferInfo.push_back(m_Buffers[binding][m_Buffers[binding].size() - 1].DescriptorInfo());
-		m_BindingsWriteInfo[binding].Type = BindingType::Buffer;
+		m_BindingsWriteInfo[binding].m_BufferInfo.push_back(m_Buffers[binding][m_Buffers[binding].size() - 1].DescriptorInfo());
+		m_BindingsWriteInfo[binding].m_Type = BindingType::Buffer;
 	}
 
 	/**
@@ -118,28 +124,28 @@ namespace Vulture
 		DescriptorWriter writer(&m_DescriptorSetLayout, m_Pool);
 		for (int i = 0; i < (int)m_BindingsWriteInfo.size(); i++)
 		{
-			switch (m_BindingsWriteInfo[i].Type)
+			switch (m_BindingsWriteInfo[i].m_Type)
 			{
 			case BindingType::Image: 
 			{
-				writer.WriteImage(i, m_BindingsWriteInfo[i].ImageInfo.data());
+				writer.WriteImage(i, m_BindingsWriteInfo[i].m_ImageInfo.data());
 			} break;
 
 			case BindingType::Buffer: 
 			{
-				writer.WriteBuffer(i, m_BindingsWriteInfo[i].BufferInfo.data());
+				writer.WriteBuffer(i, m_BindingsWriteInfo[i].m_BufferInfo.data());
 			} break;
 
 			case BindingType::AS:
 			{
-				writer.WriteAs(i, m_BindingsWriteInfo[i].AccelInfo.data());
+				writer.WriteAs(i, m_BindingsWriteInfo[i].m_AccelInfo.data());
 			} break;
 
-			default: VL_CORE_ASSERT(false, "Unknown binding type: {0}", m_BindingsWriteInfo[i].Type); break;
+			default: VL_CORE_ASSERT(false, "Unknown binding type: {0}", m_BindingsWriteInfo[i].m_Type); break;
 			}
 		}
 
-		writer.Build(m_DescriptorSet);
+		writer.Build(m_DescriptorSetHandle);
 	}
 
 	/**
@@ -168,13 +174,12 @@ namespace Vulture
 		info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT; // TODO ability to create device local buffers?
 		m_Buffers[binding][buffer].Init(info);
 		m_Buffers[binding][buffer].Map();
-		m_BindingsWriteInfo[binding].BufferInfo[buffer] = m_Buffers[binding][buffer].DescriptorInfo();
+		m_BindingsWriteInfo[binding].m_BufferInfo[buffer] = m_Buffers[binding][buffer].DescriptorInfo();
 
-		// TODO: check whether we actually need to write to all bindings at resize
 		DescriptorWriter writer(&m_DescriptorSetLayout, m_Pool);
-		writer.WriteBuffer(binding, m_BindingsWriteInfo[binding].BufferInfo.data());
+		writer.WriteBuffer(binding, m_BindingsWriteInfo[binding].m_BufferInfo.data());
 		
-		writer.Build(m_DescriptorSet);
+		writer.Build(m_DescriptorSetHandle);
 		Buffer::CopyBuffer(oldBuffer.GetBuffer(), m_Buffers[binding][buffer].GetBuffer(), oldBuffer.GetBufferSize(), queue, 0, pool);
 	}
 
@@ -188,7 +193,7 @@ namespace Vulture
 	 * @param sampler - The Vulkan sampler to be associated with the image sampler.
 	 * @param layout - The Vulkan image layout to be associated with the image sampler.
 	 */
-	void DescriptorSet::UpdateImageSampler(uint32_t binding, VkImageView imageView, VkSampler sampler, VkImageLayout layout)
+	void DescriptorSet::UpdateImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout layout)
 	{
 		DescriptorWriter writer(&m_DescriptorSetLayout, m_Pool);
 		VkDescriptorImageInfo ImageInfo;
@@ -196,7 +201,7 @@ namespace Vulture
 		ImageInfo.imageView = imageView;
 		ImageInfo.sampler = sampler;
 		writer.WriteImage(binding, &ImageInfo);
-		writer.Overwrite(m_DescriptorSet);
+		writer.Overwrite(m_DescriptorSetHandle);
 	}
 
 	/*
@@ -215,7 +220,7 @@ namespace Vulture
 			layout,
 			set,
 			1,
-			&m_DescriptorSet,
+			&m_DescriptorSetHandle,
 			0,
 			nullptr
 		);

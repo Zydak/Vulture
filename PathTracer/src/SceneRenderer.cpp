@@ -488,7 +488,10 @@ void SceneRenderer::CreateDescriptorSets()
 		m_PresentedImage = m_PathTracingImage;
 		m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 		m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-		m_HDRDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
+		m_HDRDescriptorSet->AddImageSampler(
+			0,
+			m_PresentedImage->GetSamplerHandle(),
+			m_PresentedImage->GetImageView(),
 			VK_IMAGE_LAYOUT_GENERAL
 		);
 		m_HDRDescriptorSet->Build();
@@ -499,7 +502,10 @@ void SceneRenderer::CreateDescriptorSets()
 
 		m_ToneMapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 		m_ToneMapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-		m_ToneMapDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
+		m_ToneMapDescriptorSet->AddImageSampler(
+			0,
+			m_PresentedImage->GetSamplerHandle(),
+			m_PresentedImage->GetImageView(),
 			VK_IMAGE_LAYOUT_GENERAL 
 		);
 		m_ToneMapDescriptorSet->Build();
@@ -514,7 +520,10 @@ void SceneRenderer::CreateDescriptorSets()
 		m_GlobalDescriptorSets[i]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 		m_GlobalDescriptorSets[i]->AddUniformBuffer(0, sizeof(GlobalUbo));
 
-		m_GlobalDescriptorSets[i]->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), m_Skybox->GetImageView(),
+		m_GlobalDescriptorSets[i]->AddImageSampler(
+			1,
+			m_Skybox->GetSamplerHandle(),
+			m_Skybox->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 
@@ -544,7 +553,7 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 		asInfo.pAccelerationStructures = &tlas;
 
 		m_RayTracingDescriptorSet->AddAccelerationStructure(0, asInfo);
-		m_RayTracingDescriptorSet->AddImageSampler(1, Vulture::Renderer::GetSampler().GetSampler(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
+		m_RayTracingDescriptorSet->AddImageSampler(1, m_PathTracingImage->GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
 		m_RayTracingDescriptorSet->AddStorageBuffer(2, sizeof(MeshAdresses) * 20'000, true);
 		m_RayTracingDescriptorSet->AddStorageBuffer(3, sizeof(Vulture::Material) * 20'000, true);
 
@@ -554,28 +563,36 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 			auto& modelComp = scene.GetRegistry().get<Vulture::ModelComponent>(entity);
 			for (int j = 0; j < (int)modelComp.Model->GetAlbedoTextureCount(); j++)
 			{
-				m_RayTracingDescriptorSet->AddImageSampler(4, Vulture::Renderer::GetSampler().GetSampler(), 
+				m_RayTracingDescriptorSet->AddImageSampler(
+					4,
+					modelComp.Model->GetAlbedoTexture(j)->GetSamplerHandle(),
 					modelComp.Model->GetAlbedoTexture(j)->GetImageView(),
 					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
 			}
 			for (int j = 0; j < (int)modelComp.Model->GetNormalTextureCount(); j++)
 			{
-				m_RayTracingDescriptorSet->AddImageSampler(5, Vulture::Renderer::GetSampler().GetSampler(),
+				m_RayTracingDescriptorSet->AddImageSampler(
+					5,
+					modelComp.Model->GetNormalTexture(j)->GetSamplerHandle(),
 					modelComp.Model->GetNormalTexture(j)->GetImageView(),
 					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
 			}
 			for (int j = 0; j < (int)modelComp.Model->GetRoughnessTextureCount(); j++)
 			{
-				m_RayTracingDescriptorSet->AddImageSampler(6, Vulture::Renderer::GetSampler().GetSampler(),
+				m_RayTracingDescriptorSet->AddImageSampler(
+					6,
+					modelComp.Model->GetRoughnessTexture(j)->GetSamplerHandle(),
 					modelComp.Model->GetRoughnessTexture(j)->GetImageView(),
 					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
 			}
 			for (int j = 0; j < (int)modelComp.Model->GetMetallnessTextureCount(); j++)
 			{
-				m_RayTracingDescriptorSet->AddImageSampler(7, Vulture::Renderer::GetSampler().GetSampler(),
+				m_RayTracingDescriptorSet->AddImageSampler(
+					7,
+					modelComp.Model->GetMetallnessTexture(j)->GetSamplerHandle(),
 					modelComp.Model->GetMetallnessTexture(j)->GetImageView(),
 					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
@@ -630,8 +647,8 @@ void SceneRenderer::SetSkybox(Vulture::SkyboxComponent& skybox)
 	{
 		m_GlobalDescriptorSets[i]->UpdateImageSampler(
 			1,
+			skybox.SkyboxImage->GetSamplerHandle(),
 			skybox.SkyboxImage->GetImageView(),
-			Vulture::Renderer::GetSampler().GetSampler(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 	}
@@ -644,7 +661,12 @@ void SceneRenderer::RecreateDescriptorSets()
 		
 		m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 		m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-		m_HDRDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),VK_IMAGE_LAYOUT_GENERAL);
+		m_HDRDescriptorSet->AddImageSampler(
+			0,
+			m_PresentedImage->GetSamplerHandle(),
+			m_PresentedImage->GetImageView(),
+			VK_IMAGE_LAYOUT_GENERAL
+		);
 		m_HDRDescriptorSet->Build();
 	}
 	{
@@ -652,15 +674,20 @@ void SceneRenderer::RecreateDescriptorSets()
 
 		m_ToneMapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 		m_ToneMapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-		m_ToneMapDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),VK_IMAGE_LAYOUT_GENERAL);
+		m_ToneMapDescriptorSet->AddImageSampler(
+			0,
+			m_PresentedImage->GetSamplerHandle(),
+			m_PresentedImage->GetImageView(),
+			VK_IMAGE_LAYOUT_GENERAL
+		);
 		m_ToneMapDescriptorSet->Build();
 	}
 
 	{
 		m_RayTracingDescriptorSet->UpdateImageSampler(
 			1,
+			m_PathTracingImage->GetSamplerHandle(),
 			m_PathTracingImage->GetImageView(),
-			Vulture::Renderer::GetSampler().GetSampler(),
 			VK_IMAGE_LAYOUT_GENERAL
 		);
 	}
@@ -695,7 +722,7 @@ void SceneRenderer::CreatePipelines()
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts
 		{
-			m_GlobalDescriptorSets[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout()
+			m_GlobalDescriptorSets[0]->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle()
 		};
 		info.DescriptorSetLayouts = layouts;
 
@@ -723,8 +750,8 @@ void SceneRenderer::CreateRayTracingPipeline()
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts
 		{
-			m_RayTracingDescriptorSet->GetDescriptorSetLayout()->GetDescriptorSetLayout(),
-			m_GlobalDescriptorSets[0]->GetDescriptorSetLayout()->GetDescriptorSetLayout()
+			m_RayTracingDescriptorSet->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
+			m_GlobalDescriptorSets[0]->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle()
 		};
 		info.DescriptorSetLayouts = layouts;
 
@@ -806,15 +833,13 @@ void SceneRenderer::CreateFramebuffers()
 			Vulture::FramebufferAttachment::Depth
 		};
 		
-		m_GBufferFramebuffer = std::make_shared<Vulture::Framebuffer>(
-			attachments,
-			m_GBufferPass.GetRenderPass(),
-			Vulture::Renderer::GetSwapchain().GetSwapchainExtent(),
-			Vulture::Swapchain::FindDepthFormat(),
-			1,
-			Vulture::Image::ImageType::Image2D,
-			VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-		);
+		Vulture::Framebuffer::CreateInfo info{};
+		info.AttachmentsFormats = &attachments;
+		info.DepthFormat = Vulture::Swapchain::FindDepthFormat();
+		info.Extent = Vulture::Renderer::GetSwapchain().GetSwapchainExtent();
+		info.RenderPass = m_GBufferPass.GetRenderPass();
+		info.CustomBits = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		m_GBufferFramebuffer = std::make_shared<Vulture::Framebuffer>(info);
 	}
 }
 
@@ -912,7 +937,10 @@ void SceneRenderer::ImGuiPass()
 
 				m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 				m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-				m_HDRDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
+				m_HDRDescriptorSet->AddImageSampler(
+					0,
+					m_PresentedImage->GetSamplerHandle(),
+					m_PresentedImage->GetImageView(),
 					VK_IMAGE_LAYOUT_GENERAL
 				);
 				m_HDRDescriptorSet->Build();
@@ -926,7 +954,10 @@ void SceneRenderer::ImGuiPass()
 
 				m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 				m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-				m_HDRDescriptorSet->AddImageSampler(0, Vulture::Renderer::GetSampler().GetSampler(), m_PresentedImage->GetImageView(),
+				m_HDRDescriptorSet->AddImageSampler(
+					0,
+					m_PresentedImage->GetSamplerHandle(),
+					m_PresentedImage->GetImageView(),
 					VK_IMAGE_LAYOUT_GENERAL
 				);
 				m_HDRDescriptorSet->Build();

@@ -13,6 +13,22 @@ namespace Vulture
 	static std::mt19937_64 s_Engine(s_RandomDevice());
 	static std::uniform_int_distribution<uint64_t> s_Distribution;
 
+	void AssetManager::Destroy()
+	{
+		for (auto& image : s_Textures)
+		{
+			image.second.reset();
+		}
+		for (auto& model : s_Textures)
+		{
+			model.second.reset();
+		}
+
+		s_Textures.clear();
+		s_Models.clear();
+		s_DestroyQueue.clear();
+	}
+
 	Ref<Image> AssetManager::LoadTexture(const std::string& filepath)
 	{
 		uint64_t hash = std::hash<std::string>{}(filepath);

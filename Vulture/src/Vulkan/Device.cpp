@@ -103,8 +103,18 @@ namespace Vulture
 		CreateMemoryAllocator();
 	}
 
-	Device::~Device()
+	void Device::Destroy()
 	{
+		VL_CORE_INFO("Deleting Vulkan Device");
+		for (auto& pool : s_Pools)
+		{
+			vmaDestroyPool(s_Allocator, pool.second);
+		}
+		for (auto& pool : s_SingleObjPools)
+		{
+			vmaDestroyPool(s_Allocator, pool);
+		}
+		vmaDestroyAllocator(s_Allocator);
 		vkDestroyCommandPool(s_Device, s_GraphicsCommandPool, nullptr);
 		vkDestroyCommandPool(s_Device, s_ComputeCommandPool, nullptr);
 		vkDestroyDevice(s_Device, nullptr);
@@ -112,6 +122,13 @@ namespace Vulture
 
 		vkDestroySurfaceKHR(s_Instance, s_Surface, nullptr);
 		vkDestroyInstance(s_Instance, nullptr);
+		s_Instance = VK_NULL_HANDLE;
+	}
+
+	Device::~Device()
+	{
+		if(s_Instance != VK_NULL_HANDLE)
+			Destroy();
 	}
 
 	/*

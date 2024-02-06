@@ -19,7 +19,7 @@ namespace Vulture
 			return;
 		}
 
-		int x = 0;
+		int x = 0; // todo: wtf is this?
 		ProcessNode(scene->mRootNode, scene, x);
 	}
 

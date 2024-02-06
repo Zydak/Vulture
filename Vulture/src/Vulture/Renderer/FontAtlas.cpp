@@ -117,7 +117,7 @@ namespace Vulture
 
 		DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
 		m_DescriptorSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-		m_DescriptorSet.AddImageSampler(0, m_Sampler.GetSampler(), m_AtlasTexture->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		m_DescriptorSet.AddImageSampler(0, m_Sampler.GetSamplerHandle(), m_AtlasTexture->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		m_DescriptorSet.Build();
 	}
 }

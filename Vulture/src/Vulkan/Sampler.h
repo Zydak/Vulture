@@ -16,13 +16,18 @@ namespace Vulture
 	class Sampler
 	{
 	public:
-		Sampler(SamplerInfo samplerInfo);
+		void Init(const SamplerInfo& samplerInfo);
+		void Destroy();
+
+		Sampler() = default;
+		Sampler(const SamplerInfo& samplerInfo);
 		~Sampler();
 
-		inline VkSampler GetSampler() const { return m_Sampler; }
+		inline VkSampler GetSamplerHandle() const { return m_SamplerHandle; }
 
 	private:
-		VkSampler m_Sampler;
+		VkSampler m_SamplerHandle;
+		bool m_Initialized = false;
 	};
 
 }

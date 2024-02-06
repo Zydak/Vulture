@@ -91,7 +91,7 @@ namespace Vulture
 	{
 		// TODO:
 		// build a new pool whenever an old pool fills up?
-		VL_CORE_RETURN_ASSERT(m_Pool->AllocateDescriptorSets(m_SetLayout->GetDescriptorSetLayout(), set),
+		VL_CORE_RETURN_ASSERT(m_Pool->AllocateDescriptorSets(m_SetLayout->GetDescriptorSetLayoutHandle(), set),
 			true,
 			"Failed to build descriptor. Pool is probably empty."
 		);

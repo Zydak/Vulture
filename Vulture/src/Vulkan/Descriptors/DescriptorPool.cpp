@@ -26,7 +26,7 @@ namespace Vulture
 		descriptorPoolInfo.maxSets = maxSets;
 		descriptorPoolInfo.flags = poolFlags;
 
-		VL_CORE_RETURN_ASSERT(vkCreateDescriptorPool(Device::GetDevice(), &descriptorPoolInfo, nullptr, &m_DescriptorPool),
+		VL_CORE_RETURN_ASSERT(vkCreateDescriptorPool(Device::GetDevice(), &descriptorPoolInfo, nullptr, &m_DescriptorPoolHandle),
 			VK_SUCCESS,
 			"failed to create descriptor pool!"
 		);
@@ -41,7 +41,7 @@ namespace Vulture
 
 	DescriptorPool::~DescriptorPool() 
 	{
-		vkDestroyDescriptorPool(Device::GetDevice(), m_DescriptorPool, nullptr);
+		vkDestroyDescriptorPool(Device::GetDevice(), m_DescriptorPoolHandle, nullptr);
 	}
 
 	/*
@@ -56,7 +56,7 @@ namespace Vulture
 	{
 		VkDescriptorSetAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = m_DescriptorPool;
+		allocInfo.descriptorPool = m_DescriptorPoolHandle;
 		allocInfo.pSetLayouts = &descriptorSetLayout;
 		allocInfo.descriptorSetCount = 1;
 
@@ -77,6 +77,6 @@ namespace Vulture
 	 */
 	void DescriptorPool::ResetPool()
 	{
-		vkResetDescriptorPool(Device::GetDevice(), m_DescriptorPool, 0);
+		vkResetDescriptorPool(Device::GetDevice(), m_DescriptorPoolHandle, 0);
 	}
 }

@@ -11,6 +11,7 @@ namespace Vulture
 	{
 	public:
 		struct CreateInfo
+
 		{
 			VkDeviceSize InstanceSize = 0;
 			uint32_t InstanceCount = 0;
@@ -46,48 +47,43 @@ namespace Vulture
 
 		operator bool() const
 		{
-			return m_Info.Initialized;
+			return m_Initialized;
 		}
 
 	public:
-		struct Info
-		{
-			void* Mapped = nullptr;
-			VkBuffer Buffer = VK_NULL_HANDLE;
-			VmaAllocation* Allocation = nullptr;
 
-			VkDeviceSize BufferSize = 0;
-			uint32_t InstanceCount = 0;
-			VkDeviceSize InstanceSize = 0;
-			VkDeviceSize AlignmentSize = 1;
-			VkBufferUsageFlags UsageFlags = 0;
-			VkMemoryPropertyFlags MemoryPropertyFlags = 0;
-			VkDeviceSize MinOffsetAlignment = 1; // Stored only for copies of the buffer
-			bool NoPool = false;
+		inline VkBuffer GetBuffer() const { return m_BufferHandle; }
 
-			bool Initialized = false;
-		};
-
-		inline Buffer::Info GetInfo() const { return m_Info; }
-		inline VkBuffer GetBuffer() const { return m_Info.Buffer; }
-
-		inline void* GetMappedMemory() const { return m_Info.Mapped; }
+		inline void* GetMappedMemory() const { return m_Mapped; }
 		VmaAllocationInfo GetMemoryInfo() const;
 		VkDeviceAddress GetDeviceAddress() const;
-		inline bool IsMapped() const { return m_Info.Mapped; }
+		inline bool IsMapped() const { return m_Mapped; }
 
-		inline uint32_t GetInstanceCount() const { return m_Info.InstanceCount; }
-		inline VkDeviceSize GetInstanceSize() const { return m_Info.InstanceSize; }
-		inline VkDeviceSize GetAlignmentSize() const { return m_Info.InstanceSize; }
-		inline VkDeviceSize GetMinAlignment() const { return m_Info.MinOffsetAlignment; }
-		inline VkBufferUsageFlags GetUsageFlags() const { return m_Info.UsageFlags; }
-		inline VkMemoryPropertyFlags GetMemoryPropertyFlags() const { return m_Info.MemoryPropertyFlags; }
-		inline VkDeviceSize GetBufferSize() const { return m_Info.BufferSize; }
-		inline bool GetNoPool() const { return m_Info.NoPool; }
+		inline uint32_t GetInstanceCount() const { return m_InstanceCount; }
+		inline VkDeviceSize GetInstanceSize() const { return m_InstanceSize; }
+		inline VkDeviceSize GetAlignmentSize() const { return m_InstanceSize; }
+		inline VkDeviceSize GetMinAlignment() const { return m_MinOffsetAlignment; }
+		inline VkBufferUsageFlags GetUsageFlags() const { return m_UsageFlags; }
+		inline VkMemoryPropertyFlags GetMemoryPropertyFlags() const { return m_MemoryPropertyFlags; }
+		inline VkDeviceSize GetBufferSize() const { return m_BufferSize; }
+		inline bool GetNoPool() const { return m_NoPool; }
 
 	private:
 		static VkDeviceSize GetAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment);
 
-		Buffer::Info m_Info{};
+		void* m_Mapped = nullptr;
+		VkBuffer m_BufferHandle = VK_NULL_HANDLE;
+		VmaAllocation* m_Allocation = nullptr;
+
+		VkDeviceSize m_BufferSize = 0;
+		uint32_t m_InstanceCount = 0;
+		VkDeviceSize m_InstanceSize = 0;
+		VkDeviceSize m_AlignmentSize = 1;
+		VkBufferUsageFlags m_UsageFlags = 0;
+		VkMemoryPropertyFlags m_MemoryPropertyFlags = 0;
+		VkDeviceSize m_MinOffsetAlignment = 1; // Stored only for copies of the buffer
+		bool m_NoPool = false;
+
+		bool m_Initialized = false;
 	};
 }

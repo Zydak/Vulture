@@ -297,7 +297,7 @@ namespace Vulture
 		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = usage;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        BufferInfo.NoPool = true;
+        BufferInfo.NoPool = true; // Important
 
         // Path Tracing Result
         {
@@ -345,7 +345,7 @@ namespace Vulture
     {
         VkMemoryGetWin32HandleInfoKHR info{ VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR };
         VmaAllocationInfo memInfo = buf.BufferVk.GetMemoryInfo();
-        info.memory = memInfo.deviceMemory; // TODO: offset instead of dedicated vma allocation
+        info.memory = memInfo.deviceMemory;
         info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
         VkResult res = Device::vkGetMemoryWin32HandleKHR(Device::GetDevice(), &info, &buf.Handle);
 

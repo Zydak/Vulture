@@ -6,14 +6,14 @@
 
 namespace Vulture
 {
-	static enum class ShaderType
+	enum class ShaderType
 	{
 		Vertex,
 		Fragment,
 		Compute
 	};
 
-	static struct ShaderModule
+	struct ShaderModule
 	{
 		VkShaderModule Module;
 		VkShaderStageFlagBits Type;
@@ -21,7 +21,7 @@ namespace Vulture
 
 	void Pipeline::Init(CreateInfo* info)
 	{
-		if (m_Info.Initialized)
+		if (m_Initialized)
 		{
 			Destroy();
 		}
@@ -43,8 +43,8 @@ namespace Vulture
 			{
 				shaderModules[i].Type = VK_SHADER_STAGE_VERTEX_BIT;
 				CreateShaderModule(code, &shaderModules[i].Module);
-				if (m_Info.PipelineType != PipelineType::Compute)
-					m_Info.PipelineType = PipelineType::Graphics;
+				if (m_PipelineType != PipelineType::Compute)
+					m_PipelineType = PipelineType::Graphics;
 				else
 					VL_CORE_ASSERT(false, "Can't create compute pipeline with graphics shader!");
 			}
@@ -52,8 +52,8 @@ namespace Vulture
 			{
 				shaderModules[i].Type = VK_SHADER_STAGE_FRAGMENT_BIT;
 				CreateShaderModule(code, &shaderModules[i].Module);
-				if (m_Info.PipelineType != PipelineType::Compute)
-					m_Info.PipelineType = PipelineType::Graphics;
+				if (m_PipelineType != PipelineType::Compute)
+					m_PipelineType = PipelineType::Graphics;
 				else
 					VL_CORE_ASSERT(false, "Can't create compute pipeline with graphics shader!");
 			}
@@ -61,8 +61,8 @@ namespace Vulture
 			{
 				shaderModules[i].Type = VK_SHADER_STAGE_COMPUTE_BIT;
 				CreateShaderModule(code, &shaderModules[i].Module);
-				if (m_Info.PipelineType != PipelineType::Graphics)
-					m_Info.PipelineType = PipelineType::Compute;
+				if (m_PipelineType != PipelineType::Graphics)
+					m_PipelineType = PipelineType::Compute;
 				else
 					VL_CORE_ASSERT(false, "Can't create graphics pipeline with compute shader!");
 			}
@@ -79,7 +79,7 @@ namespace Vulture
 			shaderStages.push_back(stage);
 		}
 
-		if (m_Info.PipelineType == PipelineType::Compute && shaderModules.size() != 1)
+		if (m_PipelineType == PipelineType::Compute && shaderModules.size() != 1)
 			VL_CORE_ASSERT(false, "Can't have more than 1 shader in compute pipeline!");
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -109,7 +109,7 @@ namespace Vulture
 		VkGraphicsPipelineCreateInfo graphicsPipelineInfo = {};
 		VkComputePipelineCreateInfo computePipelineInfo = {};
 
-		if (m_Info.PipelineType == PipelineType::Graphics)
+		if (m_PipelineType == PipelineType::Graphics)
 		{
 			graphicsPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 			graphicsPipelineInfo.stageCount = 2;
@@ -123,7 +123,7 @@ namespace Vulture
 			graphicsPipelineInfo.pDynamicState = &dynamicStateInfo;
 			graphicsPipelineInfo.pDepthStencilState = &configInfo.DepthStencilInfo;
 
-			graphicsPipelineInfo.layout = m_Info.PipelineLayout;
+			graphicsPipelineInfo.layout = m_PipelineLayout;
 			graphicsPipelineInfo.renderPass = configInfo.RenderPass;
 			graphicsPipelineInfo.subpass = configInfo.Subpass;
 
@@ -131,21 +131,21 @@ namespace Vulture
 			graphicsPipelineInfo.basePipelineIndex = -1;
 		}
 
-		if (m_Info.PipelineType == PipelineType::Compute)
+		if (m_PipelineType == PipelineType::Compute)
 		{
 			computePipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-			computePipelineInfo.layout = m_Info.PipelineLayout;
+			computePipelineInfo.layout = m_PipelineLayout;
 			computePipelineInfo.stage = shaderStages[0];
 		}
 
-		switch (m_Info.PipelineType)
+		switch (m_PipelineType)
 		{
 		case PipelineType::Graphics:
-			VL_CORE_RETURN_ASSERT(vkCreateGraphicsPipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &graphicsPipelineInfo, nullptr, &m_Info.Pipeline),
+			VL_CORE_RETURN_ASSERT(vkCreateGraphicsPipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &graphicsPipelineInfo, nullptr, &m_PipelineHandle),
 				VK_SUCCESS, "failed to create graphics pipeline!");
 			break;
 		case PipelineType::Compute:
-			VL_CORE_RETURN_ASSERT(vkCreateComputePipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_Info.Pipeline),
+			VL_CORE_RETURN_ASSERT(vkCreateComputePipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_PipelineHandle),
 				VK_SUCCESS,
 				"failed to create graphics pipeline!"
 			);
@@ -161,7 +161,7 @@ namespace Vulture
 			vkDestroyShaderModule(Device::GetDevice(), shaderModules[i].Module, nullptr);
 		}
 
-		m_Info.Initialized = true;
+		m_Initialized = true;
 	}
 
 	void Pipeline::Init(RayTracingCreateInfo* info)
@@ -258,27 +258,28 @@ namespace Vulture
 		rayPipelineInfo.pGroups = rtShaderGroups.data();
 
 		rayPipelineInfo.maxPipelineRayRecursionDepth = 1;  // Ray depth
-		rayPipelineInfo.layout = m_Info.PipelineLayout;
+		rayPipelineInfo.layout = m_PipelineLayout;
 
-		Device::vkCreateRayTracingPipelinesKHR(Device::GetDevice(), {}, {}, 1, &rayPipelineInfo, nullptr, &m_Info.Pipeline);
+		Device::vkCreateRayTracingPipelinesKHR(Device::GetDevice(), {}, {}, 1, &rayPipelineInfo, nullptr, &m_PipelineHandle);
 
 		for (int i = 0; i < stages.size(); i++)
 		{
 			vkDestroyShaderModule(Device::GetDevice(), stages[i].module, nullptr);
 		}
 
-		m_Info.Initialized = true;
+		m_Initialized = true;
 	}
 
 	void Pipeline::Destroy()
 	{
-		vkDestroyPipeline(Device::GetDevice(), m_Info.Pipeline, nullptr);
-		vkDestroyPipelineLayout(Device::GetDevice(), m_Info.PipelineLayout, nullptr);
+		vkDestroyPipeline(Device::GetDevice(), m_PipelineHandle, nullptr);
+		vkDestroyPipelineLayout(Device::GetDevice(), m_PipelineLayout, nullptr);
+		m_Initialized = false;
 	}
 
 	Pipeline::~Pipeline()
 	{
-		if (m_Info.Initialized)
+		if (m_Initialized)
 			Destroy();
 	}
 
@@ -329,7 +330,7 @@ namespace Vulture
 	 */
 	void Pipeline::Bind(VkCommandBuffer commandBuffer, VkPipelineBindPoint bindPoint)
 	{
-		vkCmdBindPipeline(commandBuffer, bindPoint, m_Info.Pipeline);
+		vkCmdBindPipeline(commandBuffer, bindPoint, m_PipelineHandle);
 	}
 
 	/*
@@ -346,7 +347,7 @@ namespace Vulture
 		pipelineLayoutInfo.pSetLayouts = descriptorSetsLayouts.empty() ? nullptr : descriptorSetsLayouts.data();
 		pipelineLayoutInfo.pushConstantRangeCount = (pushConstants == nullptr) ? 0 : 1;
 		pipelineLayoutInfo.pPushConstantRanges = pushConstants;
-		VL_CORE_RETURN_ASSERT(vkCreatePipelineLayout(Device::GetDevice(), &pipelineLayoutInfo, nullptr, &m_Info.PipelineLayout),
+		VL_CORE_RETURN_ASSERT(vkCreatePipelineLayout(Device::GetDevice(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout),
 			VK_SUCCESS,
 			"failed to create pipeline layout!"
 		);

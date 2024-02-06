@@ -7,8 +7,6 @@ namespace Vulture
 {
 	class SBT
 	{
-	private:
-		struct Info;
 	public:
 		struct CreateInfo
 		{
@@ -30,42 +28,36 @@ namespace Vulture
 
 		SBT(CreateInfo* createInfo);
 
-		inline Info GetInfo() const { return m_Info; }
+	public:
+		inline uint32_t GetRGenCount() const { return m_RGenCount; }
+		inline uint32_t GetHitCount() const { return m_HitCount; }
+		inline uint32_t GetMissCount() const { return m_MissCount; }
+		inline uint32_t GetCallCount() const { return m_CallableCount; }
 
-		inline uint32_t GetRGenCount() const { return m_Info.RGenCount; }
-		inline uint32_t GetHitCount() const { return m_Info.HitCount; }
-		inline uint32_t GetMissCount() const { return m_Info.MissCount; }
-		inline uint32_t GetCallCount() const { return m_Info.CallableCount; }
-
-		inline VkStridedDeviceAddressRegionKHR GetRGenRegion() const { return m_Info.RgenRegion; }
-		inline VkStridedDeviceAddressRegionKHR GetMissRegion() const { return m_Info.MissRegion; }
-		inline VkStridedDeviceAddressRegionKHR GetHitRegion() const { return m_Info.HitRegion; }
-		inline VkStridedDeviceAddressRegionKHR GetCallRegion() const { return m_Info.CallRegion; }
+		inline VkStridedDeviceAddressRegionKHR GetRGenRegion() const { return m_RgenRegion; }
+		inline VkStridedDeviceAddressRegionKHR GetMissRegion() const { return m_MissRegion; }
+		inline VkStridedDeviceAddressRegionKHR GetHitRegion() const { return m_HitRegion; }
+		inline VkStridedDeviceAddressRegionKHR GetCallRegion() const { return m_CallRegion; }
 
 		SBT() = default;
 		~SBT();
 		SBT(const SBT&) = delete;
 		SBT& operator=(const SBT&) = delete;
 
-
 	private:
-		struct Info
-		{
-			uint32_t RGenCount;
-			uint32_t MissCount;
-			uint32_t HitCount;
-			uint32_t CallableCount;
-			Pipeline* RayTracingPipeline;
 
-			VkStridedDeviceAddressRegionKHR RgenRegion{};
-			VkStridedDeviceAddressRegionKHR MissRegion{};
-			VkStridedDeviceAddressRegionKHR HitRegion{};
-			VkStridedDeviceAddressRegionKHR CallRegion{};
-			Vulture::Buffer RtSBTBuffer;
+		uint32_t m_RGenCount;
+		uint32_t m_MissCount;
+		uint32_t m_HitCount;
+		uint32_t m_CallableCount;
+		Pipeline* m_RayTracingPipeline;
 
-			bool Initialized = false;
-		};
+		VkStridedDeviceAddressRegionKHR m_RgenRegion{};
+		VkStridedDeviceAddressRegionKHR m_MissRegion{};
+		VkStridedDeviceAddressRegionKHR m_HitRegion{};
+		VkStridedDeviceAddressRegionKHR m_CallRegion{};
+		Vulture::Buffer m_RtSBTBuffer;
 
-		Info m_Info;
+		bool m_Initialized = false;
 	};
 }

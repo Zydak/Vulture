@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Application.h"
 #include "Renderer/Renderer.h"
+#include "Renderer/AssetManager.h"
 #include "Input.h"
 
 namespace Vulture
@@ -41,9 +42,15 @@ namespace Vulture
 			m_Window->PollEvents();
 
 			OnUpdate(deltaTime);
+			AssetManager::Cleanup();
 			deltaTime = timer.ElapsedSeconds();
 		}
 
+		vkDeviceWaitIdle(Device::GetDevice());
+
 		Renderer::Destroy();
+		Destroy();
+		AssetManager::Destroy();
+		Device::Destroy();
 	}
 }
