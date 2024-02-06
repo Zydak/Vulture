@@ -81,14 +81,9 @@ private:
 	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_GlobalDescriptorSets;
 	Vulture::Pipeline m_RtPipeline;
 	
-	// SBT
 	Vulture::Ref<Vulture::Image> m_PresentedImage;
-	Vulture::Buffer m_RtSBTBuffer;
-	VkStridedDeviceAddressRegionKHR m_RgenRegion{};
-	VkStridedDeviceAddressRegionKHR m_MissRegion{};
-	VkStridedDeviceAddressRegionKHR m_HitRegion{};
-	VkStridedDeviceAddressRegionKHR m_CallRegion{};
-	std::vector<VkRayTracingShaderGroupCreateInfoKHR> m_RtShaderGroups;
+
+	Vulture::SBT m_SBT;
 
 	Timer m_Timer;
 	Vulture::RenderPass m_HDRPass;

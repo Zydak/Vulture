@@ -345,7 +345,7 @@ namespace Vulture
     {
         VkMemoryGetWin32HandleInfoKHR info{ VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR };
         VmaAllocationInfo memInfo = buf.BufferVk.GetMemoryInfo();
-        info.memory = memInfo.deviceMemory;
+        info.memory = memInfo.deviceMemory; // TODO: offset instead of dedicated vma allocation
         info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
         VkResult res = Device::vkGetMemoryWin32HandleKHR(Device::GetDevice(), &info, &buf.Handle);
 
@@ -358,14 +358,14 @@ namespace Vulture
         cudaExtMemHandleDesc.type = cudaExternalMemoryHandleTypeOpaqueWin32;
         cudaExtMemHandleDesc.handle.win32.handle = buf.Handle;
 
-        cudaExternalMemory_t cuda_ext_mem_vertex_buffer{};
-        VL_CORE_RETURN_ASSERT(cudaImportExternalMemory(&cuda_ext_mem_vertex_buffer, &cudaExtMemHandleDesc), 0, "Importing External Memory Failed");
+        cudaExternalMemory_t cudaExtMemVertexBuffer{};
+        VL_CORE_RETURN_ASSERT(cudaImportExternalMemory(&cudaExtMemVertexBuffer, &cudaExtMemHandleDesc), 0, "Importing External Memory Failed");
 
         cudaExternalMemoryBufferDesc cudaExtBufferDesc{};
         cudaExtBufferDesc.offset = 0;
         cudaExtBufferDesc.size = memoryReq.size;
         cudaExtBufferDesc.flags = 0;
-        VL_CORE_RETURN_ASSERT(cudaExternalMemoryGetMappedBuffer(&buf.CudaPtr, cuda_ext_mem_vertex_buffer, &cudaExtBufferDesc), 0, "Cuda Getting Mapped Memory Failed");
+        VL_CORE_RETURN_ASSERT(cudaExternalMemoryGetMappedBuffer(&buf.CudaPtr, cudaExtMemVertexBuffer, &cudaExtBufferDesc), 0, "Cuda Getting Mapped Memory Failed");
     }
 
     /**

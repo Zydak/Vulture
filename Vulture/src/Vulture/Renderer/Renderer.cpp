@@ -623,7 +623,7 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
 			DescriptorSetLayout imageLayout({bin});
 
-			PipelineCreateInfo info{};
+			Pipeline::CreateInfo info{};
 			info.AttributeDesc = Mesh::Vertex::GetAttributeDescriptions();
 			info.BindingDesc = Mesh::Vertex::GetBindingDescriptions();
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/HDRToPresentable.vert.spv");
@@ -645,7 +645,7 @@ namespace Vulture
 			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
-			s_HDRToPresentablePipeline.CreatePipeline(info);
+			s_HDRToPresentablePipeline.Init(&info);
 		}
 
 		// Tone map
@@ -658,7 +658,7 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout imageLayout({ bin });
 
-			PipelineCreateInfo info{};
+			Pipeline::CreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Tonemap.comp.spv");
 
 			// Descriptor set layouts for the pipeline
@@ -670,7 +670,7 @@ namespace Vulture
 			info.PushConstants = &range;
 
 			// Create the graphics pipeline
-			s_ToneMapPipeline.CreatePipeline(info);
+			s_ToneMapPipeline.Init(&info);
 		}
 
 		// Env to cubemap
@@ -679,7 +679,7 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
-			PipelineCreateInfo info{};
+			Pipeline::CreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/EnvToCubemap.comp.spv");
 
 			// Descriptor set layouts for the pipeline
@@ -690,7 +690,7 @@ namespace Vulture
 			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
-			s_EnvToCubemapPipeline.CreatePipeline(info);
+			s_EnvToCubemapPipeline.Init(&info);
 		}
 	}
 
@@ -751,7 +751,7 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
-			PipelineCreateInfo info{};
+			Pipeline::CreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/SeparateBrightValues.comp.spv");
 			info.PushConstants = &range;
 
@@ -763,7 +763,7 @@ namespace Vulture
 			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
-			s_BloomSeparateBrightnessPipeline.CreatePipeline(info);
+			s_BloomSeparateBrightnessPipeline.Init(&info);
 		}
 
 		// Bloom Accumulate
@@ -777,7 +777,7 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, (uint32_t)mipsCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
-			PipelineCreateInfo info{};
+			Pipeline::CreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/Bloom.comp.spv");
 			info.PushConstants = &range;
 
@@ -789,7 +789,7 @@ namespace Vulture
 			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
-			s_BloomAccumulatePipeline.CreatePipeline(info);
+			s_BloomAccumulatePipeline.Init(&info);
 		}
 
 		// Bloom Down Sample
@@ -798,7 +798,7 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
-			PipelineCreateInfo info{};
+			Pipeline::CreateInfo info{};
 			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/BloomDownSample.comp.spv");
 			info.PushConstants = nullptr;
 
@@ -810,7 +810,7 @@ namespace Vulture
 			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
-			s_BloomDownSamplePipeline.CreatePipeline(info);
+			s_BloomDownSamplePipeline.Init(&info);
 		}
 
 

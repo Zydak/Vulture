@@ -131,10 +131,10 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 
 	Vulture::Device::vkCmdTraceRaysKHR(
 		Vulture::Renderer::GetCurrentCommandBuffer(), 
-		&m_RgenRegion, 
-		&m_MissRegion, 
-		&m_HitRegion, 
-		&m_CallRegion,
+		&m_SBT.GetRGenRegion(),
+		&m_SBT.GetMissRegion(),
+		&m_SBT.GetHitRegion(),
+		&m_SBT.GetCallRegion(),
 		(uint32_t)m_PathTracingImage->GetImageSize().width,
 		(uint32_t)m_PathTracingImage->GetImageSize().height,
 		1
@@ -678,7 +678,7 @@ void SceneRenderer::CreatePipelines()
 		range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
 		// Configure pipeline creation parameters
-		Vulture::PipelineCreateInfo info{};
+		Vulture::Pipeline::CreateInfo info{};
 		info.AttributeDesc = Vulture::Mesh::Vertex::GetAttributeDescriptions();
 		info.BindingDesc = Vulture::Mesh::Vertex::GetBindingDescriptions();
 		info.ShaderFilepaths.push_back("src/shaders/spv/GBuffer.vert.spv");
@@ -714,7 +714,7 @@ void SceneRenderer::CreateRayTracingPipeline()
 		range.size = sizeof(PushConstantRay);
 		range.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_MISS_BIT_KHR;
 
-		Vulture::RayTracingPipelineCreateInfo info{};
+		Vulture::Pipeline::RayTracingCreateInfo info{};
 		info.PushConstants = &range;
 		info.RayGenShaderFilepaths.push_back("src/shaders/spv/raytrace.rgen.spv");
 		info.HitShaderFilepaths.push_back("src/shaders/spv/raytrace.rchit.spv");
@@ -728,92 +728,20 @@ void SceneRenderer::CreateRayTracingPipeline()
 		};
 		info.DescriptorSetLayouts = layouts;
 
-		m_RtPipeline.CreateRayTracingPipeline(m_RtShaderGroups, info);
+		m_RtPipeline.Init(&info);
 	}
 }
 
 void SceneRenderer::CreateShaderBindingTable()
 {
-	// TODO SBT class
-	uint32_t missCount = 1;
-	uint32_t hitCount = 1;
-	uint32_t handleCount = 1 + missCount + hitCount;
-	uint32_t handleSize = Vulture::Device::GetRayTracingProperties().shaderGroupHandleSize;
+	Vulture::SBT::CreateInfo info{};
+	info.CallableCount = 0;
+	info.HitCount = 1;
+	info.MissCount = 1;
+	info.RGenCount = 1;
+	info.RayTracingPipeline = &m_RtPipeline;
 
-	uint32_t handleSizeAligned = (uint32_t)Vulture::Device::GetAlignment(handleSize, Vulture::Device::GetRayTracingProperties().shaderGroupHandleAlignment);
-
-	m_RgenRegion.stride = Vulture::Device::GetAlignment(handleSizeAligned, Vulture::Device::GetRayTracingProperties().shaderGroupBaseAlignment);
-	m_RgenRegion.size = m_RgenRegion.stride;
-	
-	m_MissRegion.stride = handleSizeAligned;
-	m_MissRegion.size = Vulture::Device::GetAlignment(missCount * handleSizeAligned, Vulture::Device::GetRayTracingProperties().shaderGroupBaseAlignment);
-	
-	m_HitRegion.stride = handleSizeAligned;
-	m_HitRegion.size = Vulture::Device::GetAlignment(hitCount * handleSizeAligned, Vulture::Device::GetRayTracingProperties().shaderGroupBaseAlignment);
-
-	// Get the shader group handles
-	uint32_t             dataSize = handleCount * handleSize;
-	std::vector<uint8_t> handles(dataSize);
-	auto result = Vulture::Device::vkGetRayTracingShaderGroupHandlesKHR(Vulture::Device::GetDevice(), m_RtPipeline.GetPipeline(), 0, handleCount, dataSize, handles.data());
-	VL_CORE_ASSERT(result == VK_SUCCESS, "Failed to get shader group handles!");
-
-	// Allocate a buffer for storing the SBT.
-	VkDeviceSize sbtSize = m_RgenRegion.size + m_MissRegion.size + m_HitRegion.size + m_CallRegion.size;
-
-	Vulture::Buffer::CreateInfo bufferInfo{};
-	bufferInfo.InstanceSize = sbtSize;
-	bufferInfo.InstanceCount = 1;
-	bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
-	bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-	Vulture::Buffer stagingBuffer;
-	stagingBuffer.Init(bufferInfo);
-
-	bufferInfo.InstanceSize = sbtSize;
-	bufferInfo.InstanceCount = 1;
-	bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
-	bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-	m_RtSBTBuffer.Init(bufferInfo);
-
-	// Find the SBT addresses of each group
-	m_RgenRegion.deviceAddress = m_RtSBTBuffer.GetDeviceAddress();
-	m_MissRegion.deviceAddress = m_RtSBTBuffer.GetDeviceAddress() + m_RgenRegion.size;
-	m_HitRegion.deviceAddress = m_RtSBTBuffer.GetDeviceAddress() + m_RgenRegion.size + m_MissRegion.size;
-
-	auto getHandle = [&](int i) { return handles.data() + i * handleSize; };
-
-	// TODO maybe use WriteToBuffer?
-	stagingBuffer.Map();
-	uint8_t* pSBTBuffer = reinterpret_cast<uint8_t*>(stagingBuffer.GetMappedMemory());
-	uint8_t* pData = nullptr;
-	uint32_t handleIdx = 0;
-
-	// Ray gen
-	pData = pSBTBuffer;
-	memcpy(pData, getHandle(handleIdx), handleSize);
-	handleIdx++;
-
-	// Miss
-	pData = pSBTBuffer + m_RgenRegion.size;
-	for (uint32_t c = 0; c < missCount; c++)
-	{
-		memcpy(pData, getHandle(handleIdx), handleSize);
-		handleIdx++;
-		pData += m_MissRegion.stride;
-	}
-
-	// Hit
-	pData = pSBTBuffer + m_RgenRegion.size + m_MissRegion.size;
-	for (uint32_t c = 0; c < hitCount; c++)
-	{
-		memcpy(pData, getHandle(handleIdx), handleSize);
-		handleIdx++;
-		pData += m_HitRegion.stride;
-	}
-
-	// Copy the shader binding table to the device local buffer
-	Vulture::Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_RtSBTBuffer.GetBuffer(), sbtSize, Vulture::Device::GetGraphicsQueue(), 0, Vulture::Device::GetGraphicsCommandPool());
-	
-	stagingBuffer.Unmap();
+	m_SBT.Init(&info);
 }
 
 void SceneRenderer::CreateFramebuffers()

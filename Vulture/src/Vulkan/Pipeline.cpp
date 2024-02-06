@@ -6,23 +6,280 @@
 
 namespace Vulture
 {
-	enum class ShaderType
+	static enum class ShaderType
 	{
 		Vertex,
 		Fragment,
 		Compute
 	};
 
-	struct ShaderModule
+	static struct ShaderModule
 	{
 		VkShaderModule Module;
 		VkShaderStageFlagBits Type;
 	};
 
+	void Pipeline::Init(CreateInfo* info)
+	{
+		if (m_Info.Initialized)
+		{
+			Destroy();
+		}
+
+		CreatePipelineLayout(info->DescriptorSetLayouts, info->PushConstants);
+		PipelineConfigInfo configInfo{};
+		configInfo.RenderPass = info->RenderPass;
+		configInfo.DepthClamp = info->DepthClamp;
+		CreatePipelineConfigInfo(configInfo, info->Width, info->Height, info->Topology, info->CullMode, info->DepthTestEnable, info->BlendingEnable, info->ColorAttachmentCount);
+
+		std::vector<ShaderModule> shaderModules;
+		shaderModules.resize(info->ShaderFilepaths.size());
+		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+		for (int i = 0; i < info->ShaderFilepaths.size(); i++)
+		{
+			auto code = ReadFile(info->ShaderFilepaths[i]);
+
+			if (info->ShaderFilepaths[i].rfind(".vert") != std::string::npos)
+			{
+				shaderModules[i].Type = VK_SHADER_STAGE_VERTEX_BIT;
+				CreateShaderModule(code, &shaderModules[i].Module);
+				if (m_Info.PipelineType != PipelineType::Compute)
+					m_Info.PipelineType = PipelineType::Graphics;
+				else
+					VL_CORE_ASSERT(false, "Can't create compute pipeline with graphics shader!");
+			}
+			else if (info->ShaderFilepaths[i].rfind(".frag") != std::string::npos)
+			{
+				shaderModules[i].Type = VK_SHADER_STAGE_FRAGMENT_BIT;
+				CreateShaderModule(code, &shaderModules[i].Module);
+				if (m_Info.PipelineType != PipelineType::Compute)
+					m_Info.PipelineType = PipelineType::Graphics;
+				else
+					VL_CORE_ASSERT(false, "Can't create compute pipeline with graphics shader!");
+			}
+			else if (info->ShaderFilepaths[i].rfind(".comp") != std::string::npos)
+			{
+				shaderModules[i].Type = VK_SHADER_STAGE_COMPUTE_BIT;
+				CreateShaderModule(code, &shaderModules[i].Module);
+				if (m_Info.PipelineType != PipelineType::Graphics)
+					m_Info.PipelineType = PipelineType::Compute;
+				else
+					VL_CORE_ASSERT(false, "Can't create graphics pipeline with compute shader!");
+			}
+
+			VkPipelineShaderStageCreateInfo stage;
+			stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+			stage.stage = shaderModules[i].Type;
+			stage.module = shaderModules[i].Module;
+			stage.pName = "main";
+			stage.flags = 0;
+			stage.pNext = nullptr;
+			stage.pSpecializationInfo = nullptr;
+
+			shaderStages.push_back(stage);
+		}
+
+		if (m_Info.PipelineType == PipelineType::Compute && shaderModules.size() != 1)
+			VL_CORE_ASSERT(false, "Can't have more than 1 shader in compute pipeline!");
+
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertexInputInfo.vertexAttributeDescriptionCount = (uint32_t)info->AttributeDesc.size();
+		vertexInputInfo.pVertexAttributeDescriptions = info->AttributeDesc.data();
+		vertexInputInfo.vertexBindingDescriptionCount = (uint32_t)info->BindingDesc.size();
+		vertexInputInfo.pVertexBindingDescriptions = info->BindingDesc.data();
+
+		VkPipelineViewportStateCreateInfo viewportInfo{};
+		viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		viewportInfo.viewportCount = 1;
+		viewportInfo.pViewports = &configInfo.Viewport;
+		viewportInfo.scissorCount = 1;
+		viewportInfo.pScissors = &configInfo.Scissor;
+
+		VkDynamicState dynamicStates[] = {
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR
+		};
+
+		VkPipelineDynamicStateCreateInfo dynamicStateInfo = {};
+		dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		dynamicStateInfo.dynamicStateCount = 2;
+		dynamicStateInfo.pDynamicStates = dynamicStates;
+
+		VkGraphicsPipelineCreateInfo graphicsPipelineInfo = {};
+		VkComputePipelineCreateInfo computePipelineInfo = {};
+
+		if (m_Info.PipelineType == PipelineType::Graphics)
+		{
+			graphicsPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+			graphicsPipelineInfo.stageCount = 2;
+			graphicsPipelineInfo.pStages = shaderStages.data();
+			graphicsPipelineInfo.pVertexInputState = &vertexInputInfo;
+			graphicsPipelineInfo.pInputAssemblyState = &configInfo.InputAssemblyInfo;
+			graphicsPipelineInfo.pViewportState = &viewportInfo;
+			graphicsPipelineInfo.pRasterizationState = &configInfo.RasterizationInfo;
+			graphicsPipelineInfo.pMultisampleState = &configInfo.MultisampleInfo;
+			graphicsPipelineInfo.pColorBlendState = &configInfo.ColorBlendInfo;
+			graphicsPipelineInfo.pDynamicState = &dynamicStateInfo;
+			graphicsPipelineInfo.pDepthStencilState = &configInfo.DepthStencilInfo;
+
+			graphicsPipelineInfo.layout = m_Info.PipelineLayout;
+			graphicsPipelineInfo.renderPass = configInfo.RenderPass;
+			graphicsPipelineInfo.subpass = configInfo.Subpass;
+
+			graphicsPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+			graphicsPipelineInfo.basePipelineIndex = -1;
+		}
+
+		if (m_Info.PipelineType == PipelineType::Compute)
+		{
+			computePipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+			computePipelineInfo.layout = m_Info.PipelineLayout;
+			computePipelineInfo.stage = shaderStages[0];
+		}
+
+		switch (m_Info.PipelineType)
+		{
+		case PipelineType::Graphics:
+			VL_CORE_RETURN_ASSERT(vkCreateGraphicsPipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &graphicsPipelineInfo, nullptr, &m_Info.Pipeline),
+				VK_SUCCESS, "failed to create graphics pipeline!");
+			break;
+		case PipelineType::Compute:
+			VL_CORE_RETURN_ASSERT(vkCreateComputePipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_Info.Pipeline),
+				VK_SUCCESS,
+				"failed to create graphics pipeline!"
+			);
+			break;
+		case PipelineType::Undefined:
+			break;
+		default:
+			break;
+		}
+
+		for (int i = 0; i < shaderModules.size(); i++)
+		{
+			vkDestroyShaderModule(Device::GetDevice(), shaderModules[i].Module, nullptr);
+		}
+
+		m_Info.Initialized = true;
+	}
+
+	void Pipeline::Init(RayTracingCreateInfo* info)
+	{
+		// All stages
+		int count = (int)info->RayGenShaderFilepaths.size() + (int)info->MissShaderFilepaths.size() + (int)info->HitShaderFilepaths.size();
+		std::vector<VkPipelineShaderStageCreateInfo> stages(count);
+		VkPipelineShaderStageCreateInfo stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
+		stage.pName = "main";  // All the same entry point
+		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+
+		int stageCount = 0;
+
+		// Ray gen
+		for (int i = 0; i < info->RayGenShaderFilepaths.size(); i++)
+		{
+			//auto code = ReadFile("src/shaders/spv/raytrace.rgen.spv");
+			auto code = ReadFile(info->RayGenShaderFilepaths[i]);
+			CreateShaderModule(code, &stage.module);
+			stage.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+			stages[stageCount] = stage;
+			stageCount++;
+		}
+
+		// Miss
+		for (int i = 0; i < info->MissShaderFilepaths.size(); i++)
+		{
+			//auto code = ReadFile("src/shaders/spv/raytrace.rmiss.spv");
+			auto code = ReadFile(info->MissShaderFilepaths[i]);
+			CreateShaderModule(code, &stage.module);
+			stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
+			stages[stageCount] = stage;
+			stageCount++;
+		}
+
+		// Hit Group - Closest Hit
+		for (int i = 0; i < info->HitShaderFilepaths.size(); i++)
+		{
+			//auto code = ReadFile("src/shaders/spv/raytrace.rchit.spv");
+			auto code = ReadFile(info->HitShaderFilepaths[i]);
+			CreateShaderModule(code, &stage.module);
+			stage.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+			stages[stageCount] = stage;
+			stageCount++;
+		}
+
+		// Shader groups
+		VkRayTracingShaderGroupCreateInfoKHR group{ VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR };
+		group.anyHitShader = VK_SHADER_UNUSED_KHR;
+		group.closestHitShader = VK_SHADER_UNUSED_KHR;
+		group.generalShader = VK_SHADER_UNUSED_KHR;
+		group.intersectionShader = VK_SHADER_UNUSED_KHR;
+
+		// Ray gen
+		stageCount = 0;
+		std::vector<VkRayTracingShaderGroupCreateInfoKHR> rtShaderGroups;
+		for (int i = 0; i < info->RayGenShaderFilepaths.size(); i++)
+		{
+			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+			group.generalShader = stageCount;
+			rtShaderGroups.push_back(group);
+			stageCount++;
+		}
+
+		// Miss
+		for (int i = 0; i < info->MissShaderFilepaths.size(); i++)
+		{
+			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+			group.generalShader = stageCount;
+			rtShaderGroups.push_back(group);
+			stageCount++;
+		}
+
+		group.generalShader = VK_SHADER_UNUSED_KHR;
+
+		// closest hit shader
+		for (int i = 0; i < info->HitShaderFilepaths.size(); i++)
+		{
+			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+			group.closestHitShader = stageCount;
+			rtShaderGroups.push_back(group);
+			stageCount++;
+		}
+
+		// create layout
+		CreatePipelineLayout(info->DescriptorSetLayouts, info->PushConstants);
+
+		// Assemble the shader stages and recursion depth info into the ray tracing pipeline
+		VkRayTracingPipelineCreateInfoKHR rayPipelineInfo{ VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR };
+		rayPipelineInfo.stageCount = (uint32_t)stages.size();  // Stages are shaders
+		rayPipelineInfo.pStages = stages.data();
+
+		rayPipelineInfo.groupCount = (uint32_t)rtShaderGroups.size();
+		rayPipelineInfo.pGroups = rtShaderGroups.data();
+
+		rayPipelineInfo.maxPipelineRayRecursionDepth = 1;  // Ray depth
+		rayPipelineInfo.layout = m_Info.PipelineLayout;
+
+		Device::vkCreateRayTracingPipelinesKHR(Device::GetDevice(), {}, {}, 1, &rayPipelineInfo, nullptr, &m_Info.Pipeline);
+
+		for (int i = 0; i < stages.size(); i++)
+		{
+			vkDestroyShaderModule(Device::GetDevice(), stages[i].module, nullptr);
+		}
+
+		m_Info.Initialized = true;
+	}
+
+	void Pipeline::Destroy()
+	{
+		vkDestroyPipeline(Device::GetDevice(), m_Info.Pipeline, nullptr);
+		vkDestroyPipelineLayout(Device::GetDevice(), m_Info.PipelineLayout, nullptr);
+	}
+
 	Pipeline::~Pipeline()
 	{
-		vkDestroyPipeline(Device::GetDevice(), m_Pipeline, nullptr);
-		vkDestroyPipelineLayout(Device::GetDevice(), m_PipelineLayout, nullptr);
+		if (m_Info.Initialized)
+			Destroy();
 	}
 
 	/*
@@ -72,7 +329,7 @@ namespace Vulture
 	 */
 	void Pipeline::Bind(VkCommandBuffer commandBuffer, VkPipelineBindPoint bindPoint)
 	{
-		vkCmdBindPipeline(commandBuffer, bindPoint, m_Pipeline);
+		vkCmdBindPipeline(commandBuffer, bindPoint, m_Info.Pipeline);
 	}
 
 	/*
@@ -89,7 +346,7 @@ namespace Vulture
 		pipelineLayoutInfo.pSetLayouts = descriptorSetsLayouts.empty() ? nullptr : descriptorSetsLayouts.data();
 		pipelineLayoutInfo.pushConstantRangeCount = (pushConstants == nullptr) ? 0 : 1;
 		pipelineLayoutInfo.pPushConstantRanges = pushConstants;
-		VL_CORE_RETURN_ASSERT(vkCreatePipelineLayout(Device::GetDevice(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout),
+		VL_CORE_RETURN_ASSERT(vkCreatePipelineLayout(Device::GetDevice(), &pipelineLayoutInfo, nullptr, &m_Info.PipelineLayout),
 			VK_SUCCESS,
 			"failed to create pipeline layout!"
 		);
@@ -187,251 +444,5 @@ namespace Vulture
 		configInfo.DepthStencilInfo.stencilTestEnable = VK_FALSE;
 		configInfo.DepthStencilInfo.front = {};
 		configInfo.DepthStencilInfo.back = {};
-	}
-
-	void Pipeline::CreatePipeline(PipelineCreateInfo& info)
-	{
-		if (m_Pipeline)
-		{
-			vkDestroyPipeline(Device::GetDevice(), m_Pipeline, nullptr);
-			vkDestroyPipelineLayout(Device::GetDevice(), m_PipelineLayout, nullptr);
-		}
-		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
-		PipelineConfigInfo configInfo{};
-		configInfo.RenderPass = info.RenderPass;
-		configInfo.DepthClamp = info.DepthClamp;
-		CreatePipelineConfigInfo(configInfo, info.Width, info.Height, info.Topology, info.CullMode, info.DepthTestEnable, info.BlendingEnable, info.ColorAttachmentCount);
-
-		std::vector<ShaderModule> shaderModules;
-		shaderModules.resize(info.ShaderFilepaths.size());
-		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-		for (int i = 0; i < info.ShaderFilepaths.size(); i++)
-		{
-			auto code = ReadFile(info.ShaderFilepaths[i]);
-
-			if (info.ShaderFilepaths[i].rfind(".vert") != std::string::npos)
-			{
-				shaderModules[i].Type = VK_SHADER_STAGE_VERTEX_BIT;
-				CreateShaderModule(code, &shaderModules[i].Module);
-				if (m_PipelineType != PipelineType::Compute)
-					m_PipelineType = PipelineType::Graphics;
-				else
-					VL_CORE_ASSERT(false, "Can't create compute pipeline with graphics shader!");
-			}
-			else if (info.ShaderFilepaths[i].rfind(".frag") != std::string::npos)
-			{
-				shaderModules[i].Type = VK_SHADER_STAGE_FRAGMENT_BIT;
-				CreateShaderModule(code, &shaderModules[i].Module);
-				if (m_PipelineType != PipelineType::Compute)
-					m_PipelineType = PipelineType::Graphics;
-				else
-					VL_CORE_ASSERT(false, "Can't create compute pipeline with graphics shader!");
-			}
-			else if (info.ShaderFilepaths[i].rfind(".comp") != std::string::npos)
-			{
-				shaderModules[i].Type = VK_SHADER_STAGE_COMPUTE_BIT;
-				CreateShaderModule(code, &shaderModules[i].Module);
-				if (m_PipelineType != PipelineType::Graphics)
-					m_PipelineType = PipelineType::Compute;
-				else
-					VL_CORE_ASSERT(false, "Can't create graphics pipeline with compute shader!");
-			}
-
-			VkPipelineShaderStageCreateInfo stage;
-			stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-			stage.stage = shaderModules[i].Type;
-			stage.module = shaderModules[i].Module;
-			stage.pName = "main";
-			stage.flags = 0;
-			stage.pNext = nullptr;
-			stage.pSpecializationInfo = nullptr;
-
-			shaderStages.push_back(stage);
-		}
-
-		if (m_PipelineType == PipelineType::Compute && shaderModules.size() != 1)
-			VL_CORE_ASSERT(false, "Can't have more than 1 shader in compute pipeline!");
-
-		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexAttributeDescriptionCount = (uint32_t)info.AttributeDesc.size();
-		vertexInputInfo.pVertexAttributeDescriptions = info.AttributeDesc.data();
-		vertexInputInfo.vertexBindingDescriptionCount = (uint32_t)info.BindingDesc.size();
-		vertexInputInfo.pVertexBindingDescriptions = info.BindingDesc.data();
-
-		VkPipelineViewportStateCreateInfo viewportInfo{};
-		viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewportInfo.viewportCount = 1;
-		viewportInfo.pViewports = &configInfo.Viewport;
-		viewportInfo.scissorCount = 1;
-		viewportInfo.pScissors = &configInfo.Scissor;
-
-		VkDynamicState dynamicStates[] = {
-			VK_DYNAMIC_STATE_VIEWPORT,
-			VK_DYNAMIC_STATE_SCISSOR
-		};
-
-		VkPipelineDynamicStateCreateInfo dynamicStateInfo = {};
-		dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-		dynamicStateInfo.dynamicStateCount = 2;
-		dynamicStateInfo.pDynamicStates = dynamicStates;
-
-		VkGraphicsPipelineCreateInfo graphicsPipelineInfo = {};
-		VkComputePipelineCreateInfo computePipelineInfo = {};
-
-		if (m_PipelineType == PipelineType::Graphics)
-		{
-			graphicsPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-			graphicsPipelineInfo.stageCount = 2;
-			graphicsPipelineInfo.pStages = shaderStages.data();
-			graphicsPipelineInfo.pVertexInputState = &vertexInputInfo;
-			graphicsPipelineInfo.pInputAssemblyState = &configInfo.InputAssemblyInfo;
-			graphicsPipelineInfo.pViewportState = &viewportInfo;
-			graphicsPipelineInfo.pRasterizationState = &configInfo.RasterizationInfo;
-			graphicsPipelineInfo.pMultisampleState = &configInfo.MultisampleInfo;
-			graphicsPipelineInfo.pColorBlendState = &configInfo.ColorBlendInfo;
-			graphicsPipelineInfo.pDynamicState = &dynamicStateInfo;
-			graphicsPipelineInfo.pDepthStencilState = &configInfo.DepthStencilInfo;
-
-			graphicsPipelineInfo.layout = m_PipelineLayout;
-			graphicsPipelineInfo.renderPass = configInfo.RenderPass;
-			graphicsPipelineInfo.subpass = configInfo.Subpass;
-
-			graphicsPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-			graphicsPipelineInfo.basePipelineIndex = -1;
-		}
-
-		if (m_PipelineType == PipelineType::Compute)
-		{
-			computePipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-			computePipelineInfo.layout = m_PipelineLayout;
-			computePipelineInfo.stage = shaderStages[0];
-		}
-
-		switch (m_PipelineType)
-		{
-		case PipelineType::Graphics:
-			VL_CORE_RETURN_ASSERT(vkCreateGraphicsPipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &graphicsPipelineInfo, nullptr, &m_Pipeline),
-				VK_SUCCESS, "failed to create graphics pipeline!");
-			break;
-		case PipelineType::Compute:
-			VL_CORE_RETURN_ASSERT(vkCreateComputePipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_Pipeline),
-				VK_SUCCESS,
-				"failed to create graphics pipeline!"
-			);
-			break;
-		case PipelineType::Undefined:
-			break;
-		default:
-			break;
-		}
-
-		for (int i = 0; i < shaderModules.size(); i++)
-		{
-			vkDestroyShaderModule(Device::GetDevice(), shaderModules[i].Module, nullptr);
-		}
-	}
-
-	void Pipeline::CreateRayTracingPipeline(std::vector<VkRayTracingShaderGroupCreateInfoKHR>& rtShaderGroups, RayTracingPipelineCreateInfo& info)
-	{
-		// All stages
-		int count = (int)info.RayGenShaderFilepaths.size() + (int)info.MissShaderFilepaths.size() + (int)info.HitShaderFilepaths.size();
-		std::vector<VkPipelineShaderStageCreateInfo> stages(count);
-		VkPipelineShaderStageCreateInfo stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
-		stage.pName = "main";  // All the same entry point
-		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-
-		int stageCount = 0;
-		
-		// Ray gen
-		for (int i = 0; i < info.RayGenShaderFilepaths.size(); i++)
-		{
-			//auto code = ReadFile("src/shaders/spv/raytrace.rgen.spv");
-			auto code = ReadFile(info.RayGenShaderFilepaths[i]);
-			CreateShaderModule(code, &stage.module);
-			stage.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-			stages[stageCount] = stage;
-			stageCount++;
-		}
-
-		// Miss
-		for (int i = 0; i < info.MissShaderFilepaths.size(); i++)
-		{
-			//auto code = ReadFile("src/shaders/spv/raytrace.rmiss.spv");
-			auto code = ReadFile(info.MissShaderFilepaths[i]);
-			CreateShaderModule(code, &stage.module);
-			stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
-			stages[stageCount] = stage;
-			stageCount++;
-		}
-
-		// Hit Group - Closest Hit
-		for (int i = 0; i < info.HitShaderFilepaths.size(); i++)
-		{
-			//auto code = ReadFile("src/shaders/spv/raytrace.rchit.spv");
-			auto code = ReadFile(info.HitShaderFilepaths[i]);
-			CreateShaderModule(code, &stage.module);
-			stage.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-			stages[stageCount] = stage;
-			stageCount++;
-		}
-
-		// Shader groups
-		VkRayTracingShaderGroupCreateInfoKHR group{ VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR };
-		group.anyHitShader = VK_SHADER_UNUSED_KHR;
-		group.closestHitShader = VK_SHADER_UNUSED_KHR;
-		group.generalShader = VK_SHADER_UNUSED_KHR;
-		group.intersectionShader = VK_SHADER_UNUSED_KHR;
-
-		// Ray gen
-		stageCount = 0;
-		for (int i = 0; i < info.RayGenShaderFilepaths.size(); i++)
-		{
-			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-			group.generalShader = stageCount;
-			rtShaderGroups.push_back(group);
-			stageCount++;
-		}
-
-		// Miss
-		for (int i = 0; i < info.MissShaderFilepaths.size(); i++)
-		{
-			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-			group.generalShader = stageCount;
-			rtShaderGroups.push_back(group);
-			stageCount++;
-		}
-
-		group.generalShader = VK_SHADER_UNUSED_KHR;
-
-		// closest hit shader
-		for (int i = 0; i < info.HitShaderFilepaths.size(); i++)
-		{
-			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-			group.closestHitShader = stageCount;
-			rtShaderGroups.push_back(group);
-			stageCount++;
-		}
-
-		// create layout
-		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
-
-		// Assemble the shader stages and recursion depth info into the ray tracing pipeline
-		VkRayTracingPipelineCreateInfoKHR rayPipelineInfo{ VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR };
-		rayPipelineInfo.stageCount = (uint32_t)stages.size();  // Stages are shaders
-		rayPipelineInfo.pStages = stages.data();
-
-		rayPipelineInfo.groupCount = (uint32_t)rtShaderGroups.size();
-		rayPipelineInfo.pGroups = rtShaderGroups.data();
-
-		rayPipelineInfo.maxPipelineRayRecursionDepth = 1;  // Ray depth
-		rayPipelineInfo.layout = m_PipelineLayout;
-
-		Device::vkCreateRayTracingPipelinesKHR(Device::GetDevice(), {}, {}, 1, &rayPipelineInfo, nullptr, &m_Pipeline);
-
-		for (int i = 0; i < stages.size(); i++)
-		{
-			vkDestroyShaderModule(Device::GetDevice(), stages[i].module, nullptr);
-		}
 	}
 }

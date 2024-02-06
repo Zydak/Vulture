@@ -12,7 +12,7 @@ namespace Vulture
 	struct RenderPassInfo
 	{
 		VkRenderPassCreateInfo renderPassInfo;
-		PipelineCreateInfo pipelineInfo;
+		Pipeline::CreateInfo pipelineInfo;
 	};
 
 	class RenderPass
@@ -22,7 +22,7 @@ namespace Vulture
 		~RenderPass();
 
 		void CreateRenderPass(VkRenderPassCreateInfo& renderPassInfo);
-		void CreatePipeline(PipelineCreateInfo& pipelineInfo);
+		void CreatePipeline(Pipeline::CreateInfo& pipelineInfo);
 
 		void BeginRenderPass(const std::vector<VkClearValue>& clearColors);
 		void EndRenderPass();

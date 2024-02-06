@@ -25,10 +25,10 @@ namespace Vulture
 		);
 	}
 
-	void RenderPass::CreatePipeline(PipelineCreateInfo& pipelineInfo)
+	void RenderPass::CreatePipeline(Pipeline::CreateInfo& pipelineInfo)
 	{
 		pipelineInfo.RenderPass = m_RenderPass;
-		m_Pipeline.CreatePipeline(pipelineInfo);
+		m_Pipeline.Init(&pipelineInfo);
 	}
 
 	void RenderPass::BeginRenderPass(const std::vector<VkClearValue>& clearColors)
