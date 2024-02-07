@@ -17,8 +17,10 @@ namespace Vulture
 	class Scene
 	{
 	public:
-
+		void Init(Ref<Window> window);
 		void Destroy();
+
+		Scene() = default;
 		Scene(Ref<Window> window);
 		~Scene();
 
@@ -56,7 +58,7 @@ namespace Vulture
 
 		std::vector<Entity> CheckCollisionsWith(Entity& entity, const std::string nameToCheckAgainst);
 
-		inline entt::registry& GetRegistry() { return m_Registry; }
+		inline entt::registry& GetRegistry() { return *m_Registry; }
 		inline Ref<TextureAtlas> GetAtlas() const { return m_Atlas; }
 		Ref<Window> GetWindow() const { return m_Window; }
 		CameraComponent* GetMainCamera(Entity* entity = nullptr);
@@ -70,7 +72,7 @@ namespace Vulture
 	private:
 		Ref<AccelerationStructure> m_AccelerationStructure = nullptr;
 		Ref<Window> m_Window;
-		entt::registry m_Registry;
+		Ref<entt::registry> m_Registry;
 		Ref<TextureAtlas> m_Atlas;
 		std::vector<SystemInterface*> m_Systems;
 		std::unordered_map<std::string, Ref<FontAtlas>> m_FontAtlases;
@@ -80,6 +82,8 @@ namespace Vulture
 		// Just for fun
 		uint32_t m_VertexCount = 0;
 		uint32_t m_IndexCount = 0;
+
+		bool m_Initialized = false;
 	};
 
 }

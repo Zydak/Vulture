@@ -117,6 +117,7 @@ namespace Vulture
 
 	void SBT::Destroy()
 	{
+		m_RtSBTBuffer.Destroy();
 		m_Initialized = false;
 	}
 

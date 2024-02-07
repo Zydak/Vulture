@@ -59,6 +59,9 @@ namespace Vulture
 
 	void Buffer::Init(const Buffer::CreateInfo& createInfo)
 	{
+		if (m_Initialized)
+			Destroy();
+
 		VL_CORE_ASSERT(createInfo, "Incorectly Initialized Buffer::CreateInfo! Values: InstanceCount: {0}, InstanceSize: {1}, UsageFlags: {2}, MemoryPropertyFlags: {3}", createInfo.InstanceCount, createInfo.InstanceSize, createInfo.UsageFlags, createInfo.MemoryPropertyFlags);
 		m_Initialized = true;
 		m_InstanceCount = createInfo.InstanceCount;

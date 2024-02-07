@@ -152,7 +152,7 @@ namespace Vulture
 	{
 	public:
 		Vulture::Text Text;
-		TextComponent(const std::string& text, Ref<FontAtlas> font, const glm::vec4& color, int maxLetterCount = 0, bool resizable = false, float kerningOffset = 0.0f);
+		TextComponent(const Text::CreateInfo& createInfo);
 
 		void ChangeText(const std::string& string, float kerningOffset = 0.0f);
 	};

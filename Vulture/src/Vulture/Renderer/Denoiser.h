@@ -24,7 +24,10 @@ static void contextLogCb(unsigned int level, const char* tag, const char* messag
 class Denoiser
 {
 public:
-	Denoiser();
+	void Init();
+	void Destroy();
+
+	Denoiser() = default;
 	~Denoiser();
 
 	void DenoiseImageBuffer(uint64_t& fenceValue, float blendFactor = 0.0f);
@@ -37,8 +40,6 @@ public:
 	void ImageToBuffer(VkCommandBuffer& cmdBuf, const std::vector<Vulture::Image*>& imgIn);
 
 private:
-	bool Init(const OptixDenoiserOptions& options, OptixPixelFormat pixelFormat, bool hdr);
-	void Destroy();
 	void DestroyBuffer();
 
     Sampler m_Sampler;
@@ -59,7 +60,6 @@ private:
     VkExtent2D m_ImageSize{};
     uint32_t   m_SizeofPixel{};
     
-
 	struct BufferCuda
 	{
 		Vulture::Buffer BufferVk;
@@ -71,8 +71,8 @@ private:
 		void* CudaPtr = nullptr;  // Pointer for cuda
 	};
 
-	std::array<BufferCuda, 3> m_pixelBufferIn;  // Buffers for the input images
-	BufferCuda m_pixelBufferOut; // Result of the denoiser
+	std::array<BufferCuda, 3> m_PixelBufferIn;  // Buffers for the input images
+	BufferCuda m_PixelBufferOut; // Result of the denoiser
 
 	struct Semaphore
 	{
@@ -88,6 +88,8 @@ private:
 	Semaphore m_Semaphore;
 
 	void CreateBufferHandles(BufferCuda& buf);
+
+	bool m_Initialized = false;
 };
 
 }  // namespace Vulture

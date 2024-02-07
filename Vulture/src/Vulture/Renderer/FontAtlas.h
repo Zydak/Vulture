@@ -15,7 +15,12 @@ namespace Vulture
 	class FontAtlas
 	{
 	public:
+		void Init(const std::string& filepath, const std::string& fontName);
+		void Destroy();
+
+		FontAtlas() = default;
 		FontAtlas(const std::string& filepath, const std::string& fontName);
+		~FontAtlas();
 
 		Ref<Image> GetAtlasTexture() const { return m_AtlasTexture; }
 		const std::vector<msdf_atlas::GlyphGeometry>& GetGlyphs() const { return m_Glyphs; }
@@ -31,5 +36,7 @@ namespace Vulture
 		Sampler m_Sampler;
 
 		Ref<Image> m_AtlasTexture;
+
+		bool m_Initialized = false;
 	};
 }

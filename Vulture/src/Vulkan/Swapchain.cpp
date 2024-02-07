@@ -9,20 +9,12 @@
 namespace Vulture
 {
 
-	Swapchain::Swapchain(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode)
-		: m_WindowExtent(windowExtent)
+	void Swapchain::Init(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode)
 	{
-		m_SwapchainDepthFormat = FindDepthFormat();
-		CreateSwapchain(prefferedPresentMode);
-		CreateImageViews();
-		CreateRenderPass();
-		CreateFramebuffers();
-		CreateSyncObjects();
-	}
+		if (m_Initialized)
+			Destroy();
 
-	Swapchain::Swapchain(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode, Ref<Swapchain> previousSwapchain)
-		: m_WindowExtent(windowExtent), m_OldSwapchain(previousSwapchain)
-	{
+		m_WindowExtent = windowExtent;
 		m_SwapchainDepthFormat = FindDepthFormat();
 		CreateSwapchain(prefferedPresentMode);
 		CreateImageViews();
@@ -30,10 +22,28 @@ namespace Vulture
 		CreateFramebuffers();
 		CreateSyncObjects();
 
-		m_OldSwapchain = nullptr;
+		m_Initialized = true;
 	}
 
-	Swapchain::~Swapchain()
+	void Swapchain::Init(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode, Ref<Swapchain> previousSwapchain)
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_OldSwapchain = previousSwapchain;
+		m_WindowExtent = windowExtent;
+		m_SwapchainDepthFormat = FindDepthFormat();
+		CreateSwapchain(prefferedPresentMode);
+		CreateImageViews();
+		CreateRenderPass();
+		CreateFramebuffers();
+		CreateSyncObjects();
+
+		m_OldSwapchain.reset();
+		m_Initialized = true;
+	}
+
+	void Swapchain::Destroy()
 	{
 		for (auto imageView : m_PresentableImageViews) { vkDestroyImageView(Device::GetDevice(), imageView, nullptr); }
 		m_PresentableImageViews.clear();
@@ -55,6 +65,24 @@ namespace Vulture
 		}
 
 		vkDestroyRenderPass(Device::GetDevice(), m_RenderPass, nullptr);
+
+		m_Initialized = false;
+	}
+
+	Swapchain::Swapchain(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode)
+	{
+		Init(windowExtent, prefferedPresentMode);
+	}
+
+	Swapchain::Swapchain(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode, Ref<Swapchain> previousSwapchain)
+	{
+		Init(windowExtent, prefferedPresentMode, previousSwapchain);
+	}
+
+	Swapchain::~Swapchain()
+	{
+		if (m_Initialized)
+			Destroy();
 	}
 
 	/*

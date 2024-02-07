@@ -18,7 +18,6 @@ Sandbox::~Sandbox()
 void Sandbox::Destroy()
 {
 	DestroyScripts();
-	m_Scene->Destroy();
 	m_Scene.reset();
 	m_SceneRenderer.reset();
 }

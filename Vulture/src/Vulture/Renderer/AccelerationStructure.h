@@ -34,6 +34,7 @@ namespace Vulture
 		void Destroy();
 		void Init(Scene& scene);
 
+		AccelerationStructure() = default;
 		~AccelerationStructure();
 
 		AccelKHR GetTlas() const { return m_Tlas; }
@@ -73,5 +74,7 @@ namespace Vulture
 	private:
 		std::vector<BuildAccelerationStructure> m_Blas;
 		AccelKHR m_Tlas;
+
+		bool m_Initialized;
 	};
 }

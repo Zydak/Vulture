@@ -4,6 +4,33 @@
 namespace Vulture
 {
 
+	void Mesh::Init(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices)
+	{
+		if (m_Initialized)
+			Destroy();
+
+		CreateMesh(vertices, indices);
+		m_Initialized = true;
+	}
+
+	void Mesh::Init(aiMesh* mesh, const aiScene* scene, glm::mat4 mat /*= glm::mat4(1.0f)*/)
+	{
+		if (m_Initialized)
+			Destroy();
+
+		CreateMesh(mesh, scene, mat);
+		m_Initialized = true;
+	}
+
+	void Mesh::Init(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags)
+	{
+		if (m_Initialized)
+			Destroy();
+
+		CreateEmptyBuffers(vertexCount, indexCount, vertexBufferFlags, indexBufferFlags);
+		m_Initialized = true;
+	}
+
 	void Mesh::Destroy()
 	{
 		m_VertexBuffer.Destroy();
@@ -21,17 +48,12 @@ namespace Vulture
 	{
 		CreateVertexBuffer(vertices);
 		CreateIndexBuffer(indices);
-		m_Initialized = true;
 	}
 
 	void Mesh::CreateMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 mat)
 	{
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
-
-		//aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-		//aiColor3D emissiveColor(0.0f, 0.0f, 0.0f); // Default color
-		//material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor);
 
 		// vertices
 		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
@@ -43,7 +65,7 @@ namespace Vulture
 			vector.x = mesh->mVertices[i].x;
 			vector.y = mesh->mVertices[i].y;
 			vector.z = mesh->mVertices[i].z;
-			vertex.Position = mat * glm::vec4(vector, 1.0f);
+			vertex.Position = glm::transpose(mat) * glm::vec4(vector, 1.0f);
 
 			// normals
 			if (mesh->HasNormals())
@@ -51,7 +73,7 @@ namespace Vulture
 				vector.x = mesh->mNormals[i].x;
 				vector.y = mesh->mNormals[i].y;
 				vector.z = mesh->mNormals[i].z;
-				vertex.Normal = vector;
+				vertex.Normal = glm::normalize(glm::vec3((glm::inverse(mat)) * glm::vec4(vector, 0.0f)));
 			}
 
 			// texture coordinates
@@ -92,8 +114,6 @@ namespace Vulture
 
 		CreateVertexBuffer(vertices);
 		CreateIndexBuffer(indices);
-
-		m_Initialized = true;
 	}
 
 	void Mesh::CreateVertexBuffer(const std::vector<Vertex>& vertices)

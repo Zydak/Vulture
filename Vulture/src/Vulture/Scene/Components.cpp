@@ -173,8 +173,8 @@ namespace Vulture
 		return false;
 	}
 
-	TextComponent::TextComponent(const std::string& text, Ref<FontAtlas> font, const glm::vec4& color, int maxLetterCount /*= 0*/, bool resizable /*= false*/, float kerningOffset /*= 0.0f*/)
-		: Text(text, font, color, kerningOffset, maxLetterCount, resizable)
+	TextComponent::TextComponent(const Text::CreateInfo& createInfo)
+		: Text(createInfo)
 	{
 
 	}

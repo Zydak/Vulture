@@ -3,6 +3,7 @@
 layout (location = 0) out vec4 outAlbedo;
 layout (location = 1) out vec4 outNormal;
 layout (location = 2) out vec2 outRoughnessMetallness;
+layout (location = 3) out vec4 outEmissive;
 
 struct Material
 {
@@ -27,7 +28,8 @@ void main()
 	normalMapTest = normalMapTest * 2.0f - 1.0f;
 
 	outAlbedo = dataIn.material.Albedo;
-	vec2 roughnessMetallness = vec2(dataIn.material.Metallic, dataIn.material.Roughness);
+	vec2 roughnessMetallness = vec2(dataIn.material.Roughness, dataIn.material.Metallic);
 	outRoughnessMetallness = roughnessMetallness;
 	outNormal = 0.5 * (vec4(normalize(dataIn.TBN * normalMapTest), 1.0f) + 1.0f);
+	outEmissive = dataIn.material.Emissive;
 }

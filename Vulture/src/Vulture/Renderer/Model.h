@@ -16,7 +16,11 @@ namespace Vulture
 	class Model
 	{
 	public:
-		Model(const std::string filepath);
+		void Init(const std::string& filepath);
+		void Destroy();
+
+		Model() = default;
+		Model(const std::string& filepath);
 		~Model();
 
 		void Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance = 0);
@@ -51,6 +55,8 @@ namespace Vulture
 
 		uint32_t m_VertexCount = 0;
 		uint32_t m_IndexCount = 0;
+
+		bool m_Initialized = false;
 	};
 
 }

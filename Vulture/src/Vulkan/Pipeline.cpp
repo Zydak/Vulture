@@ -19,52 +19,35 @@ namespace Vulture
 		VkShaderStageFlagBits Type;
 	};
 
-	void Pipeline::Init(CreateInfo* info)
+	void Pipeline::Init(const GraphicsCreateInfo& info)
 	{
 		if (m_Initialized)
 		{
 			Destroy();
 		}
 
-		CreatePipelineLayout(info->DescriptorSetLayouts, info->PushConstants);
+		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
 		PipelineConfigInfo configInfo{};
-		configInfo.RenderPass = info->RenderPass;
-		configInfo.DepthClamp = info->DepthClamp;
-		CreatePipelineConfigInfo(configInfo, info->Width, info->Height, info->Topology, info->CullMode, info->DepthTestEnable, info->BlendingEnable, info->ColorAttachmentCount);
+		configInfo.RenderPass = info.RenderPass;
+		configInfo.DepthClamp = info.DepthClamp;
+		CreatePipelineConfigInfo(configInfo, info.Width, info.Height, info.Topology, info.CullMode, info.DepthTestEnable, info.BlendingEnable, info.ColorAttachmentCount);
 
 		std::vector<ShaderModule> shaderModules;
-		shaderModules.resize(info->ShaderFilepaths.size());
+		shaderModules.resize(info.ShaderFilepaths.size());
 		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-		for (int i = 0; i < info->ShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.ShaderFilepaths.size(); i++)
 		{
-			auto code = ReadFile(info->ShaderFilepaths[i]);
+			auto code = ReadFile(info.ShaderFilepaths[i]);
 
-			if (info->ShaderFilepaths[i].rfind(".vert") != std::string::npos)
+			if (info.ShaderFilepaths[i].rfind(".vert") != std::string::npos)
 			{
 				shaderModules[i].Type = VK_SHADER_STAGE_VERTEX_BIT;
 				CreateShaderModule(code, &shaderModules[i].Module);
-				if (m_PipelineType != PipelineType::Compute)
-					m_PipelineType = PipelineType::Graphics;
-				else
-					VL_CORE_ASSERT(false, "Can't create compute pipeline with graphics shader!");
 			}
-			else if (info->ShaderFilepaths[i].rfind(".frag") != std::string::npos)
+			else if (info.ShaderFilepaths[i].rfind(".frag") != std::string::npos)
 			{
 				shaderModules[i].Type = VK_SHADER_STAGE_FRAGMENT_BIT;
 				CreateShaderModule(code, &shaderModules[i].Module);
-				if (m_PipelineType != PipelineType::Compute)
-					m_PipelineType = PipelineType::Graphics;
-				else
-					VL_CORE_ASSERT(false, "Can't create compute pipeline with graphics shader!");
-			}
-			else if (info->ShaderFilepaths[i].rfind(".comp") != std::string::npos)
-			{
-				shaderModules[i].Type = VK_SHADER_STAGE_COMPUTE_BIT;
-				CreateShaderModule(code, &shaderModules[i].Module);
-				if (m_PipelineType != PipelineType::Graphics)
-					m_PipelineType = PipelineType::Compute;
-				else
-					VL_CORE_ASSERT(false, "Can't create graphics pipeline with compute shader!");
 			}
 
 			VkPipelineShaderStageCreateInfo stage;
@@ -79,15 +62,12 @@ namespace Vulture
 			shaderStages.push_back(stage);
 		}
 
-		if (m_PipelineType == PipelineType::Compute && shaderModules.size() != 1)
-			VL_CORE_ASSERT(false, "Can't have more than 1 shader in compute pipeline!");
-
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexAttributeDescriptionCount = (uint32_t)info->AttributeDesc.size();
-		vertexInputInfo.pVertexAttributeDescriptions = info->AttributeDesc.data();
-		vertexInputInfo.vertexBindingDescriptionCount = (uint32_t)info->BindingDesc.size();
-		vertexInputInfo.pVertexBindingDescriptions = info->BindingDesc.data();
+		vertexInputInfo.vertexAttributeDescriptionCount = (uint32_t)info.AttributeDesc.size();
+		vertexInputInfo.pVertexAttributeDescriptions = info.AttributeDesc.data();
+		vertexInputInfo.vertexBindingDescriptionCount = (uint32_t)info.BindingDesc.size();
+		vertexInputInfo.pVertexBindingDescriptions = info.BindingDesc.data();
 
 		VkPipelineViewportStateCreateInfo viewportInfo{};
 		viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -107,54 +87,31 @@ namespace Vulture
 		dynamicStateInfo.pDynamicStates = dynamicStates;
 
 		VkGraphicsPipelineCreateInfo graphicsPipelineInfo = {};
-		VkComputePipelineCreateInfo computePipelineInfo = {};
 
-		if (m_PipelineType == PipelineType::Graphics)
-		{
-			graphicsPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-			graphicsPipelineInfo.stageCount = 2;
-			graphicsPipelineInfo.pStages = shaderStages.data();
-			graphicsPipelineInfo.pVertexInputState = &vertexInputInfo;
-			graphicsPipelineInfo.pInputAssemblyState = &configInfo.InputAssemblyInfo;
-			graphicsPipelineInfo.pViewportState = &viewportInfo;
-			graphicsPipelineInfo.pRasterizationState = &configInfo.RasterizationInfo;
-			graphicsPipelineInfo.pMultisampleState = &configInfo.MultisampleInfo;
-			graphicsPipelineInfo.pColorBlendState = &configInfo.ColorBlendInfo;
-			graphicsPipelineInfo.pDynamicState = &dynamicStateInfo;
-			graphicsPipelineInfo.pDepthStencilState = &configInfo.DepthStencilInfo;
+		graphicsPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		graphicsPipelineInfo.stageCount = 2;
+		graphicsPipelineInfo.pStages = shaderStages.data();
+		graphicsPipelineInfo.pVertexInputState = &vertexInputInfo;
+		graphicsPipelineInfo.pInputAssemblyState = &configInfo.InputAssemblyInfo;
+		graphicsPipelineInfo.pViewportState = &viewportInfo;
+		graphicsPipelineInfo.pRasterizationState = &configInfo.RasterizationInfo;
+		graphicsPipelineInfo.pMultisampleState = &configInfo.MultisampleInfo;
+		graphicsPipelineInfo.pColorBlendState = &configInfo.ColorBlendInfo;
+		graphicsPipelineInfo.pDynamicState = &dynamicStateInfo;
+		graphicsPipelineInfo.pDepthStencilState = &configInfo.DepthStencilInfo;
 
-			graphicsPipelineInfo.layout = m_PipelineLayout;
-			graphicsPipelineInfo.renderPass = configInfo.RenderPass;
-			graphicsPipelineInfo.subpass = configInfo.Subpass;
+		graphicsPipelineInfo.layout = m_PipelineLayout;
+		graphicsPipelineInfo.renderPass = configInfo.RenderPass;
+		graphicsPipelineInfo.subpass = configInfo.Subpass;
 
-			graphicsPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-			graphicsPipelineInfo.basePipelineIndex = -1;
-		}
+		graphicsPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+		graphicsPipelineInfo.basePipelineIndex = -1;
 
-		if (m_PipelineType == PipelineType::Compute)
-		{
-			computePipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-			computePipelineInfo.layout = m_PipelineLayout;
-			computePipelineInfo.stage = shaderStages[0];
-		}
-
-		switch (m_PipelineType)
-		{
-		case PipelineType::Graphics:
-			VL_CORE_RETURN_ASSERT(vkCreateGraphicsPipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &graphicsPipelineInfo, nullptr, &m_PipelineHandle),
-				VK_SUCCESS, "failed to create graphics pipeline!");
-			break;
-		case PipelineType::Compute:
-			VL_CORE_RETURN_ASSERT(vkCreateComputePipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_PipelineHandle),
-				VK_SUCCESS,
-				"failed to create graphics pipeline!"
-			);
-			break;
-		case PipelineType::Undefined:
-			break;
-		default:
-			break;
-		}
+		VL_CORE_RETURN_ASSERT(
+			vkCreateGraphicsPipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &graphicsPipelineInfo, nullptr, &m_PipelineHandle),
+			VK_SUCCESS,
+			"failed to create graphics pipeline!"
+		);
 
 		for (int i = 0; i < shaderModules.size(); i++)
 		{
@@ -164,10 +121,15 @@ namespace Vulture
 		m_Initialized = true;
 	}
 
-	void Pipeline::Init(RayTracingCreateInfo* info)
+	void Pipeline::Init(const RayTracingCreateInfo& info)
 	{
+		if (m_Initialized)
+		{
+			Destroy();
+		}
+
 		// All stages
-		int count = (int)info->RayGenShaderFilepaths.size() + (int)info->MissShaderFilepaths.size() + (int)info->HitShaderFilepaths.size();
+		int count = (int)info.RayGenShaderFilepaths.size() + (int)info.MissShaderFilepaths.size() + (int)info.HitShaderFilepaths.size();
 		std::vector<VkPipelineShaderStageCreateInfo> stages(count);
 		VkPipelineShaderStageCreateInfo stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
 		stage.pName = "main";  // All the same entry point
@@ -176,10 +138,10 @@ namespace Vulture
 		int stageCount = 0;
 
 		// Ray gen
-		for (int i = 0; i < info->RayGenShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.RayGenShaderFilepaths.size(); i++)
 		{
 			//auto code = ReadFile("src/shaders/spv/raytrace.rgen.spv");
-			auto code = ReadFile(info->RayGenShaderFilepaths[i]);
+			auto code = ReadFile(info.RayGenShaderFilepaths[i]);
 			CreateShaderModule(code, &stage.module);
 			stage.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 			stages[stageCount] = stage;
@@ -187,10 +149,10 @@ namespace Vulture
 		}
 
 		// Miss
-		for (int i = 0; i < info->MissShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.MissShaderFilepaths.size(); i++)
 		{
 			//auto code = ReadFile("src/shaders/spv/raytrace.rmiss.spv");
-			auto code = ReadFile(info->MissShaderFilepaths[i]);
+			auto code = ReadFile(info.MissShaderFilepaths[i]);
 			CreateShaderModule(code, &stage.module);
 			stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
 			stages[stageCount] = stage;
@@ -198,10 +160,10 @@ namespace Vulture
 		}
 
 		// Hit Group - Closest Hit
-		for (int i = 0; i < info->HitShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.HitShaderFilepaths.size(); i++)
 		{
 			//auto code = ReadFile("src/shaders/spv/raytrace.rchit.spv");
-			auto code = ReadFile(info->HitShaderFilepaths[i]);
+			auto code = ReadFile(info.HitShaderFilepaths[i]);
 			CreateShaderModule(code, &stage.module);
 			stage.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 			stages[stageCount] = stage;
@@ -218,7 +180,7 @@ namespace Vulture
 		// Ray gen
 		stageCount = 0;
 		std::vector<VkRayTracingShaderGroupCreateInfoKHR> rtShaderGroups;
-		for (int i = 0; i < info->RayGenShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.RayGenShaderFilepaths.size(); i++)
 		{
 			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
 			group.generalShader = stageCount;
@@ -227,7 +189,7 @@ namespace Vulture
 		}
 
 		// Miss
-		for (int i = 0; i < info->MissShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.MissShaderFilepaths.size(); i++)
 		{
 			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
 			group.generalShader = stageCount;
@@ -238,7 +200,7 @@ namespace Vulture
 		group.generalShader = VK_SHADER_UNUSED_KHR;
 
 		// closest hit shader
-		for (int i = 0; i < info->HitShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.HitShaderFilepaths.size(); i++)
 		{
 			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 			group.closestHitShader = stageCount;
@@ -247,7 +209,7 @@ namespace Vulture
 		}
 
 		// create layout
-		CreatePipelineLayout(info->DescriptorSetLayouts, info->PushConstants);
+		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
 
 		// Assemble the shader stages and recursion depth info into the ray tracing pipeline
 		VkRayTracingPipelineCreateInfoKHR rayPipelineInfo{ VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR };
@@ -266,6 +228,50 @@ namespace Vulture
 		{
 			vkDestroyShaderModule(Device::GetDevice(), stages[i].module, nullptr);
 		}
+
+		m_Initialized = true;
+	}
+
+	void Pipeline::Init(const ComputeCreateInfo& info)
+	{
+		if (m_Initialized)
+		{
+			Destroy();
+		}
+
+		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
+		
+		ShaderModule shaderModule;
+		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+		auto code = ReadFile(info.ShaderFilepath);
+
+		shaderModule.Type = VK_SHADER_STAGE_COMPUTE_BIT;
+		CreateShaderModule(code, &shaderModule.Module);
+
+		VkPipelineShaderStageCreateInfo stage;
+		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		stage.stage = shaderModule.Type;
+		stage.module = shaderModule.Module;
+		stage.pName = "main";
+		stage.flags = 0;
+		stage.pNext = nullptr;
+		stage.pSpecializationInfo = nullptr;
+
+		shaderStages.push_back(stage);
+
+		VkComputePipelineCreateInfo computePipelineInfo = {};
+
+		computePipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+		computePipelineInfo.layout = m_PipelineLayout;
+		computePipelineInfo.stage = shaderStages[0];
+
+		VL_CORE_RETURN_ASSERT(
+			vkCreateComputePipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_PipelineHandle),
+			VK_SUCCESS,
+			"failed to create graphics pipeline!"
+		);
+
+		vkDestroyShaderModule(Device::GetDevice(), shaderModule.Module, nullptr);
 
 		m_Initialized = true;
 	}
@@ -339,7 +345,7 @@ namespace Vulture
 	 * @param descriptorSetsLayouts - The descriptor set layouts to be used in the pipeline layout.
 	 * @param pushConstants - The push constant ranges to be used in the pipeline layout.
 	 */
-	void Pipeline::CreatePipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSetsLayouts, VkPushConstantRange* pushConstants)
+	void Pipeline::CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetsLayouts, VkPushConstantRange* pushConstants)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

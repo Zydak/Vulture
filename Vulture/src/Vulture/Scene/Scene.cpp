@@ -9,26 +9,40 @@
 namespace Vulture
 {
 
+	void Scene::Init(Ref<Window> window)
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Registry = std::make_shared<entt::registry>();
+		m_Window = window;
+		m_Initialized = true;
+	}
+
 	void Scene::Destroy()
 	{
-		m_Registry.clear<ModelComponent>();
-		m_Registry.clear<SkyboxComponent>();
+		m_Window.reset();
+		m_Atlas.reset();
+		m_FontAtlases.clear();
+		m_Registry.reset();
+		m_AccelerationStructure.reset();
+		m_Initialized = false;
 	}
 
 	Scene::Scene(Ref<Window> window)
-		: m_Window(window)
 	{
-
+		Init(window);
 	}
 
 	Scene::~Scene()
 	{
-		VL_CORE_WARN("SCENE DES");
+		if (m_Initialized)
+			Destroy();
 	}
 
 	Entity Scene::CreateEntity()
 	{
-		Entity entity = { m_Registry.create(), this };
+		Entity entity = { m_Registry->create(), this };
 		return entity;
 	}
 
@@ -96,7 +110,7 @@ namespace Vulture
 
 	void Scene::DestroyEntity(Entity& entity)
 	{
-		m_Registry.destroy(entity);
+		m_Registry->destroy(entity);
 	}
 
 	void Scene::CreateAtlas(const std::string& filepath)
@@ -112,7 +126,7 @@ namespace Vulture
 
 	void Scene::InitScripts()
 	{
-		auto view = m_Registry.view<ScriptComponent>();
+		auto view = m_Registry->view<ScriptComponent>();
 		for (auto entity : view)
 		{
 			ScriptComponent& scriptComponent = view.get<ScriptComponent>(entity);
@@ -126,7 +140,7 @@ namespace Vulture
 
 	void Scene::DestroyScripts()
 	{
-		auto view = m_Registry.view<ScriptComponent>();
+		auto view = m_Registry->view<ScriptComponent>();
 		for (auto entity : view)
 		{
 			ScriptComponent& scriptComponent = view.get<ScriptComponent>(entity);
@@ -139,7 +153,7 @@ namespace Vulture
 
 	void Scene::UpdateScripts(double deltaTime)
 	{
-		auto view = m_Registry.view<ScriptComponent>();
+		auto view = m_Registry->view<ScriptComponent>();
 		for (auto entity : view)
 		{
 			ScriptComponent& scriptComponent = view.get<ScriptComponent>(entity);
@@ -191,12 +205,12 @@ namespace Vulture
 		std::vector<Entity> entitiesThatItCollidesWith;
 		VL_CORE_ASSERT(mainEntity.HasComponent<ColliderComponent>() == true, "This entity has no collider!");
 		ColliderComponent& mainCollider = mainEntity.GetComponent<ColliderComponent>();
-		auto view = m_Registry.view<ColliderComponent>();
+		auto view = m_Registry->view<ColliderComponent>();
 		for (auto& entity : view)
 		{
 			if (entity != mainEntity.GetHandle())
 			{
-				ColliderComponent& entityCollider = m_Registry.get<ColliderComponent>(entity);
+				ColliderComponent& entityCollider = m_Registry->get<ColliderComponent>(entity);
 				if (entityCollider.ColliderName == nameToCheckAgainst)
 				{
 					if (mainCollider.CheckCollision(entityCollider))
@@ -212,10 +226,10 @@ namespace Vulture
 
 	Vulture::CameraComponent* Scene::GetMainCamera(Entity* inEntity)
 	{
-		auto view = m_Registry.view<CameraComponent>();
+		auto view = m_Registry->view<CameraComponent>();
 		for (auto& entity : view)
 		{
-			CameraComponent& camera = m_Registry.get<CameraComponent>(entity);
+			CameraComponent& camera = m_Registry->get<CameraComponent>(entity);
 			if (camera.Main)
 			{
 				if (inEntity != nullptr)

@@ -17,7 +17,7 @@ namespace Vulture
 		vkDestroyRenderPass(Device::GetDevice(), m_RenderPass, nullptr);
 	}
 
-	void RenderPass::CreateRenderPass(VkRenderPassCreateInfo& renderPassInfo)
+	void RenderPass::CreateRenderPass(const VkRenderPassCreateInfo& renderPassInfo)
 	{
 		VL_CORE_RETURN_ASSERT(vkCreateRenderPass(Device::GetDevice(), &renderPassInfo, nullptr, &m_RenderPass),
 			VK_SUCCESS,
@@ -25,10 +25,10 @@ namespace Vulture
 		);
 	}
 
-	void RenderPass::CreatePipeline(Pipeline::CreateInfo& pipelineInfo)
+	void RenderPass::CreatePipeline(Pipeline::GraphicsCreateInfo& pipelineInfo)
 	{
 		pipelineInfo.RenderPass = m_RenderPass;
-		m_Pipeline.Init(&pipelineInfo);
+		m_Pipeline.Init(pipelineInfo);
 	}
 
 	void RenderPass::BeginRenderPass(const std::vector<VkClearValue>& clearColors)

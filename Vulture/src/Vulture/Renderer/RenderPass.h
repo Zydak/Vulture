@@ -12,17 +12,18 @@ namespace Vulture
 	struct RenderPassInfo
 	{
 		VkRenderPassCreateInfo renderPassInfo;
-		Pipeline::CreateInfo pipelineInfo;
+		Pipeline::GraphicsCreateInfo pipelineInfo;
 	};
 
+	// TODO: make this class actually do something instead of just being wrapper for pipelines
 	class RenderPass
 	{
 	public:
 		RenderPass();
 		~RenderPass();
 
-		void CreateRenderPass(VkRenderPassCreateInfo& renderPassInfo);
-		void CreatePipeline(Pipeline::CreateInfo& pipelineInfo);
+		void CreateRenderPass(const VkRenderPassCreateInfo& renderPassInfo);
+		void CreatePipeline(Pipeline::GraphicsCreateInfo& pipelineInfo);
 
 		void BeginRenderPass(const std::vector<VkClearValue>& clearColors);
 		void EndRenderPass();

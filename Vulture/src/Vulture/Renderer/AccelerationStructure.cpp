@@ -280,17 +280,25 @@ namespace Vulture
 			Device::vkDestroyAccelerationStructureKHR(Device::GetDevice(), m_Blas[i].As.Accel);
 		}
 		Device::vkDestroyAccelerationStructureKHR(Device::GetDevice(), m_Tlas.Accel);
+
+		m_Initialized = false;
 	}
 
 	void AccelerationStructure::Init(Scene& scene)
 	{
+		if (m_Initialized)
+			Destroy();
+
 		CreateBottomLevelAS(scene);
 		CreateTopLevelAS(scene);
+
+		m_Initialized = true;
 	}
 
 	AccelerationStructure::~AccelerationStructure()
 	{
-		Destroy(); // todo
+		if (m_Initialized)
+			Destroy();
 	}
 
 	/**

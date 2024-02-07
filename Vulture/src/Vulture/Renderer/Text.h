@@ -9,7 +9,28 @@ namespace Vulture
 	class Text
 	{
 	public:
-		Text(const std::string& text, Ref<FontAtlas> fontAtlas, const glm::vec4& color, float kerningOffset = 0.0f, int maxLettersCount = 0, bool resizable = false);
+		struct CreateInfo
+		{
+			std::string Text = "";
+			Ref<FontAtlas> FontAtlas = nullptr;
+			glm::vec4 Color = { -1.0f, -1.0f, -1.0f, -1.0f };
+			float KerningOffset = 0.0f;
+			int MaxLettersCount = 0;
+			bool Resizable = false;
+
+			operator bool() const
+			{
+				return (Color != glm::vec4(-1.0f)) && (FontAtlas != nullptr);
+			}
+		};
+
+		void Init(const CreateInfo& createInfo);
+		void Destroy();
+
+		Text() = default;
+		Text(const CreateInfo& createInfo);
+		~Text();
+
 		void ChangeText(const std::string& text, float kerningOffset = 0.0f);
 
 		std::string GetTextString() const { return m_Text; }
@@ -43,5 +64,7 @@ namespace Vulture
 		std::vector<std::shared_ptr<Mesh>> m_TextMeshes;
 		glm::vec4 m_Color;
 		bool m_Resizable;
+
+		bool m_Initialized = false;
 	};
 }

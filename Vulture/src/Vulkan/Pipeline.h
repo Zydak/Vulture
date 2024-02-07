@@ -11,11 +11,13 @@ namespace Vulture
 	class Pipeline
 	{
 	public:
-		struct CreateInfo;
+		struct GraphicsCreateInfo;
+		struct ComputeCreateInfo;
 		struct RayTracingCreateInfo;
 
-		void Init(CreateInfo* info);
-		void Init(RayTracingCreateInfo* info);
+		void Init(const GraphicsCreateInfo& info);
+		void Init(const ComputeCreateInfo& info);
+		void Init(const RayTracingCreateInfo& info);
 		void Destroy();
 
 		Pipeline() = default;
@@ -30,7 +32,7 @@ namespace Vulture
 		inline VkPipeline GetPipeline() const { return m_PipelineHandle; }
 
 	public:
-		struct CreateInfo
+		struct GraphicsCreateInfo
 		{
 			std::vector<std::string> ShaderFilepaths;
 			std::vector<VkVertexInputBindingDescription> BindingDesc;
@@ -48,11 +50,11 @@ namespace Vulture
 			int ColorAttachmentCount = 1;
 		};
 
-		enum class PipelineType
+		struct ComputeCreateInfo
 		{
-			Graphics,
-			Compute,
-			Undefined
+			std::string ShaderFilepath;
+			std::vector<VkDescriptorSetLayout> DescriptorSetLayouts;
+			VkPushConstantRange* PushConstants;
 		};
 
 		struct RayTracingCreateInfo
@@ -86,12 +88,10 @@ namespace Vulture
 		static std::vector<char> ReadFile(const std::string& filepath);
 
 		void CreateShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
-		void CreatePipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSetsLayouts, VkPushConstantRange* pushConstants);
+		void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetsLayouts, VkPushConstantRange* pushConstants);
 	
 		VkPipeline m_PipelineHandle = 0;
 		VkPipelineLayout m_PipelineLayout = 0;
-
-		PipelineType m_PipelineType = PipelineType::Undefined;
 
 		bool m_Initialized = false;
 	};

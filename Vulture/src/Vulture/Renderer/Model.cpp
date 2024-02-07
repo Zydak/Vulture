@@ -9,7 +9,7 @@
 namespace Vulture
 {
 
-	Model::Model(const std::string filepath)
+	void Model::Init(const std::string& filepath)
 	{
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(filepath, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_CalcTangentSpace);
@@ -19,13 +19,38 @@ namespace Vulture
 			return;
 		}
 
-		int x = 0; // todo: wtf is this?
+		int x = 0;
 		ProcessNode(scene->mRootNode, scene, x);
+
+		m_Initialized = true;
+	}
+
+	void Model::Destroy()
+	{
+		m_Meshes.clear();
+		m_Materials.clear();
+		m_AlbedoTextures.clear();
+		m_RoghnessTextures.clear();
+		m_MetallnessTextures.clear();
+		m_NormalTextures.clear();
+
+		m_VertexCount = 0;
+		m_IndexCount = 0;
+		m_Initialized = false;
+	}
+
+	Model::Model(const std::string& filepath)
+	{
+		if (m_Initialized)
+			Destroy();
+
+		Init(filepath);
 	}
 
 	Model::~Model()
 	{
-
+		if (m_Initialized)
+			Destroy();
 	}
 
 	void Model::Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance)
@@ -43,10 +68,10 @@ namespace Vulture
 		for (unsigned int i = 0; i < node->mNumMeshes; i++)
 		{
 			glm::mat4 transform = *(glm::mat4*)(&node->mTransformation);
-			transform = glm::transpose(transform);
+			//transform = glm::transpose(transform);
 			aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
 			m_Meshes.push_back(std::make_shared<Mesh>());
-			m_Meshes[index]->CreateMesh(mesh, scene, transform);
+			m_Meshes[index]->Init(mesh, scene, transform);
 			m_VertexCount += m_Meshes[index]->GetVertexCount();
 			m_IndexCount += m_Meshes[index]->GetIndexCount();
 

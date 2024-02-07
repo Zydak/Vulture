@@ -5,9 +5,12 @@
 namespace Vulture
 {
 
-	TextureAtlas::TextureAtlas(const std::string& filepath)
+	void TextureAtlas::Init(const std::string& filepath)
 	{
-        m_AtlasTexture = std::make_shared<Image>(filepath);
+		if (m_Initialized)
+			Destroy();
+
+		m_AtlasTexture = std::make_shared<Image>(filepath);
 
 		// Create a descriptor set for the texture atlas
 
@@ -33,11 +36,26 @@ namespace Vulture
 		atlasInfo.TilingSize = glm::vec4((float)m_TilingSize);
 		m_AtlasDescriptorSet->GetBuffer(1)->WriteToBuffer(&atlasInfo, sizeof(AtlasInfoBuffer), 0);
 		m_AtlasDescriptorSet->GetBuffer(1)->Flush();
+
+		m_Initialized = true;
+	}
+
+	void TextureAtlas::Destroy()
+	{
+		m_AtlasTexture.reset();
+		m_AtlasDescriptorSet.reset();
+		m_Initialized = false;
+	}
+
+	TextureAtlas::TextureAtlas(const std::string& filepath)
+	{
+		Init(filepath);
 	}
 
 	TextureAtlas::~TextureAtlas()
 	{
-
+		if (m_Initialized)
+			Destroy();
 	}
 
     /*

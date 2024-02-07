@@ -35,6 +35,7 @@ SceneRenderer::SceneRenderer()
 	CreatePipelines();
 
 	m_Denoiser = std::make_shared<Vulture::Denoiser>();
+	m_Denoiser->Init();
 	m_Denoiser->AllocateBuffers(Vulture::Renderer::GetSwapchain().GetSwapchainExtent());
 
 	VkFenceCreateInfo createInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
@@ -47,6 +48,7 @@ SceneRenderer::SceneRenderer()
 SceneRenderer::~SceneRenderer()
 {
 	vkDestroyFence(Vulture::Device::GetDevice(), m_DenoiseFence, nullptr);
+	m_Denoiser->Destroy();
 }
 
 void SceneRenderer::Render(Vulture::Scene& scene)
@@ -86,6 +88,9 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 	static glm::mat4 previousMat{ 0.0f };
 	if (previousMat != m_CurrentSceneRendered->GetMainCamera()->ViewMat) // if camera moved
 	{
+		// Draw Albedo, Roughness, Metallness, Normal into GBuffer
+		DrawGBuffer();
+
 		ResetFrame();
 		previousMat = m_CurrentSceneRendered->GetMainCamera()->ViewMat;
 	}
@@ -148,15 +153,19 @@ void SceneRenderer::DrawGBuffer()
 	clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
 	clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
 	clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
+	clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
 	VkClearValue clearVal{};
 	clearVal.depthStencil = { 1.0f, 1 };
 	clearColors.push_back(clearVal);
 
 	m_GBufferPass.SetRenderTarget(&(*m_GBufferFramebuffer));
 	m_GBufferPass.BeginRenderPass(clearColors);
+	// TODO
 	m_GBufferFramebuffer->GetColorImageNoVk(0)->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_GBufferFramebuffer->GetColorImageNoVk(1)->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_GBufferFramebuffer->GetColorImageNoVk(2)->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_GBufferFramebuffer->GetColorImageNoVk(3)->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_GBufferFramebuffer->GetDepthImageNoVk(0)->SetLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 	m_GlobalDescriptorSets[Vulture::Renderer::GetCurrentFrameIndex()]->Bind
 	(
@@ -199,24 +208,6 @@ void SceneRenderer::Denoise()
 {
 	VkCommandBuffer cmd = Vulture::Renderer::GetCurrentCommandBuffer();
 
-	// Draw Albedo, Roughness, Metallness, Normal into GBuffer
-	DrawGBuffer();
-
-	VkMemoryBarrier memBarrierRead{};
-	memBarrierRead.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-	memBarrierRead.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-	memBarrierRead.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-	// Wait for GBuffer to finish
-	vkCmdPipelineBarrier(
-		cmd,
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		0,
-		1, &memBarrierRead,
-		0, nullptr,
-		0, nullptr);
-
 	// copy images to cuda buffers
 	std::vector<Vulture::Image*> vec = 
 	{
@@ -224,37 +215,42 @@ void SceneRenderer::Denoise()
 		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Albedo))), // Albedo
 		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Normal))) // Normal
 	};
-	m_Denoiser->ImageToBuffer(cmd, vec);
 
 	vkEndCommandBuffer(cmd);
-
-	VkCommandBufferSubmitInfoKHR cmd_buf_info{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR };
-	cmd_buf_info.commandBuffer = cmd;
 
 	// Increment for signaling
 	m_DenoiseFenceValue++;
 
-	VkSemaphoreSubmitInfoKHR signal_semaphore{ VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR };
-	signal_semaphore.semaphore = m_Denoiser->GetTLSemaphore();
-	signal_semaphore.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT_KHR;
-	signal_semaphore.value = m_DenoiseFenceValue;
+	VkSubmitInfo submits{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	submits.commandBufferCount = 1;
+	submits.pCommandBuffers = &cmd;
 
-	VkSubmitInfo2KHR submits{ VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR };
-	submits.commandBufferInfoCount = 1;
-	submits.pCommandBufferInfos = &cmd_buf_info;
+	submits.signalSemaphoreCount = 1;
+	VkSemaphore sem = m_Denoiser->GetTLSemaphore();
+	submits.pSignalSemaphores = &sem;
 
-	submits.signalSemaphoreInfoCount = 1;
-	submits.pSignalSemaphoreInfos = &signal_semaphore;
+	VkTimelineSemaphoreSubmitInfo timelineSubmitInfo{};
+	timelineSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+	timelineSubmitInfo.pSignalSemaphoreValues = &m_DenoiseFenceValue;
+	timelineSubmitInfo.signalSemaphoreValueCount = 1;
+	timelineSubmitInfo.waitSemaphoreValueCount = 0;
+
+	submits.pNext = &timelineSubmitInfo;
 
 	// Submit command buffer so that resources can be used by Optix and CUDA
 	vkResetFences(Vulture::Device::GetDevice(), 1, &m_DenoiseFence);
-	vkQueueSubmit2(Vulture::Device::GetGraphicsQueue(), 1, &submits, m_DenoiseFence);
+	vkQueueSubmit(Vulture::Device::GetGraphicsQueue(), 1, &submits, m_DenoiseFence);
+
+	VkResult res = vkWaitForFences(Vulture::Device::GetDevice(), 1, &m_DenoiseFence, VK_TRUE, UINT64_MAX);
+
+	// TODO: don't stall here
+	VkCommandBuffer singleCmd;
+	Vulture::Device::BeginSingleTimeCommands(singleCmd, Vulture::Device::GetGraphicsCommandPool());
+	m_Denoiser->ImageToBuffer(singleCmd, vec);
+	Vulture::Device::EndSingleTimeCommands(singleCmd, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetGraphicsCommandPool());
 
 	// Run Denoiser
 	m_Denoiser->DenoiseImageBuffer(m_DenoiseFenceValue, 0.0f);
-
-	// Wait for Optix and CUDA to finish
-	VkResult res = vkWaitForFences(Vulture::Device::GetDevice(), 1, &m_DenoiseFence, VK_TRUE, UINT64_MAX);
 
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -424,6 +420,20 @@ void SceneRenderer::CreateRenderPasses()
 		RoghnessMetallnessAttachmentRef.attachment = 2;
 		RoghnessMetallnessAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+		VkAttachmentDescription emissiveAttachment = {};
+		emissiveAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		emissiveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		emissiveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		emissiveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		emissiveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		emissiveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		emissiveAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		emissiveAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+		VkAttachmentReference emissiveAttachmentRef = {};
+		emissiveAttachmentRef.attachment = 3;
+		emissiveAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
 		VkAttachmentDescription depthAttachment = {};
 		depthAttachment.format = Vulture::Swapchain::FindDepthFormat();
 		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -435,14 +445,14 @@ void SceneRenderer::CreateRenderPasses()
 		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 		VkAttachmentReference depthAttachmentRef = {};
-		depthAttachmentRef.attachment = 3;
+		depthAttachmentRef.attachment = 4;
 		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-		std::vector<VkAttachmentReference> references { albedoAttachmentRef, normalAttachmentRef, RoghnessMetallnessAttachmentRef };
+		std::vector<VkAttachmentReference> references { albedoAttachmentRef, normalAttachmentRef, RoghnessMetallnessAttachmentRef, emissiveAttachmentRef };
 
 		VkSubpassDescription subpass = {};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 3;
+		subpass.colorAttachmentCount = 4;
 		subpass.pColorAttachments = references.data();
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
@@ -464,7 +474,7 @@ void SceneRenderer::CreateRenderPasses()
 
 		std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
 
-		std::vector<VkAttachmentDescription> attachments { albedoAttachment, normalAttachment, rougnessMetallnessAttachment, depthAttachment };
+		std::vector<VkAttachmentDescription> attachments { albedoAttachment, normalAttachment, rougnessMetallnessAttachment, emissiveAttachment, depthAttachment };
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.attachmentCount = (uint32_t)attachments.size();
@@ -492,7 +502,7 @@ void SceneRenderer::CreateDescriptorSets()
 			0,
 			m_PresentedImage->GetSamplerHandle(),
 			m_PresentedImage->GetImageView(),
-			VK_IMAGE_LAYOUT_GENERAL
+			VK_IMAGE_LAYOUT_GENERAL // TODO: shader read only optimal, but it doesn't really matter
 		);
 		m_HDRDescriptorSet->Build();
 	}
@@ -543,7 +553,7 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 		Vulture::DescriptorSetLayout::Binding bin5{ 5, texturesCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
 		Vulture::DescriptorSetLayout::Binding bin6{ 6, texturesCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
 		Vulture::DescriptorSetLayout::Binding bin7{ 7, texturesCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
-
+		
 		m_RayTracingDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 		m_RayTracingDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin0, bin1, bin2, bin3, bin4, bin5, bin6, bin7 });
 
@@ -705,7 +715,7 @@ void SceneRenderer::CreatePipelines()
 		range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
 		// Configure pipeline creation parameters
-		Vulture::Pipeline::CreateInfo info{};
+		Vulture::Pipeline::GraphicsCreateInfo info{};
 		info.AttributeDesc = Vulture::Mesh::Vertex::GetAttributeDescriptions();
 		info.BindingDesc = Vulture::Mesh::Vertex::GetBindingDescriptions();
 		info.ShaderFilepaths.push_back("src/shaders/spv/GBuffer.vert.spv");
@@ -717,7 +727,7 @@ void SceneRenderer::CreatePipelines()
 		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
 		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
 		info.PushConstants = &range;
-		info.ColorAttachmentCount = 3;
+		info.ColorAttachmentCount = 4;
 
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts
@@ -755,7 +765,7 @@ void SceneRenderer::CreateRayTracingPipeline()
 		};
 		info.DescriptorSetLayouts = layouts;
 
-		m_RtPipeline.Init(&info);
+		m_RtPipeline.Init(info);
 	}
 }
 
@@ -830,6 +840,7 @@ void SceneRenderer::CreateFramebuffers()
 			Vulture::FramebufferAttachment::ColorRGBA32, // This has to be 32 per channel otherwise optix won't work
 			Vulture::FramebufferAttachment::ColorRGBA32, // This has to be 32 per channel otherwise optix won't work
 			Vulture::FramebufferAttachment::ColorRG8,
+			Vulture::FramebufferAttachment::ColorRGBA32, // This has to be 32 per channel otherwise optix won't work
 			Vulture::FramebufferAttachment::Depth
 		};
 		

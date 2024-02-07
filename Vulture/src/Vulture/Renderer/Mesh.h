@@ -23,12 +23,13 @@ namespace Vulture
 			static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
 		};
 
+		void Init(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+		void Init(aiMesh* mesh, const aiScene* scene, glm::mat4 mat = glm::mat4(1.0f));
+		void Init(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags);
 		void Destroy();
 
 		Mesh() = default;
 		~Mesh();
-		void CreateMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
-		void CreateMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 mat = glm::mat4(1.0f));
 
 		Mesh(const Mesh&) = delete;
 		Mesh& operator=(const Mesh&) = delete;
@@ -38,7 +39,6 @@ namespace Vulture
 
 		void UpdateVertexBuffer(VkCommandBuffer cmd, int offset, Buffer* buffer, const std::vector<Vertex>& vertices);
 
-		void CreateEmptyBuffers(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags);
 
 		inline const Buffer* GetVertexBuffer() const { return &m_VertexBuffer; }
 		inline Buffer* GetVertexBuffer() { return &m_VertexBuffer; }
@@ -53,8 +53,12 @@ namespace Vulture
 		inline bool& HasIndexBuffer() { return m_HasIndexBuffer; }
 
 	private:
+		void CreateMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+		void CreateMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 mat = glm::mat4(1.0f));
+
 		void CreateVertexBuffer(const std::vector<Vertex>& vertices);
 		void CreateIndexBuffer(const std::vector<uint32_t>& indices);
+		void CreateEmptyBuffers(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags);
 
 		Buffer m_VertexBuffer;
 		uint32_t m_VertexCount = 0;

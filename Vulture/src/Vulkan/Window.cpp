@@ -13,13 +13,15 @@ namespace Vulture
 		VL_CORE_ERROR("{0}", message);
 	}
 
-	/**
-	 * @brief Constructs a Window object with the specified window information.
-	 * 
-	 * @param winInfo - The window information, including width, height, name, and optional icon.
-	 */
-	Window::Window(WindowInfo& winInfo) : m_Width(winInfo.Width), m_Height(winInfo.Height), m_Name(winInfo.Name)
+	void Window::Init(CreateInfo& createInfo)
 	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Width = createInfo.Width;
+		m_Height = createInfo.Height;
+		m_Name = createInfo.Name;
+
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
@@ -40,28 +42,48 @@ namespace Vulture
 		}
 
 		int width, height, channels;
-		if (winInfo.Icon == "")
+		if (createInfo.Icon == "")
 		{
-			winInfo.Icon = "../Vulture/assets/Icon.png";
+			createInfo.Icon = "../Vulture/assets/Icon.png";
 		}
-		unsigned char* iconData = stbi_load(winInfo.Icon.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+		unsigned char* iconData = stbi_load(createInfo.Icon.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 		if (iconData)
 		{
 			GLFWimage icon;
 			icon.width = width;
 			icon.height = height;
 			icon.pixels = iconData;
-		
+
 			glfwSetWindowIcon(m_Window, 1, &icon);
-		
+
 			stbi_image_free(iconData);
 		}
+
+		m_Initialized = true;
+	}
+
+	void Window::Destroy()
+	{
+		glfwDestroyWindow(m_Window);
+		glfwTerminate();
+
+		m_Initialized = false;
+	}
+
+	/**
+	 * @brief Constructs a Window object with the specified window information.
+	 * 
+	 * @param winInfo - The window information, including width, height, name, and optional icon.
+	 */
+	Window::Window(CreateInfo& createInfo)
+	{
+		Init(createInfo);
 	}
 
 	Window::~Window()
 	{
-		glfwDestroyWindow(m_Window);
-		glfwTerminate();
+		if (m_Initialized)
+			Destroy();
 	}
 
 	void Window::CreateWindowSurface(VkInstance instance, VkSurfaceKHR* surface)

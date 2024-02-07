@@ -56,7 +56,9 @@ namespace Vulture
 		inline VkImageView GetDepthImageViewLayered(int index, int layer) const { return m_DepthAttachments[index].GetLayerView(layer); }
 		inline VkImage GetColorImage(int index) const { return m_ColorAttachments[index].GetImage(); }
 		inline const Image* GetColorImageNoVk(int index) const { return &m_ColorAttachments[index]; }
+		inline const Image* GetDepthImageNoVk(int index) const { return &m_DepthAttachments[index]; }
 		inline Image* GetColorImageNoVk(int index) { return &m_ColorAttachments[index]; }
+		inline Image* GetDepthImageNoVk(int index) { return &m_DepthAttachments[index]; }
 		inline VkImageView GetDepthImageView(int index) const { return m_DepthAttachments[index].GetImageView(); }
 		inline VkImage GetDepthImage(int index) const { return m_DepthAttachments[index].GetImage(); }
 

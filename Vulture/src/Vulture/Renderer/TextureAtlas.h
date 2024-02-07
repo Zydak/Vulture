@@ -17,6 +17,10 @@ namespace Vulture
 	class TextureAtlas
 	{
 	public:
+		void Init(const std::string& filepath);
+		void Destroy();
+
+		TextureAtlas() = default;
 		TextureAtlas(const std::string& filepath);
 		~TextureAtlas();
 
@@ -29,6 +33,8 @@ namespace Vulture
 		Ref<Image> m_AtlasTexture;
 		Ref<DescriptorSet> m_AtlasDescriptorSet;
 		int m_TilingSize = 32;
+
+		bool m_Initialized = false;
 	};
 
 }

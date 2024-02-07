@@ -12,81 +12,94 @@
 
 namespace Vulture
 {
-    Denoiser::Denoiser()
-        : m_Sampler(SamplerInfo())
+    Denoiser::~Denoiser()
     {
+        if (m_Initialized)
+            Destroy();
+    }
+
+	void Denoiser::Init()
+	{
+		if (m_Initialized)
+			Destroy();
+
+        m_Sampler.Init(SamplerInfo());
+
 		OptixDenoiserOptions d_options;
 		d_options.guideAlbedo = 1u;
 		d_options.guideNormal = 1u;
-        Init(d_options, OPTIX_PIXEL_FORMAT_FLOAT4, true);
 
 		VkFenceCreateInfo createInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
 
-        CreateSemaphore();
+		CreateSemaphore();
+
+		// Initialize CUDA
+		VL_CORE_RETURN_ASSERT(cudaFree(nullptr), 0, "Couldn't reset cuda");
+
+		CUcontext cuCtx = nullptr;  // zero means take the current context
+		VL_CORE_RETURN_ASSERT(optixInit(), 0, "Couldn't initialize optix!");
+
+		OptixDeviceContextOptions optixoptions = {};
+		optixoptions.logCallbackFunction = &contextLogCb;
+		optixoptions.logCallbackLevel = 4;
+
+		VL_CORE_RETURN_ASSERT(optixDeviceContextCreate(cuCtx, &optixoptions, &m_OptixDevice), 0, "Couldn't Create optix device context");
+		VL_CORE_RETURN_ASSERT(optixDeviceContextSetLogCallback(m_OptixDevice, contextLogCb, nullptr, 4), 0, "Couldn't Set Log Callback");
+
+		// TODO: Maybe blit lower formats to higher formats before copying to buffer? Writing to buffer would be faster
+		m_PixelFormat = OPTIX_PIXEL_FORMAT_FLOAT4;
+		switch (m_PixelFormat)
+		{
+		case OPTIX_PIXEL_FORMAT_FLOAT3:
+			m_SizeofPixel = (uint32_t)3 * sizeof(float);
+			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_COPY;
+			break;
+		case OPTIX_PIXEL_FORMAT_FLOAT4:
+			m_SizeofPixel = (uint32_t)4 * sizeof(float);
+			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_DENOISE;
+			break;
+		case OPTIX_PIXEL_FORMAT_UCHAR3:
+			m_SizeofPixel = (uint32_t)3 * sizeof(uint8_t);
+			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_COPY;
+			break;
+		case OPTIX_PIXEL_FORMAT_UCHAR4:
+			m_SizeofPixel = (uint32_t)4 * sizeof(uint8_t);
+			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_DENOISE;
+			break;
+		case OPTIX_PIXEL_FORMAT_HALF3:
+			m_SizeofPixel = (uint32_t)3 * sizeof(uint16_t);
+			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_COPY;
+			break;
+		case OPTIX_PIXEL_FORMAT_HALF4:
+			m_SizeofPixel = (uint32_t)4 * sizeof(uint16_t);
+			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_DENOISE;
+			break;
+		default:
+			VL_CORE_ASSERT(false, "Format Unsupported");
+			break;
+		}
+
+		m_DenoiserOptions = d_options;
+		OptixDenoiserModelKind modelKind = OPTIX_DENOISER_MODEL_KIND_AOV;
+		VL_CORE_RETURN_ASSERT(optixDenoiserCreate(m_OptixDevice, modelKind, &m_DenoiserOptions, &m_Denoiser), 0, "Couldn't Create Optix Denoiser");
+	
+        m_Initialized = true;
     }
 
-    Denoiser::~Denoiser()
-    {
-        Destroy();
-    }
+	void Denoiser::Destroy()
+	{
+		// Cleanup resources
+		optixDenoiserDestroy(m_Denoiser);
+		optixDeviceContextDestroy(m_OptixDevice);
 
-    bool Denoiser::Init(const OptixDenoiserOptions& options, OptixPixelFormat pixelFormat, bool hdr)
-    {
-        // Initialize CUDA
-        VL_CORE_RETURN_ASSERT(cudaFree(nullptr), 0, "Couldn't reset cuda");
+		vkDestroySemaphore(Device::GetDevice(), m_Semaphore.Vk, nullptr);
+		m_Semaphore.Vk = VK_NULL_HANDLE;
 
-        CUcontext cuCtx = nullptr;  // zero means take the current context
-        VL_CORE_RETURN_ASSERT(optixInit(), 0, "Couldn't initialize optix!");
+		DestroyBuffer();
+        m_Initialized = false;
+	}
 
-        OptixDeviceContextOptions optixoptions = {};
-        optixoptions.logCallbackFunction = &contextLogCb;
-        optixoptions.logCallbackLevel = 4;
-
-        VL_CORE_RETURN_ASSERT(optixDeviceContextCreate(cuCtx, &optixoptions, &m_OptixDevice), 0, "Couldn't Create optix device context");
-        VL_CORE_RETURN_ASSERT(optixDeviceContextSetLogCallback(m_OptixDevice, contextLogCb, nullptr, 4), 0, "Couldn't Set Log Callback");
-
-        // TODO: Maybe blit lower formats to higher formats before copying to buffer? Writing to buffer would be faster
-        m_PixelFormat = pixelFormat;
-        switch (pixelFormat)
-        {
-        case OPTIX_PIXEL_FORMAT_FLOAT3:
-            m_SizeofPixel = (uint32_t)3 * sizeof(float);
-            m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_COPY;
-            break;
-        case OPTIX_PIXEL_FORMAT_FLOAT4:
-            m_SizeofPixel = (uint32_t)4 * sizeof(float);
-            m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_DENOISE;
-            break;
-        case OPTIX_PIXEL_FORMAT_UCHAR3:
-            m_SizeofPixel = (uint32_t)3 * sizeof(uint8_t);
-            m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_COPY;
-            break;
-        case OPTIX_PIXEL_FORMAT_UCHAR4:
-            m_SizeofPixel = (uint32_t)4 * sizeof(uint8_t);
-            m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_DENOISE;
-            break;
-        case OPTIX_PIXEL_FORMAT_HALF3:
-            m_SizeofPixel = (uint32_t)3 * sizeof(uint16_t);
-            m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_COPY;
-            break;
-        case OPTIX_PIXEL_FORMAT_HALF4:
-            m_SizeofPixel = (uint32_t)4 * sizeof(uint16_t);
-            m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_DENOISE;
-            break;
-        default:
-            VL_CORE_ASSERT(false, "Format Unsupported");
-            break;
-        }
-
-        m_DenoiserOptions = options;
-        OptixDenoiserModelKind modelKind = OPTIX_DENOISER_MODEL_KIND_AOV;
-        VL_CORE_RETURN_ASSERT(optixDenoiserCreate(m_OptixDevice, modelKind, &m_DenoiserOptions, &m_Denoiser), 0, "Couldn't Create Optix Denoiser");
-
-
-        return true;
-    }
-
-    /**
+	/**
     * @brief Performs image denoising using the OptiX denoiser on a Vulkan image buffer.
     * 
     * @param fenceValue - Reference to the fence value for synchronization.
@@ -102,7 +115,7 @@ namespace Vulture
         // Create and set OptiX layers
         OptixDenoiserLayer layer = {};
         // Input
-        layer.input.data = (CUdeviceptr)m_pixelBufferIn[0].CudaPtr;
+        layer.input.data = (CUdeviceptr)m_PixelBufferIn[0].CudaPtr;
         layer.input.width = m_ImageSize.width;
         layer.input.height = m_ImageSize.height;
         layer.input.rowStrideInBytes = rowStrideInBytes;
@@ -110,7 +123,7 @@ namespace Vulture
         layer.input.format = pixelFormat;
 
         // Output
-        layer.output.data = (CUdeviceptr)m_pixelBufferOut.CudaPtr;
+        layer.output.data = (CUdeviceptr)m_PixelBufferOut.CudaPtr;
         layer.output.width = m_ImageSize.width;
         layer.output.height = m_ImageSize.height;
         layer.output.rowStrideInBytes = rowStrideInBytes;
@@ -122,7 +135,7 @@ namespace Vulture
         // albedo
         if (m_DenoiserOptions.guideAlbedo != 0u)
         {
-            guideLayer.albedo.data = (CUdeviceptr)m_pixelBufferIn[1].CudaPtr;
+            guideLayer.albedo.data = (CUdeviceptr)m_PixelBufferIn[1].CudaPtr;
             guideLayer.albedo.width = m_ImageSize.width;
             guideLayer.albedo.height = m_ImageSize.height;
             guideLayer.albedo.rowStrideInBytes = rowStrideInBytes;
@@ -133,7 +146,7 @@ namespace Vulture
         // normal
         if (m_DenoiserOptions.guideNormal != 0u)
         {
-            guideLayer.normal.data = (CUdeviceptr)m_pixelBufferIn[2].CudaPtr;
+            guideLayer.normal.data = (CUdeviceptr)m_PixelBufferIn[2].CudaPtr;
             guideLayer.normal.width = m_ImageSize.width;
             guideLayer.normal.height = m_ImageSize.height;
             guideLayer.normal.rowStrideInBytes = rowStrideInBytes;
@@ -191,26 +204,28 @@ namespace Vulture
             .imageExtent = {.width = m_ImageSize.width, .height = m_ImageSize.height, .depth = 1},
         };
 
-        for (int i = 0; i < (int)imgIn.size(); i++)
+        for (int i = 0; i < imgIn.size(); i++)
 		{
 			// TODO: fix those fucking barriers
-            imgIn[i]->TransitionImageLayout(
-                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                VK_ACCESS_TRANSFER_WRITE_BIT,
-                VK_ACCESS_TRANSFER_READ_BIT,
-                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                cmdBuf
-            );
+            VkImageLayout prevLayout = imgIn[i]->GetLayout();
+
+			imgIn[i]->TransitionImageLayout(
+				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				VK_ACCESS_SHADER_READ_BIT,
+				VK_ACCESS_TRANSFER_READ_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				VK_PIPELINE_STAGE_TRANSFER_BIT,
+				cmdBuf
+			);
             
-            vkCmdCopyImageToBuffer(cmdBuf, imgIn[i]->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_pixelBufferIn[i].BufferVk.GetBuffer(), 1, &region);
+            vkCmdCopyImageToBuffer(cmdBuf, imgIn[i]->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_PixelBufferIn[i].BufferVk.GetBuffer(), 1, &region);
             
             imgIn[i]->TransitionImageLayout(
-                VK_IMAGE_LAYOUT_GENERAL,
-                VK_ACCESS_TRANSFER_WRITE_BIT,
+                prevLayout,
                 VK_ACCESS_TRANSFER_READ_BIT,
-                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                VK_ACCESS_SHADER_READ_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 cmdBuf
             );
         }
@@ -230,21 +245,24 @@ namespace Vulture
             .imageExtent = {.width = m_ImageSize.width, .height = m_ImageSize.height, .depth = 1},
         };
 
-        imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, cmdBuf);
-        vkCmdCopyBufferToImage(cmdBuf, m_pixelBufferOut.BufferVk.GetBuffer(), imgOut->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-        imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, cmdBuf);
-    }
-
-    void Denoiser::Destroy()
-    {
-        // Cleanup resources
-        optixDenoiserDestroy(m_Denoiser);
-        optixDeviceContextDestroy(m_OptixDevice);
-
-        vkDestroySemaphore(Device::GetDevice(), m_Semaphore.Vk, nullptr);
-        m_Semaphore.Vk = VK_NULL_HANDLE;
-
-        DestroyBuffer();
+        imgOut->TransitionImageLayout(
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            0,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            0,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            cmdBuf);
+        
+        vkCmdCopyBufferToImage(cmdBuf, m_PixelBufferOut.BufferVk.GetBuffer(), imgOut->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        
+        imgOut->TransitionImageLayout(
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            cmdBuf
+        );
     }
 
     void Denoiser::DestroyBuffer()
@@ -301,25 +319,25 @@ namespace Vulture
 
         // Path Tracing Result
         {
-            m_pixelBufferIn[0].BufferVk.Init(BufferInfo);
-            CreateBufferHandles(m_pixelBufferIn[0]);  // Exporting the buffer to Cuda handle and pointers
+            m_PixelBufferIn[0].BufferVk.Init(BufferInfo);
+            CreateBufferHandles(m_PixelBufferIn[0]);  // Exporting the buffer to Cuda handle and pointers
         }
 
         // Albedo
         {
-            m_pixelBufferIn[1].BufferVk.Init(BufferInfo);
-            CreateBufferHandles(m_pixelBufferIn[1]);
+            m_PixelBufferIn[1].BufferVk.Init(BufferInfo);
+            CreateBufferHandles(m_PixelBufferIn[1]);
         }
         // Normal
         {
-            m_pixelBufferIn[2].BufferVk.Init(BufferInfo);
-            CreateBufferHandles(m_pixelBufferIn[2]);
+            m_PixelBufferIn[2].BufferVk.Init(BufferInfo);
+            CreateBufferHandles(m_PixelBufferIn[2]);
         }
 
         // Output image/buffer
         BufferInfo.InstanceSize = outputBufferSize;
-        m_pixelBufferOut.BufferVk.Init(BufferInfo);
-        CreateBufferHandles(m_pixelBufferOut);
+        m_PixelBufferOut.BufferVk.Init(BufferInfo);
+        CreateBufferHandles(m_PixelBufferOut);
 
 
         // Computing the amount of memory needed to do the denoiser

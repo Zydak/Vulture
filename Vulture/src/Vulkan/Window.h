@@ -18,17 +18,23 @@ namespace Vulture
 		GLFWmonitor* Monitor;
 	};
 
-	struct WindowInfo
+	class Window 
 	{
-		int Width;
-		int Height;
-		std::string Name;
-		std::string Icon;
-	};
-
-	class Window {
 	public:
-		Window(WindowInfo& winInfo);
+
+		struct CreateInfo
+		{
+			int Width;
+			int Height;
+			std::string Name;
+			std::string Icon;
+		};
+
+		void Init(CreateInfo& createInfo);
+		void Destroy();
+
+		Window() = default;
+		Window(CreateInfo& createInfo);
 		~Window();
 
 		Window(const Window&) = delete;
@@ -66,6 +72,8 @@ namespace Vulture
 		std::vector<Monitor> m_Monitors;
 		std::vector<const char*> m_MonitorRawNames;
 		int m_MonitorsCount;
+
+		bool m_Initialized = false;
 	};
 
 }

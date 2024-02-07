@@ -14,7 +14,7 @@ namespace Vulture
 
 		Logger::Init();
 		VL_CORE_TRACE("LOGGER INITIALIZED");
-		WindowInfo winInfo;
+		Window::CreateInfo winInfo;
 		winInfo.Width = (int)width;
 		winInfo.Height = (int)height;
 		winInfo.Name = appInfo.Name;

@@ -50,9 +50,11 @@ namespace Vulture
 		return tex;
 	}
 
-	FontAtlas::FontAtlas(const std::string& filepath, const std::string& fontName)
-		: m_FontName(fontName), m_Sampler({})
+	void FontAtlas::Init(const std::string& filepath, const std::string& fontName)
 	{
+		if (m_Initialized)
+			Destroy();
+
 		static bool initialized = false;
 		static msdfgen::FreetypeHandle* ft;
 		if (!initialized)
@@ -119,5 +121,27 @@ namespace Vulture
 		m_DescriptorSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
 		m_DescriptorSet.AddImageSampler(0, m_Sampler.GetSamplerHandle(), m_AtlasTexture->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		m_DescriptorSet.Build();
+
+		m_Initialized = true;
 	}
+
+	void FontAtlas::Destroy()
+	{
+		m_AtlasTexture.reset();
+		m_DescriptorSet.Destroy();
+		m_Initialized = false;
+	}
+
+	FontAtlas::FontAtlas(const std::string& filepath, const std::string& fontName)
+		: m_FontName(fontName), m_Sampler({})
+	{
+		Init(filepath, fontName);
+	}
+
+	FontAtlas::~FontAtlas()
+	{
+		if (m_Initialized)
+			Destroy();
+	}
+
 }

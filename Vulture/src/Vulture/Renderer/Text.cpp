@@ -3,39 +3,65 @@
 
 namespace Vulture
 {
-	Text::Text(const std::string& text, Ref<FontAtlas> fontAtlas, const glm::vec4& color, float kerningOffset, int maxLettersCount, bool resizable)
-		: m_Text(text), m_Color(color)
+
+	void Text::Init(const CreateInfo& createInfo)
 	{
-		m_Resizable = resizable;
-		m_KerningOffset = kerningOffset;
-		m_FontAtlas = fontAtlas;
+		if (m_Initialized)
+			Destroy();
+
+		VL_CORE_ASSERT(createInfo, "Incorectly initialized Text::CreateInfo!");
+		m_Text = createInfo.Text;
+		m_Color = createInfo.Color;
+		m_Resizable = createInfo.Resizable;
+		m_KerningOffset = createInfo.KerningOffset;
+		m_FontAtlas = createInfo.FontAtlas;
 		for (int i = 0; i < (int)m_Changed.size(); i++)
 		{
 			m_Changed[i] = false;
 		}
-		if (resizable)
+		if (createInfo.Resizable)
 		{
-			int vertexCount = maxLettersCount * 4;
-			int indexCount = maxLettersCount * 6;
-			ChangeText(text);
+			int vertexCount = createInfo.MaxLettersCount * 4;
+			int indexCount = createInfo.MaxLettersCount * 6;
+			ChangeText(createInfo.Text);
 			for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
 			{
 				m_TextMeshes.emplace_back(std::make_shared<Mesh>());
-				m_TextMeshes[i]->CreateEmptyBuffers(vertexCount, indexCount, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+				m_TextMeshes[i]->Init(vertexCount, indexCount, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			}
 		}
 		else
 		{
 			m_TextMeshes.emplace_back(std::make_shared<Mesh>());
-			m_Text = text;
+			m_Text = createInfo.Text;
 
 			std::vector<Mesh::Vertex> vertices;
 			std::vector<uint32_t> indices;
 
 			GetTextVertices(vertices, indices);
 
-			m_TextMeshes[0]->CreateMesh(vertices, indices);
+			m_TextMeshes[0]->Init(vertices, indices);
 		}
+
+		m_Initialized = true;
+	}
+
+	void Text::Destroy()
+	{
+		m_FontAtlas.reset();
+		m_TextMeshes.clear();
+		m_Initialized = false;
+	}
+
+	Text::Text(const CreateInfo& createInfo)
+	{
+		Init(createInfo);
+	}
+
+	Text::~Text()
+	{
+		if (m_Initialized)
+			Destroy();
 	}
 
 	void Text::ChangeText(const std::string& text, float kerningOffset)

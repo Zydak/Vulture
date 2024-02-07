@@ -28,6 +28,11 @@ namespace Vulture
 	public:
 		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
+		void Init(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode);
+		void Init(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode, Ref<Swapchain> previousSwapchain);
+		void Destroy();
+
+		Swapchain() = default;
 		Swapchain(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode);
 		Swapchain(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode, Ref<Swapchain> previousSwapchain);
 		~Swapchain();
@@ -93,6 +98,8 @@ namespace Vulture
 		VkExtent2D m_SwapchainExtent;
 
 		VkRenderPass m_RenderPass{};
+
+		bool m_Initialized = false;
 	};
 
 }
