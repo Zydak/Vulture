@@ -32,7 +32,6 @@ void main()
     float tMin     = 0.001;
     float tMax     = 10000.0;
 
-    int sampleCount = 15;
     vec3 finalHitValue = vec3(0);
 
     prd.HitValue = vec3(0.0);
@@ -47,23 +46,21 @@ void main()
 
     int samplesAccumulated = 0;
 
-    // if ray won't miss, do the sampling
-    for (int i = 0; i < sampleCount; i++)
+    for (int i = 0; i < pcRay.SamplesPerFrame; i++)
     {
+        ivec2 outputImageSize = imageSize(image);
         prd.HitValue = vec3(0.0);
         prd.Depth = 0;
         vec3 camRight = vec3(uni.ViewInverse[0][0], uni.ViewInverse[1][0], uni.ViewInverse[2][0]);
         vec3 camUp = vec3(uni.ViewInverse[0][1], uni.ViewInverse[1][1], uni.ViewInverse[2][1]);
-        //vec3 camUp = vec3(0.0f, 1.0f, 0.0f);
-        //vec3 camRight = vec3(1.0f, 0.0f, 0.0f);
 
         // Applying small jitter for anti aliasing
-        vec2 antiAliasingJitter = RandomPointInCircle(prd.Seed) * 0.3f / gl_LaunchSizeEXT.x;
+        vec2 antiAliasingJitter = RandomPointInCircle(prd.Seed) * 0.4f / outputImageSize.x;
         direction.xyz += camRight * antiAliasingJitter.x + camUp * antiAliasingJitter.y;
 
         vec3 focalPoint = origin.xyz + normalize(direction.xyz) * pcRay.FocalLenght;
 
-        vec2 jitter = RandomPointInCircle(prd.Seed) * pcRay.DoFStrenght / gl_LaunchSizeEXT.x;
+        vec2 jitter = RandomPointInCircle(prd.Seed) * pcRay.DoFStrenght / 500.0f;
 
         prd.RayOrigin = origin.xyz + camRight * jitter.x + camUp * jitter.y;
 

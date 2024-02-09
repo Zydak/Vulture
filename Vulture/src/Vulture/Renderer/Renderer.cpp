@@ -4,6 +4,8 @@
 #include "Scene/Components.h"
 #include "AssetManager.h"
 
+#include "lodepng.h"
+
 #ifdef VL_IMGUI
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_vulkan.h>
@@ -82,7 +84,7 @@ namespace Vulture
 #ifdef VL_IMGUI
 		// ImGui Creation
 		ImGui::CreateContext();
-		auto io = ImGui::GetIO();
+		ImGuiIO& io = ImGui::GetIO();
 		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
 		ImGui_ImplGlfw_InitForVulkan(s_Window->GetGLFWwindow(), true);
@@ -261,6 +263,74 @@ namespace Vulture
 		vkCmdEndRenderPass(GetCurrentCommandBuffer());
 	}
 
+	// TODO: description
+	void Renderer::SaveImageToFile(const std::string& filepath, Ref<Image> image, VkCommandBuffer cmd)
+	{
+		int width = image->GetImageSize().width;
+		int height = image->GetImageSize().height;
+
+		Image::CreateInfo imageInfo{};
+		imageInfo.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageInfo.Format = VK_FORMAT_R8G8B8A8_UNORM;
+		imageInfo.Height = image->GetImageSize().height;
+		imageInfo.Width = image->GetImageSize().width;
+		imageInfo.LayerCount = 1;
+		imageInfo.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		imageInfo.SamplerInfo = SamplerInfo{};
+		imageInfo.Tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.Type = Image::ImageType::Image2D;
+		imageInfo.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		Image image8Bit(imageInfo);
+		image8Bit.TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT, 0, VK_PIPELINE_STAGE_TRANSFER_BIT, cmd);
+
+		VkImageBlit blitRegion{};
+		blitRegion.dstOffsets[0] = {0, 0, 0};
+		blitRegion.dstOffsets[1] = { width, height, 1};
+		blitRegion.srcOffsets[0] = { 0, 0, 0 };
+		blitRegion.srcOffsets[1] = { width, height, 1 };
+		blitRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+		blitRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+
+		vkCmdBlitImage(cmd, image->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image8Bit.GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blitRegion, VK_FILTER_LINEAR);
+		image8Bit.TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, cmd);
+
+		Buffer::CreateInfo info{};
+		info.InstanceCount = 1;
+		info.InstanceSize = width * height * 4;
+		info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+		info.UsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		Buffer tempBuffer(info);
+
+		VkBufferImageCopy region{};
+		region.bufferOffset = 0;
+		region.imageExtent = {image->GetImageSize().width, image->GetImageSize().height, 1};
+		region.imageOffset = { 0, 0, 0 };
+		region.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+		tempBuffer.Map();
+
+		vkCmdCopyImageToBuffer(cmd, image8Bit.GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, tempBuffer.GetBuffer(), 1, &region);
+		Device::EndSingleTimeCommands(cmd, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
+
+		vkDeviceWaitIdle(Device::GetDevice());
+
+		void* bufferData = tempBuffer.GetMappedMemory();
+
+		std::vector<unsigned char> imageBuffer(width * height * 4);
+		memcpy(imageBuffer.data(), bufferData, width * height * 4);
+
+		uint32_t imagesCount = 0;
+		std::string path = "Rendered_Images/";
+		for (const auto& entry : std::filesystem::directory_iterator(path)) 
+		{
+			if (std::filesystem::is_regular_file(entry.status())) 
+			{
+				imagesCount++;
+			}
+		}
+
+		WriteToFile(std::string("Rendered_Images/Render" + std::to_string(imagesCount) + ".png").c_str(), imageBuffer, width, height);
+	}
+
 	/**
 	 * @brief Takes descriptor set with single combined image sampler descriptor and copies data
 	 * from the image onto presentable swapchain framebuffer
@@ -269,7 +339,6 @@ namespace Vulture
 	 */
 	void Renderer::FramebufferCopyPassImGui(Ref<DescriptorSet> descriptorWithImageSampler)
 	{
-		Vulture::AssetManager::Cleanup();
 		std::vector<VkClearValue> clearColors;
 		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
 		// Begin the render pass
@@ -296,6 +365,23 @@ namespace Vulture
 		s_ImGuiFunction();
 #endif
 		// End the render pass
+		EndRenderPass();
+	}
+
+	void Renderer::ImGuiPass()
+	{
+		std::vector<VkClearValue> clearColors;
+		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
+		BeginRenderPass(
+			clearColors,
+			s_Swapchain->GetPresentableFrameBuffer(s_CurrentImageIndex),
+			s_Swapchain->GetSwapchainRenderPass(),
+			glm::vec2(s_Swapchain->GetSwapchainExtent().width, s_Swapchain->GetSwapchainExtent().height)
+		);
+
+#ifdef VL_IMGUI
+		s_ImGuiFunction();
+#endif
 		EndRenderPass();
 	}
 
@@ -419,7 +505,12 @@ namespace Vulture
 
 	void Renderer::BloomPass(Ref<Image> image, int mipsCount)
 	{
-		if ((image->GetImageSize().width != s_MipSize.width && image->GetImageSize().height != s_MipSize.height) || mipsCount != m_PrevMipsCount)
+		if (mipsCount <= 0)
+		{
+			VL_CORE_WARN("Incorrect mips count! {}", mipsCount);
+			return;
+		}
+		if ((image->GetImageSize().width != s_MipSize.width || image->GetImageSize().height != s_MipSize.height) || mipsCount != m_PrevMipsCount)
 		{
 			VL_CORE_INFO("Recreating bloom framebuffers");
 			m_PrevMipsCount = mipsCount;
@@ -450,11 +541,20 @@ namespace Vulture
 
 		vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[0]->GetImageSize().width / 8 + 1, s_BloomImages[0]->GetImageSize().height / 8 + 1, 1);
 		
-		for (int i = 0; i < (int)s_BloomImages.size(); i++)
+		s_BloomImages[0]->TransitionImageLayout(
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			GetCurrentCommandBuffer()
+		);
+
+		for (int i = 1; i < (int)s_BloomImages.size(); i++)
 		{
 			s_BloomImages[i]->TransitionImageLayout(
 				VK_IMAGE_LAYOUT_GENERAL,
-				VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT, 
+				VK_ACCESS_SHADER_READ_BIT,
 				VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, 
 				VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
 				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -893,6 +993,14 @@ namespace Vulture
 				s_BloomDownSampleDescriptorSet[i]->Build();
 			}
 		}
+	}
+
+	void Renderer::WriteToFile(const char* filename, std::vector<unsigned char>& image, unsigned width, unsigned height)
+	{
+		unsigned error = lodepng::encode(filename, image, width, height);
+
+		//if there's an error, display it
+		VL_CORE_ASSERT(!error, "encoder error {} | {}", error, lodepng_error_text(error));
 	}
 
 	/**

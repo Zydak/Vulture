@@ -36,7 +36,7 @@ SceneRenderer::SceneRenderer()
 
 	m_Denoiser = std::make_shared<Vulture::Denoiser>();
 	m_Denoiser->Init();
-	m_Denoiser->AllocateBuffers(Vulture::Renderer::GetSwapchain().GetSwapchainExtent());
+	m_Denoiser->AllocateBuffers(m_ViewportSize);
 
 	VkFenceCreateInfo createInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
 	vkCreateFence(Vulture::Device::GetDevice(), &createInfo, nullptr, &m_DenoiseFence);
@@ -55,19 +55,98 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 {
 	m_CurrentSceneRendered = &scene;
 
-	if (Vulture::Renderer::BeginFrame())
+	if (m_DrawIntoAFileChanged)
+	{
+		RecreateResources();
+		m_DrawIntoAFileChanged = false;
+	}
+
+	if (m_DrawIntoAFile)
+	{
+		if (Vulture::Renderer::BeginFrame())
+		{
+			static bool finished = false;
+			UpdateDescriptorSetsData();
+			if (!RayTrace(glm::vec4(0.1f)))
+			{
+				m_DrawFileInfo.DrawingFramebufferFinished = true;
+				
+				// tone map and denoise if finished
+				if (!m_ToneMapped)
+				{
+					Vulture::Renderer::BloomPass(m_PresentedImage, m_BloomMipsCount);
+					m_PresentedImage->TransitionImageLayout(m_PresentedImage->GetLayout(), VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, Vulture::Renderer::GetCurrentCommandBuffer());
+					Vulture::Renderer::ToneMapPass(m_ToneMapDescriptorSet, m_PresentedImage, m_Exposure);
+					m_ToneMapped = true;
+
+					Denoise();
+					m_PresentedImage = m_DenoisedImage;
+
+					CreateHDRSet();
+					finished = true;
+				}
+			}
+
+			Vulture::Renderer::ImGuiPass();
+
+			Vulture::Renderer::EndFrame();
+
+			if (finished)
+			{
+				vkDeviceWaitIdle(Vulture::Device::GetDevice());
+				VkCommandBuffer snCmd;
+				Vulture::Device::BeginSingleTimeCommands(snCmd, Vulture::Device::GetGraphicsCommandPool());
+				m_PresentedImage->TransitionImageLayout(
+					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					VK_ACCESS_SHADER_WRITE_BIT,
+					VK_ACCESS_TRANSFER_READ_BIT,
+					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					snCmd
+				);
+				Vulture::Renderer::SaveImageToFile("", m_PresentedImage, snCmd);
+
+				m_PresentedImage->TransitionImageLayout(
+					VK_IMAGE_LAYOUT_GENERAL,
+					VK_ACCESS_TRANSFER_READ_BIT,
+					0,
+					VK_PIPELINE_STAGE_TRANSFER_BIT,
+					0
+				);
+				finished = false;
+			}
+		}
+	}
+	else if (m_ImGuiViewportResized)
+	{
+		RecreateResources();
+		m_ImGuiViewportResized = false;
+	}
+	else if (Vulture::Renderer::BeginFrame())
 	{
 		UpdateDescriptorSetsData();
-		RayTrace(glm::vec4(0.1f));
+		if (!RayTrace(glm::vec4(0.1f)))
+		{
+			// tone map if finished
+			if (!m_ToneMapped)
+			{
+				Vulture::Renderer::BloomPass(m_PresentedImage, m_BloomMipsCount);
+				m_PresentedImage->TransitionImageLayout(m_PresentedImage->GetLayout(), VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, Vulture::Renderer::GetCurrentCommandBuffer());
+				Vulture::Renderer::ToneMapPass(m_ToneMapDescriptorSet, m_PresentedImage, m_Exposure);
+				m_ToneMapped = true;
+			}
+		}
 
 		// Run denoised if requested
 		if (m_RunDenoising)
 		{
 			Denoise();
 			m_RunDenoising = false;
+			m_Denoised = true;
 		}
 
-		Vulture::Renderer::FramebufferCopyPassImGui(m_HDRDescriptorSet);
+		//Vulture::Renderer::FramebufferCopyPassImGui(m_HDRDescriptorSet);
+		Vulture::Renderer::ImGuiPass();
 		
 		if (!Vulture::Renderer::EndFrame())
 			RecreateResources();
@@ -78,19 +157,20 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 	}
 }
 
-void SceneRenderer::RayTrace(const glm::vec4& clearColor)
+bool SceneRenderer::RayTrace(const glm::vec4& clearColor)
 {
 	m_PushContantRay.ClearColor = clearColor;
 	m_PushContantRay.maxDepth = m_MaxRayDepth;
 	m_PushContantRay.FocalLength = m_FocalLength;
 	m_PushContantRay.DoFStrength = m_DoFStrength;
+	m_PushContantRay.SamplesPerFrame = m_SamplesPerFrame;
+
+	// Draw Albedo, Roughness, Metallness, Normal into GBuffer
+	DrawGBuffer();
 
 	static glm::mat4 previousMat{ 0.0f };
 	if (previousMat != m_CurrentSceneRendered->GetMainCamera()->ViewMat) // if camera moved
 	{
-		// Draw Albedo, Roughness, Metallness, Normal into GBuffer
-		DrawGBuffer();
-
 		ResetFrame();
 		previousMat = m_CurrentSceneRendered->GetMainCamera()->ViewMat;
 	}
@@ -98,20 +178,11 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 	{
 		if (m_CurrentSamplesPerPixel >= (uint32_t)m_MaxSamplesPerPixel)
 		{
-			// tone map if finished
-			if (!m_ToneMapped)
-			{
-				Vulture::Renderer::BloomPass(m_PresentedImage, 8);
-				m_PresentedImage->TransitionImageLayout(m_PresentedImage->GetLayout(), VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, Vulture::Renderer::GetCurrentCommandBuffer());
-				Vulture::Renderer::ToneMapPass(m_ToneMapDescriptorSet, m_PresentedImage, m_Exposure);
-				m_ToneMapped = true;
-			}
-			
-			return;
+			return false;
 		}
 
 		m_PushContantRay.frame++;
-		m_CurrentSamplesPerPixel += 15;
+		m_CurrentSamplesPerPixel += m_SamplesPerFrame;
 	}
 	
 	m_Time = m_TotalTimer.ElapsedSeconds();
@@ -144,10 +215,16 @@ void SceneRenderer::RayTrace(const glm::vec4& clearColor)
 		(uint32_t)m_PathTracingImage->GetImageSize().height,
 		1
 	);
+
+	return true;
 }
 
 void SceneRenderer::DrawGBuffer()
 {
+	if (!m_DrawGBuffer)
+		return;
+
+	m_DrawGBuffer = false;
 	auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::ModelComponent, Vulture::TransformComponent>();
 	std::vector<VkClearValue> clearColors;
 	clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
@@ -284,6 +361,8 @@ void SceneRenderer::ResetFrame()
 	m_CurrentSamplesPerPixel = 0;
 	m_TotalTimer.Reset();
 	m_ToneMapped = false;
+
+	m_DrawGBuffer = true;
 }
 
 void SceneRenderer::RecreateResources()
@@ -296,7 +375,7 @@ void SceneRenderer::RecreateResources()
 
 	FixCameraAspectRatio();
 
-	m_Denoiser->AllocateBuffers(Vulture::Renderer::GetSwapchain().GetSwapchainExtent());
+	m_Denoiser->AllocateBuffers(m_ViewportSize);
 
 	if (m_ShowDenoised)
 	{
@@ -312,7 +391,7 @@ void SceneRenderer::RecreateResources()
 
 void SceneRenderer::FixCameraAspectRatio()
 {
-	float newAspectRatio = (float)Vulture::Renderer::GetSwapchain().GetSwapchainExtent().width / (float)Vulture::Renderer::GetSwapchain().GetSwapchainExtent().height;
+	float newAspectRatio = (float)m_ViewportSize.width / (float)m_ViewportSize.height;
 	auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::CameraComponent>();
 	for (auto entity : view)
 	{
@@ -438,7 +517,7 @@ void SceneRenderer::CreateRenderPasses()
 		depthAttachment.format = Vulture::Swapchain::FindDepthFormat();
 		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -492,20 +571,7 @@ void SceneRenderer::CreateDescriptorSets()
 {
 	m_GlobalDescriptorSets.clear();
 
-	{
-		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
-		
-		m_PresentedImage = m_PathTracingImage;
-		m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
-		m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-		m_HDRDescriptorSet->AddImageSampler(
-			0,
-			m_PresentedImage->GetSamplerHandle(),
-			m_PresentedImage->GetImageView(),
-			VK_IMAGE_LAYOUT_GENERAL // TODO: shader read only optimal, but it doesn't really matter
-		);
-		m_HDRDescriptorSet->Build();
-	}
+	CreateHDRSet();
 
 	{
 		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
@@ -666,18 +732,11 @@ void SceneRenderer::SetSkybox(Vulture::SkyboxComponent& skybox)
 
 void SceneRenderer::RecreateDescriptorSets()
 {
+	m_Denoised = false;
+	m_PresentedImage = m_PathTracingImage;
+	m_ShowDenoised = false;
 	{
-		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
-		
-		m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
-		m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-		m_HDRDescriptorSet->AddImageSampler(
-			0,
-			m_PresentedImage->GetSamplerHandle(),
-			m_PresentedImage->GetImageView(),
-			VK_IMAGE_LAYOUT_GENERAL
-		);
-		m_HDRDescriptorSet->Build();
+		CreateHDRSet();
 	}
 	{
 		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
@@ -724,8 +783,8 @@ void SceneRenderer::CreatePipelines()
 		info.DepthTestEnable = true;
 		info.CullMode = VK_CULL_MODE_NONE;
 		info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
-		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
+		info.Width = m_ViewportSize.width;
+		info.Height = m_ViewportSize.height;
 		info.PushConstants = &range;
 		info.ColorAttachmentCount = 4;
 
@@ -788,8 +847,8 @@ void SceneRenderer::CreateFramebuffers()
 		Vulture::Image::CreateInfo info{};
 		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
-		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
+		info.Height = m_ViewportSize.height;
+		info.Width = m_ViewportSize.width;
 		info.LayerCount = 1;
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -809,8 +868,8 @@ void SceneRenderer::CreateFramebuffers()
 	// Denoised
 	{
 		Vulture::Image::CreateInfo info{};
-		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
-		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
+		info.Width = m_ViewportSize.width;
+		info.Height = m_ViewportSize.height;
 		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -847,10 +906,15 @@ void SceneRenderer::CreateFramebuffers()
 		Vulture::Framebuffer::CreateInfo info{};
 		info.AttachmentsFormats = &attachments;
 		info.DepthFormat = Vulture::Swapchain::FindDepthFormat();
-		info.Extent = Vulture::Renderer::GetSwapchain().GetSwapchainExtent();
+		info.Extent = m_ViewportSize;
 		info.RenderPass = m_GBufferPass.GetRenderPass();
 		info.CustomBits = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		m_GBufferFramebuffer = std::make_shared<Vulture::Framebuffer>(info);
+
+		m_ImGuiAlbedoDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(0)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(0), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(1)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(1), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(2)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(2), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(3)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(3), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
 }
 
@@ -880,113 +944,239 @@ void SceneRenderer::UpdateDescriptorSetsData()
 	m_GlobalDescriptorSets[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
 }
 
+void SceneRenderer::CreateHDRSet()
+{
+	Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+
+	m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
+	m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
+	m_HDRDescriptorSet->AddImageSampler(
+		0,
+		m_PresentedImage->GetSamplerHandle(),
+		m_PresentedImage->GetImageView(),
+		VK_IMAGE_LAYOUT_GENERAL
+	);
+	m_HDRDescriptorSet->Build();
+
+	// todo: shader read only optimal layout
+	m_ImGuiViewportDescriptor = ImGui_ImplVulkan_AddTexture(m_PresentedImage->GetSamplerHandle(), m_PresentedImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
+}
+
 void SceneRenderer::ImGuiPass()
 {
-	static bool renderImGui = true;
+	Vulture::Entity cameraEntity;
+	m_CurrentSceneRendered->GetMainCamera(&cameraEntity);
 
-	if (renderImGui == false && Vulture::Input::IsKeyPressed(VL_KEY_I))
+	Vulture::ScriptComponent* scComp = m_CurrentSceneRendered->GetRegistry().try_get<Vulture::ScriptComponent>(cameraEntity);
+	Vulture::CameraComponent* camComp = m_CurrentSceneRendered->GetRegistry().try_get<Vulture::CameraComponent>(cameraEntity);
+	CameraScript* camScript;
+
+	if (scComp)
 	{
-		renderImGui = true;
+		camScript = scComp->GetScript<CameraScript>(0);
 	}
-
-	if (!renderImGui)
-		return;
 
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
+	ImGuiIO& io = ImGui::GetIO();
+	if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
+	{
+		ImGuiID dockspaceID = ImGui::GetID("Dockspace");
+		ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::DockSpaceOverViewport(viewport);
+	}
 
 	ImGui::Begin("Settings");
-	if(ImGui::Button("Hide"))
-		renderImGui = false;
-
-	ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.ElapsedSeconds());
-	ImGui::Text("Total vertices: %i", m_CurrentSceneRendered->GetVertexCount());
-	ImGui::Text("Total indices: %i", m_CurrentSceneRendered->GetIndexCount());
-	m_Timer.Reset();
-
-	ImGui::Separator();
-
-	Vulture::Entity cameraEntity;
-	m_CurrentSceneRendered->GetMainCamera(&cameraEntity);
-	ImGui::Text("Camera");
-
-	Vulture::ScriptComponent* scComp;
-	scComp = m_CurrentSceneRendered->GetRegistry().try_get<Vulture::ScriptComponent>(cameraEntity);
-	if (scComp)
+	if (!m_DrawIntoAFile)
 	{
-		CameraScript* camScript = scComp->GetScript<CameraScript>(0);
-		if (camScript)
+		ImGui::SeparatorText("Info");
+		ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.ElapsedSeconds());
+		ImGui::Text("Total vertices: %i", m_CurrentSceneRendered->GetVertexCount());
+		ImGui::Text("Total indices: %i", m_CurrentSceneRendered->GetIndexCount());
+
+		ImGui::Text("Time: %fs", m_Time);
+		ImGui::Text("Samples Per Pixel: %i", m_CurrentSamplesPerPixel);
+		ImGui::SeparatorText("Info");
+
+		m_Timer.Reset();
+
+		if (ImGui::CollapsingHeader("Camera"))
 		{
-			ImGui::SliderFloat("Movement Speed", &camScript->m_MovementSpeed, 0.0f, 20.0f);
-			ImGui::SliderFloat("Rotation Speed", &camScript->m_RotationSpeed, 0.0f, 4.0f);
-			ImGui::Checkbox("Locked", &camScript->m_CameraLocked);
+			ImGui::Separator();
+			if (camScript)
+			{
+				if (ImGui::Button("Reset Camera"))
+				{
+					camScript->OnCreate();
+					FixCameraAspectRatio();
+				}
+				ImGui::SliderFloat("Movement Speed", &camScript->m_MovementSpeed, 0.0f, 20.0f);
+				ImGui::SliderFloat("Rotation Speed", &camScript->m_RotationSpeed, 0.0f, 4.0f);
+			}
+			ImGui::SliderFloat("Exposure", &m_Exposure, 0.0f, 3.0f);
+			ImGui::SliderInt("Bloom Mips Count", &m_BloomMipsCount, 0, 10);
+			ImGui::Separator();
+		}
+
+		if (ImGui::CollapsingHeader("Path tracing"))
+		{
+			ImGui::Separator();
+
+			if (m_Denoised)
+			{
+				if (ImGui::Checkbox("Show Denoised Image", &m_ShowDenoised))
+				{
+					if (m_ShowDenoised)
+					{
+						m_PresentedImage = m_DenoisedImage;
+						{
+							CreateHDRSet();
+						}
+					}
+					else
+					{
+						m_PresentedImage = m_PathTracingImage;
+						{
+							CreateHDRSet();
+						}
+					}
+				}
+			}
+
+			if (ImGui::Button("Denoise"))
+			{
+				m_RunDenoising = true;
+			}
+
+			ImGui::SliderInt("Max Depth", &m_MaxRayDepth, 0, 20);
+			ImGui::SliderInt("Samples Per Pixel", &m_MaxSamplesPerPixel, 1, 50'000);
+			ImGui::SliderInt("Samples Per Frame", &m_SamplesPerFrame, 0, 30);
+
+			ImGui::SliderFloat("Focal Length", &m_FocalLength, 1.0f, 100.0f);
+			ImGui::SliderFloat("DoF Strength", &m_DoFStrength, 0.0f, 100.0f);
+			if (ImGui::Button("Reset"))
+			{
+				ResetFrame();
+			}
+			ImGui::Separator();
+		}
+
+		if (ImGui::CollapsingHeader("File"))
+		{
+			ImGui::Separator();
+			if (ImGui::Button("Render to a file"))
+				ImGui::OpenPopup("FileRenderPopup");
+
+			if (ImGui::BeginPopup("FileRenderPopup"))
+			{
+				ImGui::SeparatorText("----------------------------------------------");
+				ImGui::InputInt2("Resolution", m_DrawFileInfo.Resolution);
+				ImGui::SliderInt("Max Ray Depth", &m_DrawFileInfo.RayDepth, 1, 20);
+				ImGui::InputInt("Samples Per Frame", &m_DrawFileInfo.SamplesPerFrame);
+				ImGui::InputInt("Total Samples Per Pixel", &m_DrawFileInfo.TotalSamplesPerPixel);
+				ImGui::SliderFloat("Exposure", &m_DrawFileInfo.Exposure, 0.0f, 10.0f);
+				ImGui::InputInt("Bloom Mips Count", &m_DrawFileInfo.MipsCount);
+				ImGui::SliderFloat("Depth Of Field Strength", &m_DrawFileInfo.DOFStrength, 0.0f, 200.0f);
+				ImGui::SliderFloat("Focal Length", &m_DrawFileInfo.FocalLenght, 5.0f, 20.0f);
+				if (ImGui::Button("Render"))
+				{
+					m_DrawIntoAFile = true;
+					m_DrawIntoAFileChanged = true;
+					camScript->m_CameraLocked = true;
+					m_MaxSamplesPerPixel = m_DrawFileInfo.TotalSamplesPerPixel;
+					m_SamplesPerFrame = m_DrawFileInfo.SamplesPerFrame;
+					m_MaxRayDepth = m_DrawFileInfo.RayDepth;
+					m_Exposure = m_DrawFileInfo.Exposure;
+					m_BloomMipsCount = m_DrawFileInfo.MipsCount;
+					m_DoFStrength = m_DrawFileInfo.DOFStrength;
+					m_FocalLength = m_DrawFileInfo.FocalLenght;
+
+					m_ViewportSize = { (unsigned int)m_DrawFileInfo.Resolution[0], (unsigned int)m_DrawFileInfo.Resolution[1] };
+				}
+				ImGui::EndPopup();
+			}
+			ImGui::Separator();
+		}
+
+		if (ImGui::CollapsingHeader("GBuffer"))
+		{
+			ImGui::Separator();
+			ImVec2 availSpace = ImGui::GetContentRegionAvail();
+			ImGui::Text("Albedo");
+			float aspectRatio = camComp->GetAspectRatio();
+			ImGui::Image(m_ImGuiAlbedoDescriptor, { 300 * aspectRatio, 300 });
+			ImGui::Text("Normal");
+			ImGui::Image(m_ImGuiNormalDescriptor, { 300 * aspectRatio, 300 });
+			ImGui::Text("Roughness & Metallness");
+			ImGui::Image(m_ImGuiRoughnessDescriptor, { 300 * aspectRatio, 300 });
+			ImGui::Text("Emissive");
+			ImGui::Image(m_ImGuiEmissiveDescriptor, { 300 * aspectRatio, 300 });
+			ImGui::Separator();
 		}
 	}
-	ImGui::SliderFloat("Exposure", &m_Exposure, 0.0f, 3.0f);
-
-	ImGui::Separator();
-	ImGui::SliderInt("Max Depth", &m_MaxRayDepth, 0, 20);
-
-	ImGui::Separator();
-	ImGui::Text("Time: %fs", m_Time);
-	ImGui::Text("Samples Per Pixel: %i", m_CurrentSamplesPerPixel);
-	if (ImGui::Button("Reset"))
+	else
 	{
-		ResetFrame();
-	}
+		ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.ElapsedSeconds());
+		ImGui::Text("Total vertices: %i", m_CurrentSceneRendered->GetVertexCount());
+		ImGui::Text("Total indices: %i", m_CurrentSceneRendered->GetIndexCount());
+		m_Timer.Reset();
+		ImGui::Separator();
+		ImGui::Text("Time: %fs", m_Time);
+		ImGui::Text("Samples Per Pixel: %i", m_CurrentSamplesPerPixel);
 
-	ImGui::Separator();
-
-	if (ImGui::Checkbox("Show Denoised Image", &m_ShowDenoised))
-	{
-		if (m_ShowDenoised)
+		if (m_DrawFileInfo.DrawingFramebufferFinished)
 		{
-			m_PresentedImage = m_DenoisedImage;
-			{
-				Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+			ImGui::Separator();
+			ImGui::Text("Finished!");
+			ImGui::Text("File Saved!");
 
-				m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
-				m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-				m_HDRDescriptorSet->AddImageSampler(
-					0,
-					m_PresentedImage->GetSamplerHandle(),
-					m_PresentedImage->GetImageView(),
-					VK_IMAGE_LAYOUT_GENERAL
-				);
-				m_HDRDescriptorSet->Build();
+			if (ImGui::Button("Go Back"))
+			{
+				m_DrawFileInfo.DrawingFramebufferFinished = false;
+				m_DrawIntoAFile = false;
+				m_DrawIntoAFileChanged = true;
 			}
 		}
 		else
 		{
-			m_PresentedImage = m_PathTracingImage;
+			if (ImGui::Button("Cancel"))
 			{
-				Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
-
-				m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
-				m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-				m_HDRDescriptorSet->AddImageSampler(
-					0,
-					m_PresentedImage->GetSamplerHandle(),
-					m_PresentedImage->GetImageView(),
-					VK_IMAGE_LAYOUT_GENERAL
-				);
-				m_HDRDescriptorSet->Build();
+				m_DrawFileInfo.DrawingFramebufferFinished = false;
+				m_DrawIntoAFile = false;
+				m_DrawIntoAFileChanged = true;
 			}
 		}
 	}
 
-	if (ImGui::Button("Denoise"))
+	ImGui::End();
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::Begin("Preview Viewport");
+
+	if (camScript != nullptr && !m_DrawIntoAFile)
 	{
-		m_RunDenoising = true;
+		if (ImGui::IsWindowHovered() && (ImGui::IsWindowDocked()))
+			camScript->m_CameraLocked = false;
+		else
+			camScript->m_CameraLocked = true;
 	}
 
-	ImGui::SliderInt("Samples Per Pixel", &m_MaxSamplesPerPixel, 1, 50'000);
-
-	ImGui::SliderFloat("Focal Length", &m_FocalLength, 1.0f, 100.0f);
-	ImGui::SliderFloat("DoF Strength", &m_DoFStrength, 1.0f, 100.0f);
+	ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+	ImGui::Image(m_ImGuiViewportDescriptor, viewportSize);
+	static VkExtent2D prevViewportSize = m_ImGuiViewportSize;
+	m_ImGuiViewportSize = { (unsigned int)viewportSize.x, (unsigned int)viewportSize.y };
+	if (m_ImGuiViewportSize.width != prevViewportSize.width || m_ImGuiViewportSize.height != prevViewportSize.height)
+	{
+		m_ImGuiViewportResized = true;
+		prevViewportSize = m_ImGuiViewportSize;
+	}
+	if (!m_DrawIntoAFile)
+		m_ViewportSize = m_ImGuiViewportSize;
 
 	ImGui::End();
+	ImGui::PopStyleVar();
+
 	ImGui::Render();
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), Vulture::Renderer::GetCurrentCommandBuffer());
 }

@@ -14,6 +14,7 @@ struct PushConstantRay
 	glm::vec4 ClearColor;
 	int frame;
 	int maxDepth;
+	int SamplesPerFrame;
 
 	float FocalLength;
 	float DoFStrength;
@@ -42,7 +43,7 @@ public:
 	void CreateRayTracingDescriptorSets(Vulture::Scene& scene);
 	void SetSkybox(Vulture::SkyboxComponent& skybox);
 private:
-	void RayTrace(const glm::vec4& clearColor);
+	bool RayTrace(const glm::vec4& clearColor);
 	void DrawGBuffer();
 	void Denoise();
 	void ResetFrame();
@@ -59,6 +60,8 @@ private:
 	void CreateFramebuffers();
 	void UpdateDescriptorSetsData();
 
+	void CreateHDRSet();
+
 	void ImGuiPass();
 
 	enum GBufferImage
@@ -69,6 +72,7 @@ private:
 		Count
 	};
 	Vulture::Ref<Vulture::Framebuffer> m_GBufferFramebuffer;
+	bool m_DrawGBuffer = true;
 
 	Vulture::Ref<Vulture::Image> m_Skybox;
 
@@ -104,12 +108,43 @@ private:
 	uint32_t m_CurrentSamplesPerPixel = 0;
 	int m_MaxSamplesPerPixel = 1500;
 
+	VkDescriptorSet m_ImGuiViewportDescriptor;
+	VkDescriptorSet m_ImGuiNormalDescriptor;
+	VkDescriptorSet m_ImGuiAlbedoDescriptor;
+	VkDescriptorSet m_ImGuiRoughnessDescriptor;
+	VkDescriptorSet m_ImGuiEmissiveDescriptor;
+	VkExtent2D m_ImGuiViewportSize = { 942, 881 };
+	VkExtent2D m_ViewportSize = { 942, 881 };
+	bool m_ImGuiViewportResized = false;
+	int m_SamplesPerFrame = 15;
+
 	bool m_RunDenoising = false;
 	bool m_ShowDenoised = false;
+	bool m_Denoised = false;
 
 	float m_FocalLength = 1.0f;
-	float m_DoFStrength = 1.0f;
+	float m_DoFStrength = 0.0f;
 
 	bool m_ToneMapped = false;
 	
+	bool m_DrawIntoAFile = false;
+	bool m_DrawIntoAFileChanged = false;
+
+	int m_BloomMipsCount = 6;
+
+	struct DrawFileInfo
+	{
+		int Resolution[2] = { 942, 881 };
+		int TotalSamplesPerPixel = 50'000;
+		int SamplesPerFrame = 15;
+		int RayDepth = 20;
+		int MipsCount = 6;
+		float Exposure = 1.0f;
+		float DOFStrength = 0.0f;
+		float FocalLenght = 8.0f;
+
+		bool DrawingFramebufferFinished = false;
+	};
+
+	DrawFileInfo m_DrawFileInfo{};
 };

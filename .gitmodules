@@ -34,3 +34,9 @@
 [submodule "Vulture/lib/assimp"]
 	path = Vulture/lib/assimp
 	url = https://github.com/Zydak/assimp
+[submodule "Vulture/lib/lodepng"]
+	path = Vulture/lib/lodepng
+	url = https://github.com/Zydak/lodepng
+[submodule "Vulture/lib/Optix"]
+	path = Vulture/lib/Optix
+	url = https://github.com/Zydak/Optix

@@ -21,6 +21,7 @@ struct PushConstantRay
     vec4 ClearColor;
     int Frame;
     int MaxDepth;
+    int SamplesPerFrame;
 
     float FocalLenght;
     float DoFStrenght;

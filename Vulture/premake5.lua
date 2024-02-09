@@ -3,6 +3,7 @@ include "lib/imgui"
 include "lib/spdlog"
 include "lib/msdf-atlas-gen"
 include "lib/assimp"
+include "lib/lodepng"
 
 project "Vulture"
 	architecture "x86_64"
@@ -48,6 +49,7 @@ project "Vulture"
         "spdlog",
         "assimp",
         "lib/cuda/*.lib",
+        "lodepng",
     }
 
     filter "platforms:Windows"

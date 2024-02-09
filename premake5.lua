@@ -23,7 +23,8 @@ globalIncludes =
     "%{wks.location}/Vulture/lib/tinyobjloader/",
     "%{wks.location}/Vulture/lib/assimp/include/",
     "%{wks.location}/Vulture/lib/cuda/include/",
-    "%{wks.location}/Vulture/lib/optix/include/",
+    "%{wks.location}/Vulture/lib/Optix/include/",
+    "%{wks.location}/Vulture/lib/lodepng/",
 }
 	
 include "Vulture"

@@ -92,6 +92,16 @@ namespace Vulture
 
 	}
 
+	void CameraComponent::Reset()
+	{
+		this->Translation = glm::vec3(0.0f);
+		Zoom = 1.0f;
+
+		Rotation.Reset();
+
+		UpdateViewMatrix();
+	}
+
 	void CameraComponent::SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far, float aspectRatio)
 	{
 		ProjMat = glm::ortho(leftRightBottomTop.x * aspectRatio * Zoom, leftRightBottomTop.y * aspectRatio * Zoom, leftRightBottomTop.z * Zoom, leftRightBottomTop.w * Zoom, _near, _far);
@@ -99,6 +109,7 @@ namespace Vulture
 
 	void CameraComponent::SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far)
 	{
+		AspectRatio = aspectRatio;
 		ProjMat = glm::perspective(glm::radians(fov), aspectRatio, _near, _far);
 	}
 

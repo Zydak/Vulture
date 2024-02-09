@@ -41,12 +41,13 @@ namespace Vulture
 		static VkCommandBuffer GetCurrentCommandBuffer();
 		static int GetFrameIndex();
 
+		static void SaveImageToFile(const std::string& filepath, Ref<Image> image, VkCommandBuffer cmd);
+		static void ImGuiPass();
 		static void FramebufferCopyPassImGui(Ref<DescriptorSet> descriptorWithImageSampler);
 		static void FramebufferCopyPassBlit(Ref<Image> image);
 		static void ToneMapPass(Ref<DescriptorSet> descriptorWithImageSampler, Ref<Image> image, float exposure = 1.0f);
 		static void BloomPass(Ref<Image> image, int mipsCount);
 		static void EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap);
-
 	private:
 		static bool BeginFrameInternal();
 		static bool EndFrameInternal();
@@ -59,6 +60,7 @@ namespace Vulture
 		static void CreatePipeline();
 		static void CreateDescriptorSets();
 		static void CreateBloomImages(Ref<Image> image, int mipsCount);
+		static void WriteToFile(const char* filename, std::vector<unsigned char>& image, unsigned width, unsigned height);
 
 		static Scope<DescriptorPool> s_Pool;
 		static Window* s_Window;

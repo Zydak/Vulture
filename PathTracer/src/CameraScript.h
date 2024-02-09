@@ -12,10 +12,13 @@ public:
 	void OnCreate() override
 	{
 		auto cameraCp = &m_Entity.GetComponent<Vulture::CameraComponent>();
+		cameraCp->Reset();
+
 		cameraCp->SetZoom(1.0f);
 		cameraCp->SetPerspectiveMatrix(45.0f, m_Entity.GetScene()->GetWindow()->GetAspectRatio(), 0.1f, 100.0f);
 
 		cameraCp->Translation.z = -10.0f;
+		cameraCp->UpdateViewMatrix();
 	}
 
 	void OnDestroy() override
@@ -92,7 +95,7 @@ public:
 
 	float m_MovementSpeed = 5.0f;
 	float m_RotationSpeed = 0.1f;
-	bool m_CameraLocked = false;
+	bool m_CameraLocked = true;
 private:
 	double m_Timer = 0.0;
 	glm::vec2 m_LastMousePosition{0.0f};

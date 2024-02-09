@@ -118,6 +118,9 @@ namespace Vulture
 		glm::mat4 ViewMat{1.0f};
 		bool Main = false;
 		float Zoom = 1.0f;
+		float AspectRatio = 1.0f;
+
+		void Reset();
 
 		void SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far, float aspectRatio);
 		void SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far);
@@ -135,6 +138,7 @@ namespace Vulture
 		inline const glm::vec3 GetFrontVec() const { return Rotation.GetFrontVec(); }
 		inline const glm::vec3 GetRightVec() const { return Rotation.GetRightVec(); }
 		inline const glm::vec3 GetUpVec() const { return Rotation.GetUpVec(); }
+		inline const float GetAspectRatio() const { return AspectRatio; }
 	};
 
 	class ColliderComponent
