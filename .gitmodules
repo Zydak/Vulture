@@ -40,3 +40,6 @@
 [submodule "Vulture/lib/cuda"]
 	path = Vulture/lib/cuda
 	url = https://github.com/Zydak/cuda
+[submodule "Vulture/lib/optix"]
+	path = Vulture/lib/optix
+	url = https://github.com/Zydak/Optix
