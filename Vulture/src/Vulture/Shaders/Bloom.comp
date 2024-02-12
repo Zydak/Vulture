@@ -5,8 +5,7 @@
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout (set = 0, binding = 0) uniform sampler2D inputImage;
-layout (set = 0, binding = 1) uniform sampler2D mips[];
-layout (set = 0, binding = 2, rgba16f) uniform image2D outputImage;
+layout (set = 0, binding = 1, rgba16f) uniform image2D outputImage;
 
 struct BloomInfo
 {
@@ -20,33 +19,36 @@ layout (push_constant) uniform PushContants
 	BloomInfo pBloomInfo;
 };
 
+float kernel[3][3] = float[3][3]
+(
+    float[3](1, 2, 1),
+    float[3](2, 4, 2),
+    float[3](1, 2, 1)
+);
+
 void main()
 {
 	vec3 color = vec3(0.0f);
 
-	vec3 originalColor = texelFetch(inputImage, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
-	
-	vec2 pixelCoord = vec2(ivec2(gl_GlobalInvocationID.xy));
-	vec2 textureSize = vec2(textureSize(mips[nonuniformEXT(0)], 0)) * 2.0f;
-	vec2 texCoord = pixelCoord / textureSize;
+	vec2 pixelCoord = vec2(ivec2(gl_GlobalInvocationID.xy)) + 0.5f;
+	vec2 TextureSize = vec2(textureSize(inputImage, 0)) * 2.0f;
+	vec2 texCoord = pixelCoord / TextureSize;
 
-	int range = 10;
-	for (int k = 0; k < pBloomInfo.MipCount; k++)
+	int range = 1;
+	for (int i = -range; i <= range; i++)
 	{
-		for (int i = -range; i <= range; i++)
+		for (int j = -range; j <= range; j++)
 		{
-			for (int j = -range; j <= range; j++)
-			{
-				color += texture(mips[k], texCoord + (vec2(i, j) / textureSize)).rgb;
-			}
+			color += texture(inputImage, texCoord + (vec2(i, j) / (TextureSize / 2.0f))).xyz * kernel[i + range][j + range];
 		}
 	}
-	color /= (float((2 * range + 1) * (2 * range + 1)) * float(pBloomInfo.MipCount));
-
-	// make bloom effect less or more intense
+	color /= 16;
 	color *= pBloomInfo.Strength;
 
-	color += originalColor;
+	// make bloom effect less or more intense
+	// color *= pBloomInfo.Strength;
+
+	color += imageLoad(outputImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
 
 	imageStore(outputImage, ivec2(gl_GlobalInvocationID.xy), vec4(color, 1.0f));
 }

@@ -1083,7 +1083,7 @@ void SceneRenderer::CreateFramebuffers()
 		info.Height = m_ViewportSize.height;
 		info.Format = VK_FORMAT_R16G16B16A16_SFLOAT;
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
-		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT; // TODO: check all usages in general, especially here, the transfer one
 		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		info.LayerCount = 1;
@@ -1284,7 +1284,6 @@ void SceneRenderer::ImGuiPass()
 				ImGui::SliderFloat("Depth Of Field Strength",	&m_DrawFileInfo.DrawInfo.DOFStrength, 0.0f, 200.0f);
 				ImGui::SliderFloat("Focal Length",				&m_DrawFileInfo.DrawInfo.FocalLength, 5.0f, 20.0f);
 
-
 				ImGui::SeparatorText("Bloom");
 				ImGui::SliderFloat("Threshold",		&m_DrawFileInfo.DrawInfo.BloomInfo.Threshold, 0.0f, 3.0f);
 				ImGui::SliderFloat("Strength",		&m_DrawFileInfo.DrawInfo.BloomInfo.Strength, 0.0f, 3.0f);
@@ -1297,6 +1296,7 @@ void SceneRenderer::ImGuiPass()
 				ImGui::SliderFloat("Saturation",	&m_DrawFileInfo.DrawInfo.TonemapInfo.Saturation, 0.0f, 3.0f);
 				ImGui::SliderFloat("Vignette",		&m_DrawFileInfo.DrawInfo.TonemapInfo.Vignette, 0.0f, 1.0f);
 
+				ImGui::Separator();
 				if (ImGui::Button("Render"))
 				{
 					m_DrawIntoAFile = true;
@@ -1336,13 +1336,14 @@ void SceneRenderer::ImGuiPass()
 		m_Timer.Reset();
 		ImGui::Separator();
 		ImGui::Text("Time: %fs", m_Time);
-		ImGui::Text("Samples Per Pixel: %i", m_CurrentSamplesPerPixel);
+		ImGui::Text("Current Samples Per Pixel: %i", m_CurrentSamplesPerPixel);
+		ImGui::Text("Total Samples Per Pixel: %i", m_DrawInfo.TotalSamplesPerPixel);
 
 		if (m_DrawFileInfo.DrawingFramebufferFinished)
 		{
-			ImGui::Separator();
+			ImGui::SeparatorText("Finished!");
 			ImGui::Text("Finished!");
-			ImGui::Text("File Saved!");
+			ImGui::Text("File Saved To PathTracer/Rendered_Images");
 
 			if (ImGui::Button("Go Back"))
 			{

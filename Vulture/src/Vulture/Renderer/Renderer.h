@@ -55,7 +55,7 @@ namespace Vulture
 
 		struct BloomInfo
 		{
-			float Threshold = 1.0f;
+			float Threshold = 1.5f;
 			float Strength = 0.5f;
 			int MipCount = 6;
 		};
@@ -106,7 +106,7 @@ namespace Vulture
 		static PushConstant<BloomInfo> s_BloomPush;
 
 		static std::array<Ref<DescriptorSet>, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomSeparateBrightnessDescriptorSet;
-		static std::array<Ref<DescriptorSet>, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomAccumulateDescriptorSet;
+		static std::array<std::vector<Ref<DescriptorSet>>, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomAccumulateDescriptorSet;
 		static std::array<std::vector<Ref<DescriptorSet>>, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomDownSampleDescriptorSet;
 
 		static Ref<DescriptorSet> s_EnvToCubemapDescriptorSet;

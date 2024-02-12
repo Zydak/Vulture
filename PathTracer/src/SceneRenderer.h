@@ -129,6 +129,7 @@ private:
 		int TotalSamplesPerPixel = 1500;
 		int RayDepth = 20;
 		int SamplesPerFrame = 15;
+		float EnvRotation[3] = { 0.0f, 0.0f, 0.0f };
 
 		Vulture::Renderer::TonemapInfo TonemapInfo{};
 		Vulture::Renderer::BloomInfo BloomInfo{};
