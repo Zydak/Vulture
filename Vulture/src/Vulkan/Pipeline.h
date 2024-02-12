@@ -21,6 +21,9 @@ namespace Vulture
 		void Destroy();
 
 		Pipeline() = default;
+		Pipeline(const GraphicsCreateInfo& info);
+		Pipeline(const ComputeCreateInfo& info);
+		Pipeline(const RayTracingCreateInfo& info);
 		~Pipeline();
 
 		Pipeline(const Pipeline&) = delete;

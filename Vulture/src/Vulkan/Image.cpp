@@ -2,11 +2,14 @@
 #include "Utility/Utility.h"
 
 #include "Image.h"
+#include "Vulture/Renderer/Renderer.h"
 
 #include <vulkan/vulkan_core.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+#include "Vulture/Math/Defines.h"
 
 namespace Vulture
 {
@@ -40,6 +43,12 @@ namespace Vulture
 	void Image::Init(const std::string& filepath, SamplerInfo samplerInfo /*= { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST }*/)
 	{
 		bool HDR = filepath.find(".hdr") != std::string::npos;
+		if (HDR)
+		{
+			// TODO: ability to choose
+			CreateHDRImage(filepath, EnvMethod::ImportanceSampling, samplerInfo);
+			return;
+		}
 
 		m_Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		m_MemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -51,7 +60,6 @@ namespace Vulture
 		if (HDR)
 		{
 			pixels = stbi_loadf(filepath.c_str(), &sizeX, &sizeY, &texChannels, STBI_rgb_alpha);
-
 		}
 		else
 		{
@@ -62,7 +70,7 @@ namespace Vulture
 		VL_CORE_ASSERT(pixels, "failed to load texture image! Path: {0}, Current working directory: {1}", filepath, cwd.string());
 		m_Size.width = (uint32_t)sizeX;
 		m_Size.height = (uint32_t)sizeY;
-		//m_MipLevels = static_cast<uint32_t>(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
+		//m_MipLevels = uint32_t(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
 		uint64_t sizeOfPixel = HDR ? sizeof(float) * 4 : sizeof(uint8_t) * 4;
 		VkDeviceSize imageSize = (uint64_t)m_Size.width * (uint64_t)m_Size.height * sizeOfPixel;
 
@@ -201,6 +209,11 @@ namespace Vulture
 
 	void Image::Destroy()
 	{
+		m_JointPDF.reset();
+		m_CDFInverseX.reset();
+		m_CDFInverseY.reset();
+		m_ImportanceSmplAccel.reset();
+		m_Sampler.Destroy();
 		vkDestroyImageView(Device::GetDevice(), m_ImageView, nullptr);
 		vmaDestroyImage(Device::GetAllocator(), m_ImageHandle, *m_Allocation);
 		delete m_Allocation;
@@ -333,6 +346,127 @@ namespace Vulture
 	void Image::CreateImageSampler(SamplerInfo samplerInfo)
 	{
 		m_Sampler.Init(samplerInfo);
+	}
+
+	void Image::CreateHDRImage(const std::string& filepath, EnvMethod method, SamplerInfo samplerInfo)
+	{
+		m_Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		m_MemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		m_Allocation = new VmaAllocation();
+		int texChannels;
+		stbi_set_flip_vertically_on_load(false);
+		int sizeX = (int)m_Size.width, sizeY = (int)m_Size.height;
+		float* pixels;
+
+		pixels = stbi_loadf(filepath.c_str(), &sizeX, &sizeY, &texChannels, STBI_rgb_alpha);
+		std::filesystem::path cwd = std::filesystem::current_path();
+		VL_CORE_ASSERT(pixels, "failed to load texture image! Path: {0}, Current working directory: {1}", filepath, cwd.string());
+		m_Size.width = (uint32_t)sizeX;
+		m_Size.height = (uint32_t)sizeY;
+
+		if (method == EnvMethod::ImportanceSampling)
+		{
+			float average, integral;
+			std::vector<EnvAccel> envAccel;
+			if (sizeX == 1 && sizeY == 1) // dummy file loaded
+			{
+				envAccel.push_back({0, 0});
+			}
+			else
+			{
+				envAccel = CreateEnvAccel(pixels, sizeX, sizeY, average, integral);
+			}
+
+			Buffer::CreateInfo bufferInfo{};
+			bufferInfo.InstanceCount = 1;
+			bufferInfo.InstanceSize = sizeof(EnvAccel) * envAccel.size();
+			bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+			bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+			Buffer stagingBuf(bufferInfo);
+			stagingBuf.Map();
+			stagingBuf.WriteToBuffer(envAccel.data());
+			stagingBuf.Unmap();
+
+			bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+			bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+			m_ImportanceSmplAccel = std::make_shared<Buffer>();
+			m_ImportanceSmplAccel->Init(bufferInfo);
+
+			Buffer::CopyBuffer(stagingBuf.GetBuffer(), m_ImportanceSmplAccel->GetBuffer(), stagingBuf.GetBufferSize(), Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
+		}
+
+		//m_MipLevels = uint32_t(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
+		uint64_t sizeOfPixel = sizeof(float) * 4;
+		VkDeviceSize imageSize = (uint64_t)m_Size.width * (uint64_t)m_Size.height * sizeOfPixel;
+
+		Buffer buffer = Buffer();
+		Buffer::CreateInfo BufferInfo{};
+		BufferInfo.InstanceSize = imageSize;
+		BufferInfo.InstanceCount = 1;
+		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		buffer.Init(BufferInfo);
+
+		auto res = buffer.Map(imageSize);
+		buffer.WriteToBuffer((void*)pixels, (uint32_t)imageSize);
+		buffer.Unmap();
+
+		stbi_image_free(pixels);
+
+		CreateInfo info;
+		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+
+		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
+
+		info.Height = (uint32_t)m_Size.height;
+		info.Width = (uint32_t)m_Size.width;
+		info.LayerCount = 1;
+		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
+		info.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		CreateImage(info);
+
+		VkImageSubresourceRange range{};
+		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		range.baseMipLevel = 0;
+		//range.levelCount = m_MipLevels;
+		range.levelCount = 1;
+		range.baseArrayLayer = 0;
+		range.layerCount = 1;
+
+		TransitionImageLayout(
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			0,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			0,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			0,
+			range
+		);
+
+		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height);
+
+		TransitionImageLayout(
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+		);
+
+		CreateImageView(info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
+		CreateImageSampler(samplerInfo);
+
+		if (method == EnvMethod::InverseTransformSampling)
+		{
+			m_JointPDF = std::make_shared<Image>();
+			m_CDFInverseX = std::make_shared<Image>();
+			m_CDFInverseY = std::make_shared<Image>();
+			Renderer::SampleEnvMap(this);
+		}
+
+		m_Initialized = true;
 	}
 
 	/*
@@ -558,6 +692,163 @@ namespace Vulture
 		vkCmdCopyImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_ImageHandle, layout, 1, &region);
 
 		Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
+	}
+
+	// TODO description
+	float Image::GetLuminance(glm::vec3 color)
+	{
+		return color.r * 0.2126F + color.g * 0.7152F + color.b * 0.0722F;
+	}
+
+	// Create acceleration data for importance sampling
+	// And store the PDF into the ALPHA channel of pixels
+	std::vector<Image::EnvAccel> Image::CreateEnvAccel(float*& pixels, uint32_t width, uint32_t height, float& average, float& integral)
+	{
+		const uint32_t rx = width;
+		const uint32_t ry = height;
+
+		// Create importance sampling data
+		std::vector<Image::EnvAccel> envAccel(rx * ry);
+		std::vector<float> importanceData(rx * ry);
+
+		float cosTheta0			= 1.0F; // cosine of the up vector
+		const float stepPhi		= (float)2.0F * M_PI / (float)rx; // azimuth step
+		const float stepTheta	= (float)M_PI / (float)ry; // elevation step
+		double total			= 0.0;
+
+		// For each texel of the environment map, we compute the related solid angle
+		// subtended by the texel, and store the weighted luminance in importance_data,
+		// representing the amount of energy emitted through each texel.
+		// Also compute the average CIE luminance to drive the tonemapping of the final image
+		for (uint32_t y = 0; y < ry; ++y)
+		{
+			const float theta1 = (float)(y + 1) * stepTheta; // elevation angle of currently sampled texel
+			const float cosTheta1 = glm::cos(theta1); // cosine of the elevation angle
+
+			// Calculate how much area does each texel take
+			// (cosTheta0 - cosTheta1) - how much of the unit sphere does texel take
+			//  * stepPhi - get solid angle
+			const float area = (cosTheta0 - cosTheta1) * stepPhi;  // solid angle
+			cosTheta0 = cosTheta1; // set cosine of the up vector to the elevation cosine to advance the loop
+
+			for (uint32_t x = 0; x < rx; ++x)
+			{
+				const uint32_t idx = y * rx + x;
+				const uint32_t idx4 = idx * 4; // texel index
+				float          luminance = GetLuminance(*(glm::vec3*)&pixels[idx4]);
+
+				// Store the radiance of the texel into importance array, importance will be higher for brither texels
+				importanceData[idx] = area * glm::max(pixels[idx4], glm::max(pixels[idx4 + 1], pixels[idx4 + 2]));
+				total += luminance;
+			}
+		}
+
+		// maybe I'll use this for tonemapping? idk
+		average = float(total) / float(rx * ry);
+
+		// Alias map is used to efficiently sslect texels from env map based on importance.
+		// It aims at creating a set of texel couples
+		// so that all couples emit roughly the same amount of energy. To do this,
+		// each smaller radiance texel will be assigned an "alias" with higher emitted radiance
+		integral = BuildAliasMap(importanceData, envAccel);
+
+		// We deduce the PDF of each texel by normalizing its emitted radiance by the radiance integral
+		for (uint32_t i = 0; i < rx * ry; ++i)
+		{
+			const uint32_t idx4 = i * 4;
+			// Store the PDF inside Alpha channel(idx4 + 3)
+			pixels[idx4 + 3] = glm::max(pixels[idx4], glm::max(pixels[idx4 + 1], pixels[idx4 + 2])) / integral;
+		}
+
+		return envAccel;
+	}
+
+	// Alias map is used to efficiently sslect texels from env map based on importance.
+	// It aims at creating a set of texel couples
+	// so that all couples emit roughly the same amount of energy. To do this,
+	// each smaller radiance texel will be assigned an "alias" with higher emitted radiance
+	float Image::BuildAliasMap(const std::vector<float>& data, std::vector<EnvAccel>& accel)
+	{
+		uint32_t size = uint32_t(data.size());
+
+		// Compute the integral(sum) of the emitted radiance of the environment map
+		// Since each element in data is already weighted by its solid angle
+		// the integral is a simple sum
+		float sum = std::accumulate(data.begin(), data.end(), 0.F);
+
+		float average = sum / float(size);
+		for (uint32_t i = 0; i < size; i++)
+		{
+			// Calculate PDF. Inside PDF average of all values must be equal to 1, that's
+			// why we divide texel importance from data by the average of all texels
+			accel[i].Importance = data[i] / average;
+
+			// identity, ie. each texel is its own alias
+			accel[i].Alias = i;
+		}
+
+		// Partition the texels according to their importance.
+		// Texels with a value q < 1 (ie. below average) are stored incrementally from the beginning of the
+		// array, while texels emitting higher-than-average radiance are stored from the end of the array.
+		// This effectively separates the texels into two groups: one containing texels with below-average 
+		// radiance and the other containing texels with above-average radiance
+		std::vector<uint32_t> partitionTable(size);
+		uint32_t              lowEnergyCounter = 0U;
+		uint32_t              HighEnergyCounter = size - 1;
+		for (uint32_t i = 0; i < size; ++i)
+		{
+			if (accel[i].Importance < 1.F)
+			{
+				partitionTable[lowEnergyCounter] = i;
+				lowEnergyCounter++;
+			}
+			else
+			{
+				partitionTable[HighEnergyCounter] = i;
+				HighEnergyCounter--;
+			}
+		}
+
+		// Associate the lower-energy texels to higher-energy ones. Since the emission of a high-energy texel may
+		// be vastly superior to the average,
+		for (lowEnergyCounter = 0; lowEnergyCounter < HighEnergyCounter && HighEnergyCounter < size; lowEnergyCounter++)
+		{
+			// Index of the smaller energy texel
+			const uint32_t smallEnergyIndex = partitionTable[lowEnergyCounter];
+
+			// Index of the higher energy texel
+			const uint32_t highEnergyIndex = partitionTable[HighEnergyCounter];
+
+			// Associate the texel to its higher-energy alias
+			accel[smallEnergyIndex].Alias = highEnergyIndex;
+
+			// Compute the difference between the lower-energy texel and the average
+			const float differenceWithAverage = 1.F - accel[smallEnergyIndex].Importance;
+
+			// The goal is to obtain texel couples whose combined intensity is close to the average.
+			// However, some texels may have low intensity, while others may have very high intensity. In this case
+			// it may not be possible to obtain a value close to average by combining only two texels.
+			// Instead, we potentially associate a single high-energy texel to many smaller-energy ones until
+			// the combined average is similar to the average of the environment map.
+			// We keep track of the combined average by subtracting the difference between the lower-energy texel
+			// importance and the average from the importance stored in the high-energy texel.
+
+			// we can subtract directly from the accel[idx].Importance because in the shader we
+			// compare it to values from 0-1 so it doesn't matter whether it's 1 or 1 million.
+			// So until we stop subtracting at 1.0f we should be fine.
+			accel[highEnergyIndex].Importance -= differenceWithAverage;
+
+			// If the combined ratio to average of the higher-energy texel reaches 1, a balance has been found
+			// between a set of low-energy texels and the higher-energy one. In this case, we will use the next
+			// higher-energy texel in the partition when processing the next texel.
+			if (accel[highEnergyIndex].Importance < 1.0f)
+			{
+				HighEnergyCounter++;
+			}
+		}
+		// Return the integral of the emitted radiance. This integral will be used to normalize the probability
+		// distribution function (PDF) of each pixel
+		return sum;
 	}
 
 }

@@ -38,6 +38,18 @@ namespace Vulture
 		UpdateVectors();
 	}
 
+	glm::vec3 Quaternion::GetAngles() const
+	{
+		return glm::degrees(glm::eulerAngles(m_Quat));
+	}
+
+	void Quaternion::SetQuaternion(glm::quat quat)
+	{
+		m_Quat = quat;
+
+		UpdateVectors();
+	}
+
 	void Quaternion::AddPitch(float angle)
 	{
 		glm::quat quat;

@@ -109,10 +109,8 @@ namespace Vulture
 
 	class CameraComponent
 	{
-	private:
-		Quaternion Rotation{};
-
 	public:
+		Quaternion Rotation{};
 		glm::vec3 Translation{ 0.0f };
 		glm::mat4 ProjMat{1.0f};
 		glm::mat4 ViewMat{1.0f};
@@ -178,7 +176,7 @@ namespace Vulture
 	public:
 		Ref<Vulture::Image> SkyboxImage;
 
-		SkyboxComponent(const std::string filepath);
+		SkyboxComponent(const std::string& filepath);
 
 		~SkyboxComponent() = default;
 	};

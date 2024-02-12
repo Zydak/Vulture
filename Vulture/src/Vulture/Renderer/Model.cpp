@@ -82,20 +82,12 @@ namespace Vulture
 			aiColor3D emissiveColor(0.0f, 0.0f, 0.0f);
 			aiColor4D albedoColor(0.0f, 0.0f, 0.0f, 1.0f);
 			float roughness = 1.0f;
-			float metallic = 0.0f;
+			float metallic = 1.0f;
 
 			material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor);
 			material->Get(AI_MATKEY_COLOR_DIFFUSE, albedoColor);
 			material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
 			material->Get(AI_MATKEY_REFLECTIVITY, metallic);
-
-			if (roughness == 0.0f)
-			{
-				//albedoColor.a = 0.0f;
-				//metallic = 1.0f;
-				//roughness = 0.5f;
-				//albedoColor = aiColor3D(1.0f, 0.5f, 0.0f);
-			}
 
 			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_BASE_COLOR); i++)
 			{

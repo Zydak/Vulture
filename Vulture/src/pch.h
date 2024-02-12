@@ -24,3 +24,4 @@
 #include <algorithm>
 #include <functional>
 #include <cassert>
+#include <numeric>

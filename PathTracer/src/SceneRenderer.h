@@ -72,7 +72,6 @@ private:
 		Count
 	};
 	Vulture::Ref<Vulture::Framebuffer> m_GBufferFramebuffer;
-	bool m_DrawGBuffer = true;
 
 	Vulture::Ref<Vulture::Image> m_Skybox;
 
@@ -86,65 +85,67 @@ private:
 	Vulture::Pipeline m_RtPipeline;
 	
 	Vulture::Ref<Vulture::Image> m_PresentedImage;
+	Vulture::Ref<Vulture::Image> m_TonemappedImage;
+	Vulture::Ref<Vulture::Image> m_BloomImage;
 
 	Vulture::SBT m_SBT;
 
-	Timer m_Timer;
+	Vulture::PushConstant<PushConstantGBuffer> m_PushContantGBuffer;
+	Vulture::PushConstant<PushConstantRay> m_PushContantRayTrace;
+
 	Vulture::RenderPass m_HDRPass;
 	Vulture::RenderPass m_GBufferPass;
 	Vulture::Scene* m_CurrentSceneRendered;
 
-	float m_Time = 0;
-	Timer m_TotalTimer;
-
-	float m_Exposure = 1.0f;
-
-	int m_MaxRayDepth = 20;
-	PushConstantRay m_PushContantRay{};
-
 	VkFence m_DenoiseFence;
 	uint64_t m_DenoiseFenceValue = 0U;
 	Vulture::Ref<Vulture::Denoiser> m_Denoiser;
-	uint32_t m_CurrentSamplesPerPixel = 0;
-	int m_MaxSamplesPerPixel = 1500;
 
+	// ImGui Stuff / Interface
+	Timer m_Timer;
+	Timer m_TotalTimer;
+	uint32_t m_CurrentSamplesPerPixel = 0;
 	VkDescriptorSet m_ImGuiViewportDescriptor;
 	VkDescriptorSet m_ImGuiNormalDescriptor;
 	VkDescriptorSet m_ImGuiAlbedoDescriptor;
 	VkDescriptorSet m_ImGuiRoughnessDescriptor;
 	VkDescriptorSet m_ImGuiEmissiveDescriptor;
-	VkExtent2D m_ImGuiViewportSize = { 942, 881 };
-	VkExtent2D m_ViewportSize = { 942, 881 };
+	VkExtent2D m_ImGuiViewportSize = { 1920, 1080 };
+	VkExtent2D m_ViewportSize = { 1920, 1080 };
 	bool m_ImGuiViewportResized = false;
-	int m_SamplesPerFrame = 15;
+	float m_Time = 0;
 
 	bool m_RunDenoising = false;
 	bool m_ShowDenoised = false;
 	bool m_Denoised = false;
 
-	float m_FocalLength = 1.0f;
-	float m_DoFStrength = 0.0f;
-
 	bool m_ToneMapped = false;
-	
+	bool m_DrawGBuffer = true;
+
+	struct DrawInfo
+	{
+		float DOFStrength		 = 0.0f;
+		float FocalLength		 = 8.0f;
+		int TotalSamplesPerPixel = 1500;
+		int RayDepth = 20;
+		int SamplesPerFrame = 15;
+
+		Vulture::Renderer::TonemapInfo TonemapInfo{};
+		Vulture::Renderer::BloomInfo BloomInfo{};
+	};
+
 	bool m_DrawIntoAFile = false;
 	bool m_DrawIntoAFileChanged = false;
 
-	int m_BloomMipsCount = 6;
-
 	struct DrawFileInfo
 	{
-		int Resolution[2] = { 942, 881 };
-		int TotalSamplesPerPixel = 50'000;
-		int SamplesPerFrame = 15;
-		int RayDepth = 20;
-		int MipsCount = 6;
-		float Exposure = 1.0f;
-		float DOFStrength = 0.0f;
-		float FocalLenght = 8.0f;
+		int Resolution[2] = { 1920, 1080 };
+
+		SceneRenderer::DrawInfo DrawInfo{};
 
 		bool DrawingFramebufferFinished = false;
 	};
 
+	DrawInfo m_DrawInfo{};
 	DrawFileInfo m_DrawFileInfo{};
 };

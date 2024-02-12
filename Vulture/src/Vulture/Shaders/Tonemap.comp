@@ -2,7 +2,22 @@
 
 layout (local_size_x = 8, local_size_y = 8) in;
 
-layout(set = 0, binding = 0, rgba32f) uniform image2D uInput;
+layout(set = 0, binding = 0) uniform sampler2D uInput;
+layout(set = 0, binding = 1, rgba8) uniform image2D uOutput;
+
+struct TonemapInfo
+{
+	float Contrast;
+	float Saturation;
+	float Exposure;
+	float Brightness;
+	float Vignette;
+};
+
+layout(push_constant) uniform PushConstants
+{
+	TonemapInfo pTonemapInfo;
+};
 
 const mat3 AcesInputMatrix =
 {
@@ -61,18 +76,39 @@ vec3 AcesFit(vec3 v)
     return Mul(AcesOutputMatrix, v);
 }
 
-layout(push_constant) uniform PushConstants
+vec3 Filmic(vec3 color)
 {
-	float Exposure;
-} pc;
+    vec3 temp   = max(vec3(0.0F), color - vec3(0.004F));
+    vec3 result = (temp * (vec3(6.2F) * temp + vec3(0.5F))) / (temp * (vec3(6.2F) * temp + vec3(1.7F)) + vec3(0.06F));
+    return result;
+}
 
 void main() 
 {
-    vec3 hdrColor = imageLoad(uInput, ivec2(gl_GlobalInvocationID.xy)).rgb;
+	vec2 pixelCoord = vec2(gl_GlobalInvocationID.xy) + vec2(0.5f);
+	vec2 textureSize = vec2(textureSize(uInput, 0));
+	vec2 texCoord = pixelCoord / textureSize;
 
-    hdrColor *= pc.Exposure;
-    vec3 mapped = AcesFit(hdrColor);
+    vec3 hdrColor = texelFetch(uInput, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
+
+    hdrColor *= pTonemapInfo.Exposure;
+    vec3 mapped = Filmic(hdrColor);
     //vec3 mapped = Uncharted2Filmic(hdrColor);
 
-    imageStore(uInput, ivec2(gl_GlobalInvocationID.xy), vec4(mapped, 1.0f));
+    // contrast
+    mapped = clamp(mix(vec3(0.5f), mapped, vec3(pTonemapInfo.Contrast)), vec3(0.0f), vec3(1.0f));
+
+    // brightness
+    mapped = pow(mapped, vec3(1.0f / pTonemapInfo.Brightness));
+
+    // vignette
+    vec2 centerTexCoord = ((texCoord - vec2(0.5f)) * vec2(2.0f));
+    float vignette = clamp(1.0f - dot(centerTexCoord, centerTexCoord) * pTonemapInfo.Vignette, 0.0f, 1.0f);
+    mapped *= vignette;
+
+    // saturation
+    vec3 i = vec3(dot(mapped, vec3(0.299f, 0.587f, 0.114f)));
+    mapped = mix(i, mapped, pTonemapInfo.Saturation);
+
+    imageStore(uOutput, ivec2(gl_GlobalInvocationID.xy), vec4(mapped, 1.0f));
 }

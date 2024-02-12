@@ -7,7 +7,7 @@
 
 layout(location = 0) rayPayloadInEXT hitPayload prd;
 
-layout (set = 1, binding = 1) uniform samplerCube uSamplerCubeMap;
+layout (set = 1, binding = 1) uniform sampler2D uEnvMap;
 
 layout(push_constant) uniform _PushConstantRay
 {
@@ -16,13 +16,20 @@ layout(push_constant) uniform _PushConstantRay
 
 void main()
 {
-	vec3 color = texture(uSamplerCubeMap, prd.RayDirection).xyz;
 	if(prd.Depth == 0)
 	{
+		vec3 rayDir = prd.RayDirection;
+		vec2 uv = directionToSphericalEnvmap(rayDir);
+		vec3 color = texture(uEnvMap, uv).rgb;
 		prd.HitValue = color;
-		prd.MissedAllGeometry = true;
+		prd.MissedAllGeometry = true; // set to true to eliminate collecting more samples of the pixel
 	}
 	else
+	{
+		vec3 rayDir = prd.RayDirection;
+		vec2 uv = directionToSphericalEnvmap(rayDir);
+		vec3 color = texture(uEnvMap, uv).rgb;
 		prd.HitValue = color;
-	prd.Depth = 100;
+	}
+	prd.Depth = DEPTH_INFINITE;
 }

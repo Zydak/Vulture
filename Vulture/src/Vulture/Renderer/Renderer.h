@@ -5,6 +5,8 @@
 #include "Vulkan/Swapchain.h"
 #include "Vulkan/Pipeline.h"
 #include "Vulkan/DescriptorSet.h"
+#include "Vulkan/PushConstant.h"
+#include "Vulkan/SBT.h"
 #include "Mesh.h"
 #include "RenderPass.h"
 
@@ -37,6 +39,9 @@ namespace Vulture
 		static bool EndFrame();
 
 		static void RenderImGui(std::function<void()> fn);
+		static void RayTrace(VkCommandBuffer cmdBuf, SBT* sbt, VkExtent2D imageSize, uint32_t depth = 1);
+
+		static inline Image* GetEnv() { return &m_EnvMap; }
 
 		static VkCommandBuffer GetCurrentCommandBuffer();
 		static int GetFrameIndex();
@@ -45,9 +50,26 @@ namespace Vulture
 		static void ImGuiPass();
 		static void FramebufferCopyPassImGui(Ref<DescriptorSet> descriptorWithImageSampler);
 		static void FramebufferCopyPassBlit(Ref<Image> image);
-		static void ToneMapPass(Ref<DescriptorSet> descriptorWithImageSampler, Ref<Image> image, float exposure = 1.0f);
-		static void BloomPass(Ref<Image> image, int mipsCount);
 		static void EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap);
+		static void SampleEnvMap(Image* image);
+
+		struct BloomInfo
+		{
+			float Threshold = 1.0f;
+			float Strength = 0.5f;
+			int MipCount = 6;
+		};
+		static void BloomPass(Ref<Image> inputImage, Ref<Image> outputImage, BloomInfo bloomInfo = BloomInfo());
+		
+		struct TonemapInfo
+		{
+			float Contrast = 1.0f;
+			float Saturation = 1.0f;
+			float Exposure = 1.0f;
+			float Brightness = 1.0f;
+			float Vignette = 0.0f;
+		};
+		static void ToneMapPass(Ref<DescriptorSet> tonemapSet, VkExtent2D dstSize, TonemapInfo tonInfo = TonemapInfo());
 	private:
 		static bool BeginFrameInternal();
 		static bool EndFrameInternal();
@@ -59,9 +81,10 @@ namespace Vulture
 		static void CreatePool();
 		static void CreatePipeline();
 		static void CreateDescriptorSets();
-		static void CreateBloomImages(Ref<Image> image, int mipsCount);
+		static void CreateBloomImages(Ref<Image> inputImage, Ref<Image> outputImage, int mipsCount);
+		static void CreateBloomDescriptors(Ref<Image> inputImage, Ref<Image> outputImage, int mipsCount);
 		static void WriteToFile(const char* filename, std::vector<unsigned char>& image, unsigned width, unsigned height);
-
+		
 		static Scope<DescriptorPool> s_Pool;
 		static Window* s_Window;
 		static std::vector<VkCommandBuffer> s_CommandBuffers;
@@ -79,17 +102,23 @@ namespace Vulture
 		static Mesh s_QuadMesh;
 		static Scope<Sampler> s_RendererSampler;
 
-		static Ref<DescriptorSet> s_BloomSeparateBrightnessDescriptorSet;
-		static Ref<DescriptorSet> s_BloomAccumulateDescriptorSet;
-		static std::vector<Ref<DescriptorSet>> s_BloomDownSampleDescriptorSet;
+		static PushConstant<TonemapInfo> s_TonemapperPush;
+		static PushConstant<BloomInfo> s_BloomPush;
+
+		static std::array<Ref<DescriptorSet>, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomSeparateBrightnessDescriptorSet;
+		static std::array<Ref<DescriptorSet>, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomAccumulateDescriptorSet;
+		static std::array<std::vector<Ref<DescriptorSet>>, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomDownSampleDescriptorSet;
 
 		static Ref<DescriptorSet> s_EnvToCubemapDescriptorSet;
 
 		static Pipeline s_HDRToPresentablePipeline;
 		static Pipeline s_ToneMapPipeline;
-		static Pipeline s_BloomSeparateBrightnessPipeline;
-		static Pipeline s_BloomAccumulatePipeline;
-		static Pipeline s_BloomDownSamplePipeline;
+		static std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomSeparateBrightnessPipeline;
+		static std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomAccumulatePipeline;
+		static std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomDownSamplePipeline;
+
+		static Image m_EnvMap;
+
 		static Pipeline s_EnvToCubemapPipeline;
 
 		static std::vector<Ref<Image>> s_BloomImages;
@@ -97,8 +126,7 @@ namespace Vulture
 		static std::function<void()> s_ImGuiFunction;
 
 		static VkExtent2D s_MipSize;
-		static int m_PrevMipsCount;
 		static int m_MipsCount;
-		friend class RenderPass;
+		static int m_PrevMipsCount;
 	};
 }

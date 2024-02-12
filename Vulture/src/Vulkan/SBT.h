@@ -39,6 +39,11 @@ namespace Vulture
 		inline VkStridedDeviceAddressRegionKHR GetHitRegion() const { return m_HitRegion; }
 		inline VkStridedDeviceAddressRegionKHR GetCallRegion() const { return m_CallRegion; }
 
+		inline const VkStridedDeviceAddressRegionKHR* GetRGenRegionPtr() const { return &m_RgenRegion; }
+		inline const VkStridedDeviceAddressRegionKHR* GetMissRegionPtr() const { return &m_MissRegion; }
+		inline const VkStridedDeviceAddressRegionKHR* GetHitRegionPtr() const { return &m_HitRegion; }
+		inline const VkStridedDeviceAddressRegionKHR* GetCallRegionPtr() const { return &m_CallRegion; }
+
 		SBT() = default;
 		~SBT();
 		SBT(const SBT&) = delete;

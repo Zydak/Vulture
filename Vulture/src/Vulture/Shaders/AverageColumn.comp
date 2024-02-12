@@ -1,0 +1,22 @@
+#version 460
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout (set = 0, binding = 0, r32f) uniform image2D uAverageColumnImage;
+layout (set = 0, binding = 1) uniform sampler2D uAverageRowImage;
+
+void main()
+{
+	ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
+	vec2 textureSize = vec2(textureSize(uAverageRowImage, 0));
+	int column = pixelCoord.x;
+
+	float sum = 0.0f;
+	for (int y = 0; y < textureSize.y; y++)
+	{
+		sum += texelFetch(uAverageRowImage, ivec2(column, y), 0).r;
+	}
+	sum /= textureSize.y;
+
+	imageStore(uAverageColumnImage, ivec2(gl_GlobalInvocationID.xy), vec4(sum, sum, sum, 1.0f));
+}

@@ -4,21 +4,28 @@
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
-layout (set = 0, binding = 0, rgba32f) uniform image2D inputImage;
-layout (set = 0, binding = 1, rgba32f) uniform image2D outputImage;
+layout (set = 0, binding = 0) uniform sampler2D inputImage;
+layout (set = 0, binding = 1, rgba16f) uniform image2D outputImage;
+
+struct BloomInfo
+{
+	float Threshold;
+	float Strength;
+	int MipCount;
+};
 
 layout (push_constant) uniform PushContants
 {
-	float BloomThreshold;
-} push;
+	BloomInfo pBloomInfo;
+};
 
 void main()
 {
-	vec3 color = imageLoad(inputImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
+	vec3 color = texelFetch(inputImage, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
 
     float brightness = dot(color, vec3(0.2126, 0.7152, 0.0722));
 	
-	if (brightness < 1.2f)
+	if (brightness < pBloomInfo.Threshold)
 	{
 		color = vec3(0.0f);
 	}

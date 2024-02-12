@@ -18,3 +18,5 @@
 #include "Vulture/src/Vulture/Renderer/AccelerationStructure.h"
 #include "Vulture/src/Vulture/Renderer/Denoiser.h"
 #include "Vulture/src/Vulkan/SBT.h"
+#include "Vulture/src/Vulkan/PushConstant.h"
+#include "Vulture/src/Vulture/Math/Quaternion.h"

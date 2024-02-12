@@ -1,0 +1,35 @@
+#version 460
+
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout (set = 0, binding = 0, r32f) uniform image2D uInverseConditional;
+layout (set = 0, binding = 1) uniform sampler2D uGrayScalePDF;
+
+float p2t(in float p, in int noOfPixels)
+{
+	return (p + 0.5) / float(noOfPixels);
+}
+
+void main()
+{
+	vec2 pixelCoord = vec2(ivec2(gl_GlobalInvocationID.xy));
+	vec2 textureSize = vec2(textureSize(uGrayScalePDF, 0));
+	vec2 texCoord = pixelCoord / textureSize;
+
+	int row = int(gl_GlobalInvocationID.y);
+	float u = texCoord.x;
+
+	int x;
+	float sum = 0.0f;
+	for (x = 0; x < textureSize.x; x++)
+	{
+		sum += texelFetch(uGrayScalePDF, ivec2(x, row), 0).r / textureSize.x;
+		if (sum >= u)
+		{
+			break;
+		}
+	}
+	float cfXInv = p2t(float(x), int(textureSize.x));
+
+	imageStore(uInverseConditional, ivec2(gl_GlobalInvocationID.xy), vec4(cfXInv, cfXInv, cfXInv, 1.0f));
+}

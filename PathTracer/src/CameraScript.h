@@ -2,6 +2,7 @@
 #include <Vulture.h>
 
 #include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtx/compatibility.hpp"
 
 class CameraScript : public Vulture::ScriptInterface
 {
@@ -19,6 +20,9 @@ public:
 
 		cameraCp->Translation.z = -10.0f;
 		cameraCp->UpdateViewMatrix();
+
+		m_StartingTranslation = cameraCp->Translation;
+		m_StartingRotation = cameraCp->Rotation.GetAngles();
 	}
 
 	void OnDestroy() override
@@ -28,13 +32,19 @@ public:
 
 	void OnUpdate(double deltaTime) override
 	{
+		auto& cameraComponent = GetComponent<Vulture::CameraComponent>();
+
+		if (m_Reset)
+		{
+			m_ResetTimer += deltaTime;
+			OnReset();
+			return;
+		}
+
 		if (m_CameraLocked)
 		{
 			return;
 		}
-
-		m_Timer += deltaTime;
-		auto& cameraComponent = GetComponent<Vulture::CameraComponent>();
 
 		// Translation
 		if (Vulture::Input::IsKeyPressed(VL_KEY_A))
@@ -93,10 +103,43 @@ public:
 		cameraComponent.UpdateViewMatrix();
 	}
 
+	void Reset()
+	{
+		m_Reset = true;
+		m_ResetTimer = 0.0f;
+
+		auto& cameraCp = GetComponent<Vulture::CameraComponent>();
+
+		m_ResetStartTranslation = cameraCp.Translation;
+		m_ResetStartRotation = cameraCp.Rotation.GetAngles();
+	}
+
 	float m_MovementSpeed = 5.0f;
 	float m_RotationSpeed = 0.1f;
 	bool m_CameraLocked = true;
+	bool m_Reset = false;
+	float m_ResetDuration = 1.0f;
 private:
-	double m_Timer = 0.0;
-	glm::vec2 m_LastMousePosition{0.0f};
+	double m_ResetTimer = 0.0;
+	glm::vec2 m_LastMousePosition{ 0.0f };
+	glm::vec3 m_StartingTranslation;
+	glm::vec3 m_StartingRotation;
+
+	glm::vec3 m_ResetStartTranslation;
+	glm::vec3 m_ResetStartRotation;
+
+	void OnReset()
+	{
+		auto& cameraCp = GetComponent<Vulture::CameraComponent>();
+
+		cameraCp.Translation = glm::lerp(m_ResetStartTranslation, m_StartingTranslation, glm::smoothstep(glm::vec3(0.0f), glm::vec3(1.0f), glm::vec3((float)m_ResetTimer / m_ResetDuration)));
+		cameraCp.Rotation.SetAngles(glm::lerp(m_ResetStartRotation, m_StartingRotation, glm::smoothstep(glm::vec3(0.0f), glm::vec3(1.0f), glm::vec3((float)m_ResetTimer / m_ResetDuration))));
+
+		cameraCp.UpdateViewMatrix();
+
+		if (m_ResetTimer / m_ResetDuration >= 1.0f)
+		{
+			m_Reset = false;
+		}
+	}
 };

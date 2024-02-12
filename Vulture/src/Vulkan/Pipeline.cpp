@@ -289,6 +289,21 @@ namespace Vulture
 			Destroy();
 	}
 
+	Pipeline::Pipeline(const GraphicsCreateInfo& info)
+	{
+		Init(info);
+	}
+
+	Pipeline::Pipeline(const ComputeCreateInfo& info)
+	{
+		Init(info);
+	}
+
+	Pipeline::Pipeline(const RayTracingCreateInfo& info)
+	{
+		Init(info);
+	}
+
 	/*
 	 * @brief Reads the contents of a file into a vector of characters.
 	 *

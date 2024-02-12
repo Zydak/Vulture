@@ -18,12 +18,16 @@ namespace Vulture
 
 		void SetAngles(glm::vec3 angles);
 		void AddAngles(glm::vec3 angles);
+		glm::vec3 GetAngles() const;
+
+		void SetQuaternion(glm::quat quat);
 
 		void AddPitch(float angle);
 		void AddYaw(float angle);
 		void AddRoll(float angle);
 
 		glm::mat4 GetMat4() const;
+		inline glm::quat GetGlmQuat() const { return m_Quat; }
 
 		inline glm::vec3 GetFrontVec() const { return m_FrontVec; };
 		inline glm::vec3 GetUpVec() const { return m_UpVec; };

@@ -25,26 +25,31 @@ namespace Vulture
 		s_Swapchain.reset();
 
 		s_EnvToCubemapDescriptorSet.reset();
-		s_BloomSeparateBrightnessDescriptorSet.reset();
-		s_BloomDownSampleDescriptorSet.clear();
-		s_BloomAccumulateDescriptorSet.reset();
 
 		s_BloomImages.clear();
 		s_RendererSampler.reset();
 
 		s_HDRToPresentablePipeline.Destroy();
 		s_ToneMapPipeline.Destroy();
-		s_BloomSeparateBrightnessPipeline.Destroy();
-		s_BloomAccumulatePipeline.Destroy();
-		s_BloomDownSamplePipeline.Destroy();
+		for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			s_BloomSeparateBrightnessDescriptorSet[i].reset();
+			s_BloomDownSampleDescriptorSet[i].clear();
+			s_BloomAccumulateDescriptorSet[i].reset();
+			s_BloomSeparateBrightnessPipeline[i].Destroy();
+			s_BloomAccumulatePipeline[i].Destroy();
+			s_BloomDownSamplePipeline[i].Destroy();
+		}
 		s_EnvToCubemapPipeline.Destroy();
 
 		s_QuadMesh.Destroy();
 		s_Pool.reset();
+		m_EnvMap.Destroy();
 
 #ifdef VL_IMGUI
 		ImGui_ImplVulkan_DestroyDeviceObjects();
 #endif
+
 	}
 
 	static void CheckVkResult(VkResult err)
@@ -56,11 +61,14 @@ namespace Vulture
 
 	void Renderer::Init(Window& window)
 	{
+		CreatePool();
 		s_RendererSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR));
 		
+		m_EnvMap.Init("assets/sunrise.hdr");
+
 		s_IsInitialized = true;
 		s_Window = &window;
-		CreatePool();
+		CreateDescriptorSets();
 		RecreateSwapchain();
 		CreateCommandBuffers();
 
@@ -135,6 +143,20 @@ namespace Vulture
 	void Renderer::RenderImGui(std::function<void()> fn)
 	{
 		s_ImGuiFunction = fn;
+	}
+
+	void Renderer::RayTrace(VkCommandBuffer cmdBuf, SBT* sbt, VkExtent2D imageSize, uint32_t depth /* = 1*/)
+	{
+		Device::vkCmdTraceRaysKHR(
+			cmdBuf,
+			sbt->GetRGenRegionPtr(),
+			sbt->GetMissRegionPtr(),
+			sbt->GetHitRegionPtr(),
+			sbt->GetCallRegionPtr(),
+			imageSize.width,
+			imageSize.height,
+			2
+		);
 	}
 
 	/*
@@ -318,17 +340,23 @@ namespace Vulture
 		std::vector<unsigned char> imageBuffer(width * height * 4);
 		memcpy(imageBuffer.data(), bufferData, width * height * 4);
 
-		uint32_t imagesCount = 0;
-		std::string path = "Rendered_Images/";
-		for (const auto& entry : std::filesystem::directory_iterator(path)) 
+		if (filepath == "")
 		{
-			if (std::filesystem::is_regular_file(entry.status())) 
+			uint32_t imagesCount = 0;
+			std::string path = "Rendered_Images/";
+			for (const auto& entry : std::filesystem::directory_iterator(path))
 			{
-				imagesCount++;
+				if (std::filesystem::is_regular_file(entry.status()))
+				{
+					imagesCount++;
+				}
 			}
+			WriteToFile(std::string("Rendered_Images/Render" + std::to_string(imagesCount) + ".png").c_str(), imageBuffer, width, height);
 		}
-
-		WriteToFile(std::string("Rendered_Images/Render" + std::to_string(imagesCount) + ".png").c_str(), imageBuffer, width, height);
+		else
+		{
+			WriteToFile(filepath.c_str(), imageBuffer, width, height);
+		}
 	}
 
 	/**
@@ -433,89 +461,58 @@ namespace Vulture
 	}
 
 	// TODO description
-	// TODO why the fuck is there uniform AND image?
-	void Renderer::ToneMapPass(Ref<DescriptorSet> descriptorWithImageSampler, Ref<Image> image, float exposure)
+	void Renderer::ToneMapPass(Ref<DescriptorSet> tonemapSet, VkExtent2D dstSize, TonemapInfo tonInfo)
 	{
-		VkImageMemoryBarrier barrierWrite{};
-		barrierWrite.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrierWrite.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-		barrierWrite.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-		barrierWrite.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-		barrierWrite.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		barrierWrite.image = image->GetImage();
-		barrierWrite.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		barrierWrite.subresourceRange.baseArrayLayer = 0;
-		barrierWrite.subresourceRange.baseMipLevel = 0;
-		barrierWrite.subresourceRange.layerCount = 1;
-		barrierWrite.subresourceRange.levelCount = 1;
-
-		vkCmdPipelineBarrier(
-			Vulture::Renderer::GetCurrentCommandBuffer(),
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			0,
-			0, nullptr,
-			0, nullptr,
-			1, &barrierWrite
-		);
-
 		s_ToneMapPipeline.Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
 
-		descriptorWithImageSampler->Bind(
+		tonemapSet->Bind(
 			0,
 			s_ToneMapPipeline.GetPipelineLayout(),
 			VK_PIPELINE_BIND_POINT_COMPUTE,
 			GetCurrentCommandBuffer()
 		);
 
-		vkCmdPushConstants(
-			GetCurrentCommandBuffer(),
-			s_ToneMapPipeline.GetPipelineLayout(),
-			VK_SHADER_STAGE_COMPUTE_BIT,
-			0,
-			sizeof(float),
-			&exposure
-		);
+		s_TonemapperPush.GetDataPtr()->Brightness = tonInfo.Brightness;
+		s_TonemapperPush.GetDataPtr()->Contrast = tonInfo.Contrast;
+		s_TonemapperPush.GetDataPtr()->Exposure = tonInfo.Exposure;
+		s_TonemapperPush.GetDataPtr()->Vignette = tonInfo.Vignette;
+		s_TonemapperPush.GetDataPtr()->Saturation = tonInfo.Saturation;
 
-		vkCmdDispatch(GetCurrentCommandBuffer(), ((int)image->GetImageSize().width) / 8 + 1, ((int)image->GetImageSize().width) / 8 + 1, 1);
-	
-		VkImageMemoryBarrier barrierRead{};
-		barrierRead.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrierRead.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-		barrierRead.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-		barrierRead.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-		barrierRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		barrierRead.image = image->GetImage();
-		barrierRead.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		barrierRead.subresourceRange.baseArrayLayer = 0;
-		barrierRead.subresourceRange.baseMipLevel = 0;
-		barrierRead.subresourceRange.layerCount = 1;
-		barrierRead.subresourceRange.levelCount = 1;
+		s_TonemapperPush.Push(s_ToneMapPipeline.GetPipelineLayout(), GetCurrentCommandBuffer());
 
-		vkCmdPipelineBarrier(
-			Vulture::Renderer::GetCurrentCommandBuffer(),
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			0,
-			0, nullptr,
-			0, nullptr,
-			1, &barrierRead
-		);
+		vkCmdDispatch(GetCurrentCommandBuffer(), ((int)dstSize.width) / 8 + 1, ((int)dstSize.width) / 8 + 1, 1);
 	}
 
-	void Renderer::BloomPass(Ref<Image> image, int mipsCount)
+	void Renderer::BloomPass(Ref<Image> inputImage, Ref<Image> outputImage, BloomInfo bloomInfo)
 	{
-		if (mipsCount <= 0)
+		static int descriptorsRecreatedForFrames = 0;
+		if (bloomInfo.MipCount <= 0 || bloomInfo.MipCount > 10)
 		{
-			VL_CORE_WARN("Incorrect mips count! {}", mipsCount);
+			VL_CORE_WARN("Incorrect mips count! {}. Min = 1 & Max = 10", bloomInfo.MipCount);
 			return;
 		}
-		if ((image->GetImageSize().width != s_MipSize.width || image->GetImageSize().height != s_MipSize.height) || mipsCount != m_PrevMipsCount)
+		if ((inputImage->GetImageSize().width != s_MipSize.width || inputImage->GetImageSize().height != s_MipSize.height)
+			|| (outputImage->GetImageSize().width != s_MipSize.width || outputImage->GetImageSize().height != s_MipSize.height)
+			)
 		{
 			VL_CORE_INFO("Recreating bloom framebuffers");
-			m_PrevMipsCount = mipsCount;
-			CreateBloomImages(image, mipsCount);
+			CreateBloomImages(inputImage, outputImage, bloomInfo.MipCount);
+			descriptorsRecreatedForFrames = Swapchain::MAX_FRAMES_IN_FLIGHT;
 		}
+		else if (bloomInfo.MipCount != m_PrevMipsCount)
+		{
+			descriptorsRecreatedForFrames = 0; // Start recreating
+			CreateBloomDescriptors(inputImage, outputImage, bloomInfo.MipCount);
+		}
+		else if (descriptorsRecreatedForFrames < Swapchain::MAX_FRAMES_IN_FLIGHT) // recreate one each frame
+		{
+			CreateBloomDescriptors(inputImage, outputImage, bloomInfo.MipCount);
+			descriptorsRecreatedForFrames++;
+		}
+
+		s_BloomPush.GetDataPtr()->MipCount = bloomInfo.MipCount;
+		s_BloomPush.GetDataPtr()->Strength = bloomInfo.Strength;
+		s_BloomPush.GetDataPtr()->Threshold = bloomInfo.Threshold;
 
 		s_BloomImages[0]->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL, 
@@ -526,18 +523,10 @@ namespace Vulture
 			GetCurrentCommandBuffer()
 		);
 
-		s_BloomSeparateBrightnessPipeline.Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
-		s_BloomSeparateBrightnessDescriptorSet->Bind(0, s_BloomSeparateBrightnessPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
+		s_BloomSeparateBrightnessPipeline[GetCurrentFrameIndex()].Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
+		s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->Bind(0, s_BloomSeparateBrightnessPipeline[GetCurrentFrameIndex()].GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
 
-		float threshold = 1.0f;
-		vkCmdPushConstants(
-			GetCurrentCommandBuffer(), 
-			s_BloomSeparateBrightnessPipeline.GetPipelineLayout(),
-			VK_SHADER_STAGE_COMPUTE_BIT,
-			0,
-			sizeof(float),
-			&threshold
-		);
+		s_BloomPush.Push(s_BloomAccumulatePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), GetCurrentCommandBuffer());
 
 		vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[0]->GetImageSize().width / 8 + 1, s_BloomImages[0]->GetImageSize().height / 8 + 1, 1);
 		
@@ -550,7 +539,7 @@ namespace Vulture
 			GetCurrentCommandBuffer()
 		);
 
-		for (int i = 1; i < (int)s_BloomImages.size(); i++)
+		for (int i = 1; i < (int)bloomInfo.MipCount + 1; i++)
 		{
 			s_BloomImages[i]->TransitionImageLayout(
 				VK_IMAGE_LAYOUT_GENERAL,
@@ -562,10 +551,11 @@ namespace Vulture
 			);
 		}
 
-		s_BloomDownSamplePipeline.Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
-		for (int i = 1; i < (int)s_BloomImages.size(); i++)
+		s_BloomDownSamplePipeline[GetCurrentFrameIndex()].Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
+		s_BloomPush.Push(s_BloomAccumulatePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), GetCurrentCommandBuffer());
+		for (int i = 1; i < (int)bloomInfo.MipCount + 1; i++)
 		{
-			s_BloomDownSampleDescriptorSet[i-1]->Bind(0, s_BloomDownSamplePipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
+			s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i-1]->Bind(0, s_BloomDownSamplePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
 		
 			vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[i-1]->GetImageSize().width / 8 + 1, s_BloomImages[i-1]->GetImageSize().height / 8 + 1, 1);
 		
@@ -579,7 +569,7 @@ namespace Vulture
 			);
 		}
 
-		for (int i = 1; i < (int)s_BloomImages.size(); i++)
+		for (int i = 1; i < (int)bloomInfo.MipCount + 1; i++)
 		{
 			s_BloomImages[i]->TransitionImageLayout(
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
@@ -590,19 +580,12 @@ namespace Vulture
 				GetCurrentCommandBuffer()
 			);
 		}
-		s_BloomAccumulatePipeline.Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
-		s_BloomAccumulateDescriptorSet->Bind(0, s_BloomAccumulatePipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
+		s_BloomAccumulatePipeline[GetCurrentFrameIndex()].Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
+		s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()]->Bind(0, s_BloomAccumulatePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
 
-		vkCmdPushConstants(
-			GetCurrentCommandBuffer(),
-			s_BloomAccumulatePipeline.GetPipelineLayout(),
-			VK_SHADER_STAGE_COMPUTE_BIT,
-			0,
-			sizeof(int),
-			&mipsCount
-		);
+		s_BloomPush.Push(s_BloomAccumulatePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), GetCurrentCommandBuffer());
 
-		vkCmdDispatch(GetCurrentCommandBuffer(), image->GetImageSize().width / 8 + 1, image->GetImageSize().height / 8 + 1, 1);
+		vkCmdDispatch(GetCurrentCommandBuffer(), inputImage->GetImageSize().width / 8 + 1, inputImage->GetImageSize().height / 8 + 1, 1);
 	}
 
 	void Renderer::EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap)
@@ -644,7 +627,7 @@ namespace Vulture
 
 		s_EnvToCubemapPipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
 		s_EnvToCubemapDescriptorSet->Bind(0, s_EnvToCubemapPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
-	
+
 		vkCmdDispatch(cmdBuf, cubemap->GetImageSize().width / 8 + 1, cubemap->GetImageSize().height / 8 + 1, 1);
 
 		cubemap->TransitionImageLayout(
@@ -655,6 +638,498 @@ namespace Vulture
 			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			cmdBuf,
 			range
+		);
+
+		Device::EndSingleTimeCommands(cmdBuf, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
+	}
+
+	void Renderer::SampleEnvMap(Image* image)
+	{
+		// TODO Clean this up
+		Image::CreateInfo imageInfo{};
+		imageInfo.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageInfo.Format = VK_FORMAT_R32_SFLOAT;
+		imageInfo.Height = image->GetImageSize().height;
+		imageInfo.Width = image->GetImageSize().width;
+		imageInfo.LayerCount = 1;
+		imageInfo.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		imageInfo.Tiling = VK_IMAGE_TILING_OPTIMAL;
+		imageInfo.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+
+		Image grayScaleImage(imageInfo);
+		grayScaleImage.TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, 0, 0, 0, 0);
+
+		imageInfo.Width = 1;
+		Image averageRowImage(imageInfo);
+		averageRowImage.TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, 0, 0, 0, 0);
+
+		imageInfo.Height = 1;
+		Image averageImage(imageInfo);
+		averageImage.TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, 0, 0, 0, 0);
+
+		imageInfo.Width = image->GetImageSize().width;
+		imageInfo.Height = image->GetImageSize().height;
+		image->GetJointPDF()->Init(imageInfo);
+		image->GetJointPDF()->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, 0, 0, 0, 0);
+
+		imageInfo.Width = 1;
+		Image marginalPDF(imageInfo);
+		marginalPDF.TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, 0, 0, 0, 0);
+
+		imageInfo.Width = image->GetImageSize().width;
+		Image conditionalPDF(imageInfo);
+		conditionalPDF.TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, 0, 0, 0, 0);
+
+		imageInfo.Width = 1;
+		image->GetCDFInverseY()->Init(imageInfo);
+		image->GetCDFInverseY()->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, 0, 0, 0, 0);
+
+		imageInfo.Width = image->GetImageSize().width;
+		imageInfo.Height = image->GetImageSize().height;
+		image->GetCDFInverseX()->Init(imageInfo);
+		image->GetCDFInverseX()->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, 0, 0, 0, 0);
+
+		// Gray scale
+		DescriptorSet grayScaleSet;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			grayScaleSet = Vulture::DescriptorSet();
+			grayScaleSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+			grayScaleSet.AddImageSampler(0, grayScaleImage.GetSamplerHandle(), grayScaleImage.GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
+			);
+			grayScaleSet.AddImageSampler(1, m_EnvMap.GetSamplerHandle(), m_EnvMap.GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+			grayScaleSet.Build();
+		}
+
+		// Average row
+		DescriptorSet averageRowSet;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			averageRowSet = Vulture::DescriptorSet();
+			averageRowSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+			averageRowSet.AddImageSampler(0, averageRowImage.GetSamplerHandle(), averageRowImage.GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
+			);
+			averageRowSet.AddImageSampler(1, grayScaleImage.GetSamplerHandle(), grayScaleImage.GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+			averageRowSet.Build();
+		}
+
+		// Average column
+		DescriptorSet averageSet;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			averageSet = Vulture::DescriptorSet();
+			averageSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+			averageSet.AddImageSampler(0, averageImage.GetSamplerHandle(), averageImage.GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
+			);
+			averageSet.AddImageSampler(1, averageRowImage.GetSamplerHandle(), averageRowImage.GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+			averageSet.Build();
+		}
+
+		// Joint PDF
+		DescriptorSet jointPDFSet;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin2{ 2, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			jointPDFSet = Vulture::DescriptorSet();
+			jointPDFSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1, bin2 });
+			jointPDFSet.AddImageSampler(0, image->GetJointPDF()->GetSamplerHandle(), image->GetJointPDF()->GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
+			);
+			jointPDFSet.AddImageSampler(1, averageImage.GetSamplerHandle(), averageImage.GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+			jointPDFSet.AddImageSampler(2, grayScaleImage.GetSamplerHandle(), grayScaleImage.GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+			jointPDFSet.Build();
+		}
+
+		// Marginal PDF
+		DescriptorSet marginalPDFSet;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin2{ 2, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			marginalPDFSet = Vulture::DescriptorSet();
+			marginalPDFSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1, bin2 });
+			marginalPDFSet.AddImageSampler(0, marginalPDF.GetSamplerHandle(), marginalPDF.GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
+			);
+			marginalPDFSet.AddImageSampler(1, averageImage.GetSamplerHandle(), averageImage.GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+			marginalPDFSet.AddImageSampler(2, averageRowImage.GetSamplerHandle(), averageRowImage.GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+
+			marginalPDFSet.Build();
+		}
+
+		// Gray scale PDF
+		DescriptorSet grayScalePDFSet;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin2{ 2, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			grayScalePDFSet = Vulture::DescriptorSet();
+			grayScalePDFSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1, bin2 });
+			grayScalePDFSet.AddImageSampler(0, conditionalPDF.GetSamplerHandle(), conditionalPDF.GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
+			);
+			grayScalePDFSet.AddImageSampler(1, averageRowImage.GetSamplerHandle(), averageRowImage.GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+			grayScalePDFSet.AddImageSampler(2, grayScaleImage.GetSamplerHandle(), grayScaleImage.GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+
+			grayScalePDFSet.Build();
+		}
+
+		// Marginal INV
+		DescriptorSet marginalInvSet;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			marginalInvSet = Vulture::DescriptorSet();
+			marginalInvSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+			marginalInvSet.AddImageSampler(0, image->GetCDFInverseY()->GetSamplerHandle(), image->GetCDFInverseY()->GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
+			);
+			marginalInvSet.AddImageSampler(1, marginalPDF.GetSamplerHandle(), marginalPDF.GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+			marginalInvSet.Build();
+		}
+
+		// Conditional INV
+		DescriptorSet conditionalInvSet;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			conditionalInvSet = Vulture::DescriptorSet();
+			conditionalInvSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+			conditionalInvSet.AddImageSampler(0, image->GetCDFInverseX()->GetSamplerHandle(), image->GetCDFInverseX()->GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
+			);
+			conditionalInvSet.AddImageSampler(1, conditionalPDF.GetSamplerHandle(), conditionalPDF.GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+			conditionalInvSet.Build();
+		}
+
+		// Gray scale
+		Pipeline grayScalePipeline;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1 });
+
+			Pipeline::ComputeCreateInfo info{};
+			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/Grayscale.comp.spv";
+
+			// Descriptor set layouts for the pipeline
+			std::vector<VkDescriptorSetLayout> layouts
+			{
+				imageLayout.GetDescriptorSetLayoutHandle()
+			};
+			info.DescriptorSetLayouts = layouts;
+
+			// Create the graphics pipeline
+			grayScalePipeline.Init(info);
+		}
+
+		// Average row
+		Pipeline averageRowPipeline;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1 });
+
+			Pipeline::ComputeCreateInfo info{};
+			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/AverageRow.comp.spv";
+
+			// Descriptor set layouts for the pipeline
+			std::vector<VkDescriptorSetLayout> layouts
+			{
+				imageLayout.GetDescriptorSetLayoutHandle()
+			};
+			info.DescriptorSetLayouts = layouts;
+
+			// Create the graphics pipeline
+			averageRowPipeline.Init(info);
+		}
+
+		// Average Column
+		Pipeline averageColumnPipeline;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1 });
+
+			Pipeline::ComputeCreateInfo info{};
+			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/AverageColumn.comp.spv";
+
+			// Descriptor set layouts for the pipeline
+			std::vector<VkDescriptorSetLayout> layouts
+			{
+				imageLayout.GetDescriptorSetLayoutHandle()
+			};
+			info.DescriptorSetLayouts = layouts;
+
+			// Create the graphics pipeline
+			averageColumnPipeline.Init(info);
+		}
+
+		// Joint pdf
+		Pipeline jointPDFPipeline;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin2{ 2, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1, bin2 });
+
+			Pipeline::ComputeCreateInfo info{};
+			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/JointPDF.comp.spv";
+
+			// Descriptor set layouts for the pipeline
+			std::vector<VkDescriptorSetLayout> layouts
+			{
+				imageLayout.GetDescriptorSetLayoutHandle()
+			};
+			info.DescriptorSetLayouts = layouts;
+
+			// Create the graphics pipeline
+			jointPDFPipeline.Init(info);
+		}
+
+		// Marginal INV
+		Pipeline marginalInvPipeline;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1 });
+
+			Pipeline::ComputeCreateInfo info{};
+			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/InverseMarginal.comp.spv";
+
+			// Descriptor set layouts for the pipeline
+			std::vector<VkDescriptorSetLayout> layouts
+			{
+				imageLayout.GetDescriptorSetLayoutHandle()
+			};
+			info.DescriptorSetLayouts = layouts;
+
+			// Create the graphics pipeline
+			marginalInvPipeline.Init(info);
+		}
+
+		// Conditional INV
+		Pipeline conditionalInvPipeline;
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1 });
+
+			Pipeline::ComputeCreateInfo info{};
+			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/InverseConditional.comp.spv";
+
+			// Descriptor set layouts for the pipeline
+			std::vector<VkDescriptorSetLayout> layouts
+			{
+				imageLayout.GetDescriptorSetLayoutHandle()
+			};
+			info.DescriptorSetLayouts = layouts;
+
+			// Create the graphics pipeline
+			conditionalInvPipeline.Init(info);
+		}
+
+
+		// GRAY SCALE
+
+		VkCommandBuffer cmdBuf;
+		Device::BeginSingleTimeCommands(cmdBuf, Device::GetGraphicsCommandPool());
+
+		grayScalePipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
+		grayScaleSet.Bind(0, grayScalePipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
+
+		vkCmdDispatch(cmdBuf, ((int)image->GetImageSize().width) / 8 + 1, ((int)image->GetImageSize().width) / 8 + 1, 1);
+
+		grayScaleImage.TransitionImageLayout(
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf
+		);
+
+		// AVERAGE ROW
+
+		averageRowPipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
+		averageRowSet.Bind(0, averageRowPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
+
+		vkCmdDispatch(cmdBuf, 1, ((int)image->GetImageSize().height) / 8 + 1, 1);
+
+		averageRowImage.TransitionImageLayout(
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf
+		);
+
+		// AVERAGE
+
+		averageColumnPipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
+		averageSet.Bind(0, averageColumnPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
+
+		vkCmdDispatch(cmdBuf, 1, 1, 1);
+
+		averageImage.TransitionImageLayout(
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf
+		);
+
+		// PDF
+
+		jointPDFPipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
+		jointPDFSet.Bind(0, jointPDFPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
+
+		vkCmdDispatch(cmdBuf, ((int)image->GetImageSize().width) / 8 + 1, ((int)image->GetImageSize().height) / 8 + 1, 1);
+
+		// Marginal
+
+		jointPDFPipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
+		marginalPDFSet.Bind(0, jointPDFPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
+
+		vkCmdDispatch(cmdBuf, 1, ((int)image->GetImageSize().height) / 8 + 1, 1);
+
+		marginalPDF.TransitionImageLayout(
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf
+		);
+
+		averageImage.TransitionImageLayout(
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf
+		);
+
+		// Gray Scale PDF
+
+		jointPDFPipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
+		grayScalePDFSet.Bind(0, jointPDFPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
+
+		vkCmdDispatch(cmdBuf, ((int)image->GetImageSize().width) / 8 + 1, ((int)image->GetImageSize().height) / 8 + 1, 1);
+
+		conditionalPDF.TransitionImageLayout(
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf
+		);
+
+		averageRowImage.TransitionImageLayout(
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf
+		);
+
+		grayScaleImage.TransitionImageLayout(
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf
+		);
+
+		// Marginal Inv
+		marginalInvPipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
+		marginalInvSet.Bind(0, marginalInvPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
+
+		vkCmdDispatch(cmdBuf, 1, ((int)image->GetImageSize().width) / 8 + 1, 1);
+
+		marginalPDF.TransitionImageLayout(
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf
+		);
+
+		// Conditional INV
+
+		conditionalInvPipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
+		conditionalInvSet.Bind(0, conditionalInvPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
+
+		vkCmdDispatch(cmdBuf, ((int)image->GetImageSize().width) / 8 + 1, ((int)image->GetImageSize().width) / 8 + 1, 1);
+
+		conditionalPDF.TransitionImageLayout(
+			VK_IMAGE_LAYOUT_GENERAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			cmdBuf
+		);
+
+		image->GetCDFInverseX()->TransitionImageLayout(
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			0,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0,
+			cmdBuf
+		);
+		image->GetCDFInverseY()->TransitionImageLayout(
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			0,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0,
+			cmdBuf
+		);
+		image->GetJointPDF()->TransitionImageLayout(
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_SHADER_WRITE_BIT,
+			0,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			0,
+			cmdBuf
 		);
 
 		Device::EndSingleTimeCommands(cmdBuf, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
@@ -695,7 +1170,7 @@ namespace Vulture
 
 		// Recreate other resources dependent on the swapchain, such as pipelines or framebuffers
 		CreatePipeline();
-		CreateBloomImages(nullptr, 0);
+		CreateBloomImages(nullptr, nullptr, 0);
 	}
 
 	/*
@@ -775,13 +1250,11 @@ namespace Vulture
 
 		// Tone map
 		{
-			VkPushConstantRange range{};
-			range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-			range.offset = 0;
-			range.size = sizeof(float);
+			s_TonemapperPush.Init({ VK_SHADER_STAGE_COMPUTE_BIT });
 
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout imageLayout({ bin });
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
 			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/Tonemap.comp.spv";
@@ -792,7 +1265,7 @@ namespace Vulture
 				imageLayout.GetDescriptorSetLayoutHandle()
 			};
 			info.DescriptorSetLayouts = layouts;
-			info.PushConstants = &range;
+			info.PushConstants = s_TonemapperPush.GetRangePtr();
 
 			// Create the graphics pipeline
 			s_ToneMapPipeline.Init(info);
@@ -821,30 +1294,29 @@ namespace Vulture
 
 	void Renderer::CreateDescriptorSets()
 	{
-		
+
 	}
 
-	void Renderer::CreateBloomImages(Ref<Image> image, int mipsCount)
+	void Renderer::CreateBloomImages(Ref<Image> inputImage, Ref<Image> outputImage, int mipsCount)
 	{
-		if (image == nullptr)
+		if (inputImage == nullptr)
 		{
 			s_BloomImages.clear();
 			m_MipsCount = 0;
-			m_PrevMipsCount = 0;
 			s_MipSize = VkExtent2D{ 0, 0 };
 			return;
 		}
-		s_MipSize = image->GetImageSize();
+		s_MipSize = inputImage->GetImageSize();
 		s_BloomImages.clear();
 
 		Image::CreateInfo info{};
-		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		info.Width = image->GetImageSize().width;
-		info.Height = image->GetImageSize().height;
+		info.Format = VK_FORMAT_R16G16B16A16_SFLOAT;
+		info.Width = inputImage->GetImageSize().width;
+		info.Height = inputImage->GetImageSize().height;
 		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		info.Usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
-		info.Properties = image->GetMemoryProperties();
+		info.Properties = inputImage->GetMemoryProperties();
 		info.LayerCount = 1;
 		info.SamplerInfo = SamplerInfo{};
 		info.Type = Image::ImageType::Image2D;
@@ -852,33 +1324,100 @@ namespace Vulture
 		// First Image is just a copy with separated bright values
 		s_BloomImages.push_back(std::make_shared<Image>(info));
 
-		for (int i = 0; i < mipsCount; i++)
+		for (int i = 0; i < 10; i++)
 		{
 			info.Width = glm::max(1, (int)info.Width / 2);
 			info.Height = glm::max(1, (int)info.Height / 2);
 			s_BloomImages.push_back(std::make_shared<Image>(info));
 		}
 
+		int prevFrameIndex = GetCurrentFrameIndex();
+		for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			s_CurrentFrameIndex = i;
+			CreateBloomDescriptors(inputImage, outputImage, mipsCount);
+		}
+		s_CurrentFrameIndex = prevFrameIndex;
+	}
 
-		// TODO move this from here
+	void Renderer::CreateBloomDescriptors(Ref<Image> inputImage, Ref<Image> outputImage, int mipsCount)
+	{
+		m_PrevMipsCount = mipsCount;
 		//-----------------------------------------------
-		// Pipelines
+		// Descriptor sets
 		//-----------------------------------------------
 
 		// Bloom Separate Bright Values
 		{
-			VkPushConstantRange range{};
-			range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-			range.offset = 0;
-			range.size = sizeof(int);
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 
+			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()] = std::make_shared<Vulture::DescriptorSet>();
+			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->AddImageSampler(
+				0,
+				inputImage->GetSamplerHandle(),
+				inputImage->GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->AddImageSampler(1, s_BloomImages[0]->GetSamplerHandle(), s_BloomImages[0]->GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
+			);
+			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->Build();
+		}
+
+		// Bloom Accumulate
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, (uint32_t)mipsCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin2{ 2, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+
+			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()] = std::make_shared<Vulture::DescriptorSet>();
+			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1, bin2 });
+			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()]->AddImageSampler(0, inputImage->GetSamplerHandle(), inputImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			for (int i = 1; i < mipsCount + 1; i++)
+			{
+				s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()]->AddImageSampler(1, s_BloomImages[i]->GetSamplerHandle(), s_BloomImages[i]->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			}
+			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()]->AddImageSampler(2, outputImage->GetSamplerHandle(), outputImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
+			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()]->Build();
+		}
+
+		// Bloom Down Sample
+		{
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+
+			s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()].resize(mipsCount);
+			for (int i = 0; i < s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()].size(); i++)
+			{
+				s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i] = std::make_shared<Vulture::DescriptorSet>();
+				s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+				s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i]->AddImageSampler(0, s_BloomImages[i]->GetSamplerHandle(), s_BloomImages[i]->GetImageView(),
+					VK_IMAGE_LAYOUT_GENERAL
+				);
+				s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i]->AddImageSampler(1, s_BloomImages[i + 1]->GetSamplerHandle(), s_BloomImages[i + 1]->GetImageView(),
+					VK_IMAGE_LAYOUT_GENERAL
+				);
+				s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i]->Build();
+			}
+		}
+
+
+		//-----------------------------------------------
+		// Pipelines
+		//-----------------------------------------------
+
+		s_BloomPush.Init({ VK_SHADER_STAGE_COMPUTE_BIT });
+		// Bloom Separate Bright Values
+		{
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
 			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/SeparateBrightValues.comp.spv";
-			info.PushConstants = &range;
+			info.PushConstants = s_BloomPush.GetRangePtr();
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
@@ -888,23 +1427,19 @@ namespace Vulture
 			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
-			s_BloomSeparateBrightnessPipeline.Init(info);
+			s_BloomSeparateBrightnessPipeline[GetCurrentFrameIndex()].Init(info);
 		}
 
 		// Bloom Accumulate
 		{
-			VkPushConstantRange range{};
-			range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-			range.offset = 0;
-			range.size = sizeof(int);
-
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, (uint32_t)mipsCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout imageLayout({ bin, bin1 });
+			DescriptorSetLayout::Binding bin2{ 2, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1, bin2 });
 
 			Pipeline::ComputeCreateInfo info{};
 			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/Bloom.comp.spv";
-			info.PushConstants = &range;
+			info.PushConstants = s_BloomPush.GetRangePtr();
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
@@ -914,7 +1449,7 @@ namespace Vulture
 			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
-			s_BloomAccumulatePipeline.Init(info);
+			s_BloomAccumulatePipeline[GetCurrentFrameIndex()].Init(info);
 		}
 
 		// Bloom Down Sample
@@ -925,7 +1460,7 @@ namespace Vulture
 
 			Pipeline::ComputeCreateInfo info{};
 			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/BloomDownSample.comp.spv";
-			info.PushConstants = nullptr;
+			info.PushConstants = s_BloomPush.GetRangePtr();
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
@@ -935,66 +1470,11 @@ namespace Vulture
 			info.DescriptorSetLayouts = layouts;
 
 			// Create the graphics pipeline
-			s_BloomDownSamplePipeline.Init(info);
-		}
-
-
-		//-----------------------------------------------
-		// Descriptor sets
-		//-----------------------------------------------
-
-		// Bloom Separate Bright Values
-		{
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-
-			s_BloomSeparateBrightnessDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
-			s_BloomSeparateBrightnessDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			s_BloomSeparateBrightnessDescriptorSet->AddImageSampler(0, image->GetSamplerHandle(), image->GetImageView(),
-				VK_IMAGE_LAYOUT_GENERAL
-			);
-			s_BloomSeparateBrightnessDescriptorSet->AddImageSampler(1, s_BloomImages[0]->GetSamplerHandle(), s_BloomImages[0]->GetImageView(),
-				VK_IMAGE_LAYOUT_GENERAL
-			);
-			s_BloomSeparateBrightnessDescriptorSet->Build();
-		}
-
-		// Bloom Accumulate
-		{
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout::Binding bin1{ 1, (uint32_t)mipsCount, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
-
-			s_BloomAccumulateDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
-			s_BloomAccumulateDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			s_BloomAccumulateDescriptorSet->AddImageSampler(0, image->GetSamplerHandle(), image->GetImageView(),VK_IMAGE_LAYOUT_GENERAL);
-			for (int i = 1; i < mipsCount+1; i++)
-			{
-				s_BloomAccumulateDescriptorSet->AddImageSampler(1, s_BloomImages[i]->GetSamplerHandle(), s_BloomImages[i]->GetImageView(),VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			}
-			s_BloomAccumulateDescriptorSet->Build();
-		}
-
-		// Bloom Down Sample
-		{
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-
-			s_BloomDownSampleDescriptorSet.resize(mipsCount);
-			for (int i = 0; i < s_BloomDownSampleDescriptorSet.size(); i++)
-			{
-				s_BloomDownSampleDescriptorSet[i] = std::make_shared<Vulture::DescriptorSet>();
-				s_BloomDownSampleDescriptorSet[i]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-				s_BloomDownSampleDescriptorSet[i]->AddImageSampler(0, s_BloomImages[i]->GetSamplerHandle(), s_BloomImages[i]->GetImageView(),
-					VK_IMAGE_LAYOUT_GENERAL 
-				);
-				s_BloomDownSampleDescriptorSet[i]->AddImageSampler(1, s_BloomImages[i + 1]->GetSamplerHandle(), s_BloomImages[i+1]->GetImageView(),
-					VK_IMAGE_LAYOUT_GENERAL
-				);
-				s_BloomDownSampleDescriptorSet[i]->Build();
-			}
+			s_BloomDownSamplePipeline[GetCurrentFrameIndex()].Init(info);
 		}
 	}
 
+	// TODO description
 	void Renderer::WriteToFile(const char* filename, std::vector<unsigned char>& image, unsigned width, unsigned height)
 	{
 		unsigned error = lodepng::encode(filename, image, width, height);
@@ -1035,22 +1515,23 @@ namespace Vulture
 	Scene* Renderer::s_CurrentSceneRendered;
 	bool Renderer::s_IsInitialized = true;
 	Pipeline Renderer::s_HDRToPresentablePipeline;
-	Vulture::Pipeline Renderer::s_ToneMapPipeline;
-	Vulture::Pipeline Renderer::s_BloomSeparateBrightnessPipeline;
-	Vulture::Pipeline Renderer::s_BloomAccumulatePipeline;
-	Vulture::Pipeline Renderer::s_BloomDownSamplePipeline;
+	Pipeline Renderer::s_ToneMapPipeline;
+	std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomSeparateBrightnessPipeline;
+	std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomAccumulatePipeline;
+	std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomDownSamplePipeline;
+	Image Renderer::m_EnvMap;
 	Vulture::Pipeline Renderer::s_EnvToCubemapPipeline;
 	std::vector<Ref<Image>> Renderer::s_BloomImages;
 	Mesh Renderer::s_QuadMesh;
 	Scope<Sampler> Renderer::s_RendererSampler;
-	Ref<Vulture::DescriptorSet> Renderer::s_BloomSeparateBrightnessDescriptorSet;
-	Ref<Vulture::DescriptorSet> Renderer::s_BloomAccumulateDescriptorSet;
-	std::vector<Ref<Vulture::DescriptorSet>> Renderer::s_BloomDownSampleDescriptorSet;
+	PushConstant<Vulture::Renderer::TonemapInfo> Renderer::s_TonemapperPush;
+	Vulture::PushConstant<Vulture::Renderer::BloomInfo> Renderer::s_BloomPush;
+	std::array<Ref<Vulture::DescriptorSet>, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomSeparateBrightnessDescriptorSet;
+	std::array<Ref<Vulture::DescriptorSet>, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomAccumulateDescriptorSet;
+	std::array<std::vector<Ref<Vulture::DescriptorSet>>, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomDownSampleDescriptorSet;
 	Ref<Vulture::DescriptorSet> Renderer::s_EnvToCubemapDescriptorSet;
 	VkExtent2D Renderer::s_MipSize = { 0, 0 };
-	int Renderer::m_PrevMipsCount = 0;
 	int Renderer::m_MipsCount = 0;
+	int Renderer::m_PrevMipsCount = 0;
 	std::function<void()> Renderer::s_ImGuiFunction;
-
-
 }

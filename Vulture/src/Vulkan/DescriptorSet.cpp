@@ -95,20 +95,23 @@ namespace Vulture
 	 * @param stage - The shader stage where the storage buffer will be used.
 	 * @param resizable - A flag indicating whether the storage buffer is resizable.
 	 */
-	void DescriptorSet::AddStorageBuffer(uint32_t binding, uint32_t bufferSize, bool resizable)
+	void DescriptorSet::AddStorageBuffer(uint32_t binding, uint32_t bufferSize, bool resizable, bool deviceLocal)
 	{
 		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() >= binding, "There is no such binding: {0}");
 
 		VkBufferUsageFlags bufferUsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		if (resizable) { bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; }
+		if (deviceLocal) { bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; }
 		m_Buffers[binding].push_back(Vulture::Buffer());
 		Buffer::CreateInfo info{};
 		info.InstanceCount = 1;
 		info.InstanceSize = bufferSize;
 		info.UsageFlags = bufferUsageFlags;
-		info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT; // TODO ability to create device local buffers?
+		info.MemoryPropertyFlags = deviceLocal ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT; // TODO ability to create device local buffers?
 		m_Buffers[binding][m_Buffers[binding].size() - 1].Init(info);
-		m_Buffers[binding][m_Buffers[binding].size() - 1].Map();
+		
+		if (!deviceLocal)
+			m_Buffers[binding][m_Buffers[binding].size() - 1].Map();
 
 		m_BindingsWriteInfo[binding].m_BufferInfo.push_back(m_Buffers[binding][m_Buffers[binding].size() - 1].DescriptorInfo());
 		m_BindingsWriteInfo[binding].m_Type = BindingType::Buffer;

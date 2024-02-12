@@ -1,3 +1,15 @@
+#ifndef raycommon
+#define raycommon
+
+const float M_PI = 3.1415926535897F;  // PI
+const float M_TWO_PI = 6.2831853071795F;  // 2*PI
+const float M_PI_2 = 1.5707963267948F;  // PI/2
+const float M_PI_4 = 0.7853981633974F;  // PI/4
+const float M_1_OVER_PI = 0.3183098861837F;  // 1/PI
+const float M_2_OVER_PI = 0.6366197723675F;  // 2/PI
+
+const int DEPTH_INFINITE = 100000;
+
 struct hitPayload
 {
     vec3 HitValue;
@@ -50,6 +62,12 @@ struct Material
     float Roughness;
 };
 
+struct EnvAccel
+{
+    uint Alias;
+    float Importance;
+};
+
 uint PCG(inout uint seed)
 {
     uint state = seed * 747796405u + 2891336453u;
@@ -63,9 +81,32 @@ float Rnd(inout uint prev)
     return (float(PCG(prev)) / float(0x01000000));
 }
 
+vec3 rotate(vec3 v, vec3 k, float theta)
+{
+    float cosTheta = cos(theta);
+    float sinTheta = sin(theta);
+
+    return (v * cosTheta) + (cross(k, v) * sinTheta) + (k * dot(k, v)) * (1.0F - cosTheta);
+}
+
+vec2 directionToSphericalEnvmap(vec3 v)
+{
+    float gamma = asin(-v.y);
+    float theta = atan(v.z, v.x);
+
+    vec2 uv = vec2(theta * M_1_OVER_PI * 0.5F, gamma * M_1_OVER_PI) + 0.5F;
+    return uv;
+}
+
+vec3 sphericalEnvmapToDirection(vec2 tex)
+{
+    float theta = M_PI * (1.0 - tex.t);
+    float phi = 2.0 * M_PI * (0.5 - tex.s);
+    return vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+}
+
 vec3 SamplingHemisphere(inout uint seed, in vec3 x, in vec3 y, in vec3 z)
 {
-    #define M_PI 3.14159265
 
     float r1 = Rnd(seed);
     float r2 = Rnd(seed);
@@ -93,3 +134,6 @@ vec2 RandomPointInCircle(inout uint seed)
     vec2 pointOnCircle = vec2(cos(angle), sin(angle));
     return pointOnCircle * sqrt(Rnd(seed));
 }
+
+#else
+#endif
