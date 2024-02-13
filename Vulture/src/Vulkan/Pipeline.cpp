@@ -219,7 +219,7 @@ namespace Vulture
 		rayPipelineInfo.groupCount = (uint32_t)rtShaderGroups.size();
 		rayPipelineInfo.pGroups = rtShaderGroups.data();
 
-		rayPipelineInfo.maxPipelineRayRecursionDepth = 1;  // Ray depth
+		rayPipelineInfo.maxPipelineRayRecursionDepth = 2;  // Ray depth
 		rayPipelineInfo.layout = m_PipelineLayout;
 
 		Device::vkCreateRayTracingPipelinesKHR(Device::GetDevice(), {}, {}, 1, &rayPipelineInfo, nullptr, &m_PipelineHandle);

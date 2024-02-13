@@ -155,7 +155,7 @@ namespace Vulture
 			sbt->GetCallRegionPtr(),
 			imageSize.width,
 			imageSize.height,
-			2
+			1
 		);
 	}
 
@@ -398,6 +398,7 @@ namespace Vulture
 
 	void Renderer::ImGuiPass()
 	{
+#ifdef VL_IMGUI
 		std::vector<VkClearValue> clearColors;
 		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
 		BeginRenderPass(
@@ -407,10 +408,9 @@ namespace Vulture
 			glm::vec2(s_Swapchain->GetSwapchainExtent().width, s_Swapchain->GetSwapchainExtent().height)
 		);
 
-#ifdef VL_IMGUI
 		s_ImGuiFunction();
-#endif
 		EndRenderPass();
+#endif
 	}
 
 	// TODO description, note that image has to be in transfer src optimal layout
@@ -485,8 +485,23 @@ namespace Vulture
 
 	void Renderer::BloomPass(Ref<Image> inputImage, Ref<Image> outputImage, BloomInfo bloomInfo)
 	{
-		inputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, GetCurrentCommandBuffer());
-		outputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT, 0, VK_PIPELINE_STAGE_TRANSFER_BIT, GetCurrentCommandBuffer());
+		inputImage->TransitionImageLayout(
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			VK_ACCESS_SHADER_READ_BIT,
+			VK_ACCESS_TRANSFER_READ_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			GetCurrentCommandBuffer()
+		);
+		outputImage->TransitionImageLayout(
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			0,
+			VK_ACCESS_TRANSFER_WRITE_BIT,
+			0,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			GetCurrentCommandBuffer()
+		);
+
 		VkImageBlit region{};
 		region.dstOffsets[0] = { 0, 0, 0 };
 		region.dstOffsets[1] = { (int)outputImage->GetImageSize().width, (int)outputImage->GetImageSize().height, 1 };
@@ -495,8 +510,8 @@ namespace Vulture
 		region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
 		region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
 		vkCmdBlitImage(GetCurrentCommandBuffer(), inputImage->GetImage(), inputImage->GetLayout(), outputImage->GetImage(), outputImage->GetLayout(), 1, &region, VK_FILTER_LINEAR);
-		outputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, GetCurrentCommandBuffer());
-		inputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, GetCurrentCommandBuffer());
+		outputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, GetCurrentCommandBuffer());
+		//inputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, GetCurrentCommandBuffer());
 		
 		static int descriptorsRecreatedForFrames = 0;
 		if (bloomInfo.MipCount <= 0 || bloomInfo.MipCount > 10)
@@ -546,7 +561,7 @@ namespace Vulture
 		s_BloomImages[0]->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			GetCurrentCommandBuffer()
@@ -557,7 +572,7 @@ namespace Vulture
 			s_BloomImages[i]->TransitionImageLayout(
 				VK_IMAGE_LAYOUT_GENERAL,
 				VK_ACCESS_SHADER_READ_BIT,
-				VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT, 
+				VK_ACCESS_SHADER_WRITE_BIT, 
 				VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
 				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 				GetCurrentCommandBuffer()
@@ -570,7 +585,7 @@ namespace Vulture
 		{
 			s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i-1]->Bind(0, s_BloomDownSamplePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
 		
-			vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[i-1]->GetImageSize().width / 8 + 1, s_BloomImages[i-1]->GetImageSize().height / 8 + 1, 1);
+			vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[i]->GetImageSize().width / 8 + 1, s_BloomImages[i]->GetImageSize().height / 8 + 1, 1);
 		
 			s_BloomImages[i]->TransitionImageLayout(
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -591,18 +606,21 @@ namespace Vulture
 		{
 			idx = bloomInfo.MipCount - i;
 
-			s_BloomImages[idx]->TransitionImageLayout(
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				VK_ACCESS_SHADER_WRITE_BIT,
-				VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				GetCurrentCommandBuffer()
-			);
+			if (idx != bloomInfo.MipCount)
+			{
+				s_BloomImages[idx]->TransitionImageLayout(
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					VK_ACCESS_SHADER_WRITE_BIT,
+					VK_ACCESS_SHADER_READ_BIT,
+					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+					GetCurrentCommandBuffer()
+				);
+			}
 
 			s_BloomImages[idx - 1]->TransitionImageLayout(
 				VK_IMAGE_LAYOUT_GENERAL,
-				VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+				VK_ACCESS_SHADER_READ_BIT,
 				VK_ACCESS_SHADER_WRITE_BIT,
 				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -614,6 +632,8 @@ namespace Vulture
 			vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[idx - 1]->GetImageSize().width / 8 + 1, s_BloomImages[idx - 1]->GetImageSize().height / 8 + 1, 1);
 		}
 
+		outputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, GetCurrentCommandBuffer());
+		
 		s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i]->Bind(0, s_BloomAccumulatePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
 
 		vkCmdDispatch(GetCurrentCommandBuffer(), outputImage->GetImageSize().width / 8 + 1, outputImage->GetImageSize().height / 8 + 1, 1);
@@ -1387,8 +1407,8 @@ namespace Vulture
 			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->AddImageSampler(
 				0,
-				inputImage->GetSamplerHandle(),
-				inputImage->GetImageView(),
+				outputImage->GetSamplerHandle(), // input image is copied to output at the start of bloom pass
+				outputImage->GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->AddImageSampler(1, s_BloomImages[0]->GetSamplerHandle(), s_BloomImages[0]->GetImageView(),

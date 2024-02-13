@@ -8,6 +8,9 @@ layout (set = 0, binding = 2) uniform sampler2D uEnvMap;
 
 void main()
 {
+    if(gl_GlobalInvocationID.xy != clamp(gl_GlobalInvocationID.xy, vec2(0.0F), imageSize(JointPDF)))
+		return;
+
 	vec2 pixelCoord = vec2(ivec2(gl_GlobalInvocationID.xy));
 	vec2 textureSize = vec2(imageSize(JointPDF));
 	vec2 texCoord = pixelCoord / textureSize;

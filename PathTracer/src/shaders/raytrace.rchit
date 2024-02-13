@@ -85,45 +85,34 @@ void main()
 
     // Computing the normal at hit position
     const vec3 nrm      = v0.Normal.xyz * barycentrics.x + v1.Normal.xyz * barycentrics.y + v2.Normal.xyz * barycentrics.z;
-    const vec3 worldNrm = normalize(vec3(nrm * gl_WorldToObjectEXT));  // Transforming the normal to world space
+    vec3 worldNrm = normalize(vec3(nrm * gl_WorldToObjectEXT));  // Transforming the normal to world space
     
+    const vec3 V = -gl_WorldRayDirectionEXT;
+    if (dot(worldNrm, V) < 0)
+    {
+        worldNrm = -worldNrm;
+    }
+
     // Computing the coordinates of the hit position
     const vec3 pos      = v0.Position.xyz * barycentrics.x + v1.Position.xyz * barycentrics.y + v2.Position.xyz * barycentrics.z;
     const vec3 worldPos = vec3(gl_ObjectToWorldEXT * vec4(pos, 1.0));  // Transforming the position to world space
 
     vec3 hitValue = material.Emissive.xyz;
-    
-    BsdfSampleData sampleData;
-    //TODO: IOR and refraction
-    //sampleData.ior1 = vec3(1.0F);                // IOR current medium
-    //sampleData.ior2 = vec3(1.0F);                // IOR other side
-    sampleData.k1   = -gl_WorldRayDirectionEXT;  // outgoing direction
-    sampleData.xi   = vec4(Rnd(payload.Seed), Rnd(payload.Seed), Rnd(payload.Seed), Rnd(payload.Seed));
-    BsdfSample(sampleData, worldNrm, material);
-    
-    payload.Weight       = sampleData.bsdfOverPdf;
-    payload.RayDirection = sampleData.k2;
-    vec3 offsetDir       = dot(payload.RayDirection, worldNrm) > 0 ? worldNrm : -worldNrm;
-    payload.RayOrigin    = worldPos;//OffsetRay(worldPos, offsetDir);
-    
-    payload.HitValue = hitValue;
-    
-    if (sampleData.eventType == EVENT_TYPE_END)
+
+    vec3 dirToLight;
+    vec3 contribution = vec3(0.0f);
+    vec3 randVal = vec3(Rnd(payload.Seed), Rnd(payload.Seed), Rnd(payload.Seed));
+    vec4 envColor = SampleImportanceEnvMap(uEnvMap, randVal, dirToLight);
+
+    bool nextEventValid = (dot(dirToLight, worldNrm) > 0.0f);
+
+    if (nextEventValid)
     {
-        payload.Depth = DEPTH_INFINITE;
-    }
-    if (sampleData.eventType != EVENT_TYPE_END)
-    {
-        vec3 dirToLight;
-        vec3 randVal = vec3(Rnd(payload.Seed), Rnd(payload.Seed), Rnd(payload.Seed));
-        vec4 envColor = SampleImportanceEnvMap(uEnvMap, randVal, dirToLight);
-        vec2 uv = directionToSphericalEnvmap(dirToLight);
         BsdfEvaluateData evalData;
         evalData.k1   = -gl_WorldRayDirectionEXT;
         evalData.k2   = dirToLight;
 
         BsdfEvaluate(evalData, worldNrm, material);
-        vec3 contribution = vec3(0.0f, 0.0f, 0.0f);
         if(evalData.pdf > 0.0)
         {
             const float misWeight = envColor.w / (envColor.w + evalData.pdf);
@@ -132,7 +121,31 @@ void main()
             contribution += w * evalData.bsdfDiffuse;
             contribution += w * evalData.bsdfGlossy;
         }
-
+    }
+    
+    BsdfSampleData sampleData;
+    //TODO: IOR and refraction
+    //sampleData.ior1 = vec3(1.0F);                // IOR current medium
+    //sampleData.ior2 = vec3(1.0F);                // IOR other side
+    sampleData.k1   = -gl_WorldRayDirectionEXT;  // outgoing direction
+    sampleData.xi   = vec4(Rnd(payload.Seed), Rnd(payload.Seed), Rnd(payload.Seed), Rnd(payload.Seed));
+    BsdfSample(sampleData, worldNrm, material);
+    payload.HitValue = hitValue;
+    
+    if (sampleData.eventType == EVENT_TYPE_END)
+    {
+        payload.Depth = DEPTH_INFINITE;
+        nextEventValid = false;
+        return;
+    }
+    
+    payload.Weight       = sampleData.bsdfOverPdf;
+    payload.RayDirection = sampleData.k2;
+    vec3 offsetDir       = dot(payload.RayDirection, worldNrm) > 0 ? worldNrm : -worldNrm;
+    payload.RayOrigin    = OffsetRay(worldPos, offsetDir);
+    
+    if (nextEventValid)
+    {
         uint prevDepth = payload.Depth;
 
         float tMin     = 0.001;

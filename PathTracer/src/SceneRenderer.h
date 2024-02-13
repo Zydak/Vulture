@@ -15,6 +15,8 @@ struct PushConstantRay
 	int frame;
 	int maxDepth;
 	int SamplesPerFrame;
+	float EnvAzimuth;
+	float EnvAltitude;
 
 	float FocalLength;
 	float DoFStrength;
@@ -129,7 +131,8 @@ private:
 		int TotalSamplesPerPixel = 1500;
 		int RayDepth = 20;
 		int SamplesPerFrame = 15;
-		float EnvRotation[3] = { 0.0f, 0.0f, 0.0f };
+		float EnvAzimuth = 0.0f;
+		float EnvAltitude = 0.0f;
 
 		Vulture::Renderer::TonemapInfo TonemapInfo{};
 		Vulture::Renderer::BloomInfo BloomInfo{};

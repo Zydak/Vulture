@@ -19,6 +19,8 @@ void main()
 	if(prd.Depth == 0)
 	{
 		vec3 rayDir = prd.RayDirection;
+		rayDir = Rotate(rayDir, vec3(0, 1, 0), -pcRay.EnvAzimuth);
+		rayDir = Rotate(rayDir, vec3(1, 0, 0), -pcRay.EnvAltitude);
 		vec2 uv = directionToSphericalEnvmap(rayDir);
 		vec3 color = texture(uEnvMap, uv).rgb;
 		prd.HitValue = color;

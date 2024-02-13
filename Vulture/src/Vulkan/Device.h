@@ -77,6 +77,8 @@ namespace Vulture
 		static void CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0, bool noPool = false);
 		static void CreateImage(VkImageCreateInfo& createInfo, VkImage& image, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0);
 
+		static void SetObjectName(VkObjectType type, uint64_t handle, const char* name);
+
 		//TODO description
 		template <class integral>
 		static VkDeviceSize GetAlignment(integral x, size_t a)
@@ -85,8 +87,10 @@ namespace Vulture
 		}
 
 		static inline bool IsRayTracingSupported() { return s_RayTracingSupport; }
+		static std::vector<int32_t> s_LayersIgnoreList;
 	private:
 		Device() {} // make constructor private
+
 
 		static std::vector<const char*> GetRequiredGlfwExtensions();
 		static void CheckRequiredGlfwExtensions();
@@ -165,5 +169,6 @@ namespace Vulture
 		static void vkCmdPushDescriptorSetKHR(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t set, uint32_t descriptorWriteCount, const VkWriteDescriptorSet* pDescriptorWrites);
 		static VkResult vkGetMemoryWin32HandleKHR(VkDevice device, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle);
 		static VkResult vkGetSemaphoreWin32HandleKHR(VkDevice device, const VkSemaphoreGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle);
+		static VkResult vkSetDebugUtilsObjectNameEXT(VkDevice device, const VkDebugUtilsObjectNameInfoEXT* pNameInfo);
 	};
 }

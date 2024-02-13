@@ -55,7 +55,7 @@ void main()
         vec3 camUp = vec3(uni.ViewInverse[0][1], uni.ViewInverse[1][1], uni.ViewInverse[2][1]);
 
         // Applying small jitter for anti aliasing
-        vec2 antiAliasingJitter = RandomPointInCircle(prd.Seed) * 0.4f / outputImageSize.x;
+        vec2 antiAliasingJitter = RandomPointInCircle(prd.Seed) * 0.25f / outputImageSize.x;
         direction.xyz += camRight * antiAliasingJitter.x + camUp * antiAliasingJitter.y;
 
         vec3 focalPoint = origin.xyz + normalize(direction.xyz) * pcRay.FocalLenght;

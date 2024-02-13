@@ -23,24 +23,42 @@ namespace Vulture
 		{VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME, false}
 	};
 
+	// These message IDs will be ignored by layers
+	std::vector<int32_t> Device::s_LayersIgnoreList =
+	{
+		-602362517, // Small allocation, imgui constantly throws that
+		-1277938581, // Small allocation again
+		1413273847 // Memory priority
+	};
+
 	/*
 	   *  @brief Callback function for Vulkan to be called by validation layers when needed
 	*/
 	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
 		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 	{
+		int32_t currentID = pCallbackData->messageIdNumber;
+		for (int32_t id : Device::s_LayersIgnoreList)
+		{
+			if (currentID == id)
+				return VK_FALSE;
+		}
+
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
 		{
-			VL_CORE_INFO("Validation Layer: Info\n\t{0}", pCallbackData->pMessage);
+			VL_CORE_INFO("Info: {0} - {1} : {2}", pCallbackData->messageIdNumber, pCallbackData->pMessageIdName, pCallbackData->pMessage);
 		}
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 		{
-			VL_CORE_ERROR("Validation Layer: Validation Error\n\t{0}", pCallbackData->pMessage);
-			//VL_CORE_ASSERT(false, ""); // Vulkan error
+			//VL_CORE_ERROR("");
+
+			VL_CORE_ERROR("Error\n\t{0} - {1} : {2}", pCallbackData->messageIdNumber, pCallbackData->pMessageIdName, pCallbackData->pMessage);
 		}
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
 		{
-			VL_CORE_WARN("Validation Layer: Warning\n\t{0}", pCallbackData->pMessage);
+			//VL_CORE_WARN("");
+
+			VL_CORE_WARN("Warning\n\t{0} - {1} : {2}", pCallbackData->messageIdNumber, pCallbackData->pMessageIdName, pCallbackData->pMessage);
 		}
 		return VK_FALSE;
 	}
@@ -249,7 +267,7 @@ namespace Vulture
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.pEngineName = "No Engine";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_3;
+		appInfo.apiVersion = VK_API_VERSION_1_2;
 
 		VkInstanceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -476,6 +494,18 @@ namespace Vulture
 		);
 	}
 
+	void Device::SetObjectName(VkObjectType type, uint64_t handle, const char* name)
+	{
+#ifndef DIST
+
+		VkDebugUtilsObjectNameInfoEXT name_info = { VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+		name_info.objectType = type;
+		name_info.objectHandle = handle;
+		name_info.pObjectName = name;
+		Device::vkSetDebugUtilsObjectNameEXT(Device::GetDevice(), &name_info);
+
+#endif
+	}
 	/*
 	 * @brief Evaluates the suitability of the specified Vulkan physical device based on criteria
 	 * such as queue families, required extensions, and swap chain support. It returns true if the device
@@ -1038,6 +1068,13 @@ namespace Vulture
 	{
 		auto func = (PFN_vkGetSemaphoreWin32HandleKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetSemaphoreWin32HandleKHR");
 		if (func != nullptr) { return func(device, pGetWin32HandleInfo, pHandle); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	VkResult Device::vkSetDebugUtilsObjectNameEXT(VkDevice device, const VkDebugUtilsObjectNameInfoEXT* pNameInfo)
+	{
+		auto func = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkSetDebugUtilsObjectNameEXT");
+		if (func != nullptr) { return func(device, pNameInfo); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
 

@@ -34,6 +34,8 @@ struct PushConstantRay
     int Frame;
     int MaxDepth;
     int SamplesPerFrame;
+    float EnvAzimuth;
+    float EnvAltitude;
 
     float FocalLenght;
     float DoFStrenght;
@@ -81,7 +83,7 @@ float Rnd(inout uint prev)
     return (float(PCG(prev)) / float(0x01000000));
 }
 
-vec3 rotate(vec3 v, vec3 k, float theta)
+vec3 Rotate(vec3 v, vec3 k, float theta)
 {
     float cosTheta = cos(theta);
     float sinTheta = sin(theta);

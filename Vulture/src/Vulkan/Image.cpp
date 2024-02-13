@@ -583,8 +583,8 @@ namespace Vulture
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		barrier.oldLayout = m_Layout;
 		barrier.newLayout = newLayout;
-		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
 		barrier.image = m_ImageHandle;
 		barrier.subresourceRange = subresourceRange;
 		barrier.srcAccessMask = srcAccess;
@@ -794,18 +794,18 @@ namespace Vulture
 		// radiance and the other containing texels with above-average radiance
 		std::vector<uint32_t> partitionTable(size);
 		uint32_t              lowEnergyCounter = 0U;
-		uint32_t              HighEnergyCounter = size - 1;
+		uint32_t              HighEnergyCounter = size;
 		for (uint32_t i = 0; i < size; ++i)
 		{
 			if (accel[i].Importance < 1.F)
 			{
-				partitionTable[lowEnergyCounter] = i;
 				lowEnergyCounter++;
+				partitionTable[lowEnergyCounter] = i;
 			}
 			else
 			{
-				partitionTable[HighEnergyCounter] = i;
 				HighEnergyCounter--;
+				partitionTable[HighEnergyCounter] = i;
 			}
 		}
 

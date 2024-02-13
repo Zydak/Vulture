@@ -222,15 +222,33 @@ namespace Vulture
 	void Buffer::WriteToBuffer(void* data, VkDeviceSize size, VkDeviceSize offset)
 	{
 		VL_CORE_ASSERT((size == VK_WHOLE_SIZE || size <= m_BufferSize), "Data size is larger than buffer size, either resize the buffer or create a larger one");
-		VL_CORE_ASSERT(m_Mapped, "Cannot copy to unmapped buffer");
 		VL_CORE_ASSERT(data != nullptr, "invalid data");
 
-		if (size == VK_WHOLE_SIZE) { memcpy(m_Mapped, data, m_BufferSize); }
+		if (m_MemoryPropertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+		{
+			Buffer::CreateInfo info{};
+			info.InstanceCount = 1;
+			info.InstanceSize = size == VK_WHOLE_SIZE ? m_BufferSize : size;
+			info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+			info.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+			Buffer stagingBuffer(info);
+			stagingBuffer.Map();
+			stagingBuffer.WriteToBuffer(data, size, offset);
+			stagingBuffer.Unmap();
+
+			Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_BufferHandle, size, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
+		}
 		else
 		{
-			char* memOffset = (char*)m_Mapped;
-			memOffset += offset;
-			memcpy(memOffset, data, size);
+			VL_CORE_ASSERT(m_Mapped, "Cannot copy to unmapped buffer");
+			if (size == VK_WHOLE_SIZE) { memcpy(m_Mapped, data, m_BufferSize); }
+			else
+			{
+				char* memOffset = (char*)m_Mapped;
+				memOffset += offset;
+				memcpy(memOffset, data, size);
+			}
 		}
 	}
 

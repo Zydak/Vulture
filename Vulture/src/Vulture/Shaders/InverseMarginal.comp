@@ -12,6 +12,9 @@ float p2t(in float p, in int noOfPixels)
 
 void main()
 {
+    if(gl_GlobalInvocationID.xy != clamp(gl_GlobalInvocationID.xy, vec2(0.0F), imageSize(uInverse)))
+		return;
+
 	vec2 pixelCoord = vec2(ivec2(gl_GlobalInvocationID.xy));
 	vec2 textureSize = vec2(textureSize(uAverageRowImage, 0));
 	vec2 texCoord = pixelCoord / textureSize;

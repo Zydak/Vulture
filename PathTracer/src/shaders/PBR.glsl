@@ -184,7 +184,7 @@ void BsdfSample(inout BsdfSampleData data, in vec3 normal, in Material mat)
     // Early out: avoid internal reflection
     if (dot(surfaceNormal, reflectVector) < 0.0F)
     {
-        data.eventType = 100;
+        data.eventType = EVENT_TYPE_END;
         return;
     }
 
@@ -197,15 +197,15 @@ void BsdfSample(inout BsdfSampleData data, in vec3 normal, in Material mat)
     // Return values
     data.bsdfOverPdf = (evalData.bsdfDiffuse + evalData.bsdfGlossy) / evalData.pdf;
     data.pdf = evalData.pdf;
-    data.eventType = 6969;
+    data.eventType = EVENT_TYPE_OK;
     data.k2 = reflectVector;
 
     // Avoid internal reflection
     if (data.pdf <= 0.00001)
-        data.eventType = 100;
+        data.eventType = EVENT_TYPE_END;
 
     if (isnan(data.bsdfOverPdf.x) || isnan(data.bsdfOverPdf.y) || isnan(data.bsdfOverPdf.z))
-        data.eventType = 100;
+        data.eventType = EVENT_TYPE_END;
 
 
     return;

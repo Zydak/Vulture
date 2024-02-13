@@ -21,6 +21,9 @@ layout (push_constant) uniform PushContants
 
 void main()
 {
+    if(gl_GlobalInvocationID.xy != clamp(gl_GlobalInvocationID.xy, vec2(0.0F), imageSize(outputImage)))
+		return;
+
 	vec2 pixelCoord = vec2(gl_GlobalInvocationID.xy) + 0.5f;
 	vec2 textureSize = vec2(textureSize(inputImage, 0));
 	vec2 texCoord = pixelCoord / (textureSize / 2.0f);

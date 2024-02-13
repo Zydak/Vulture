@@ -21,6 +21,9 @@ layout (push_constant) uniform PushContants
 
 void main()
 {
+    if(gl_GlobalInvocationID.xy != clamp(gl_GlobalInvocationID.xy, vec2(0.0F), imageSize(outputImage)))
+		return;
+
 	vec3 color = texelFetch(inputImage, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
 
     float brightness = dot(color, vec3(0.2126, 0.7152, 0.0722));

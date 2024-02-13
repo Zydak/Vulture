@@ -321,7 +321,7 @@ namespace Vulture
 				instance.transform = transformComponent.transform.GetKhrMat();
 				instance.instanceCustomIndex = meshCount;
 				instance.accelerationStructureReference = GetBlasDeviceAddress(meshCount);
-				instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR; // VK_GEOMETRY_INSTANCE_TRIANGLE_FRONT_COUNTERCLOCKWISE_BIT_KHR
+				instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR | VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
 				instance.mask = 0xFF;
 				instance.instanceShaderBindingTableRecordOffset = 0;
 				tlas.emplace_back(instance);

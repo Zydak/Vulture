@@ -85,6 +85,9 @@ vec3 Filmic(vec3 color)
 
 void main() 
 {
+    if(gl_GlobalInvocationID.xy != clamp(gl_GlobalInvocationID.xy, vec2(0.0F), imageSize(uOutput)))
+		return;
+
 	vec2 pixelCoord = vec2(gl_GlobalInvocationID.xy) + vec2(0.5f);
 	vec2 textureSize = vec2(textureSize(uInput, 0));
 	vec2 texCoord = pixelCoord / textureSize;
