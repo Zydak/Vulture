@@ -67,7 +67,6 @@ vec3 OffsetRay(in vec3 p, in vec3 n)
 
 void main() 
 {
-    Material material = uMaterials[gl_InstanceCustomIndexEXT];
     MeshAdresses meshAdresses = uMeshAdresses[gl_InstanceCustomIndexEXT];
     Indices indices = Indices(meshAdresses.IndexBuffer);
     Vertices vertices = Vertices(meshAdresses.VertexBuffer);
@@ -82,6 +81,9 @@ void main()
 
     const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
     vec2 texCoord = v0.TexCoord.xy * barycentrics.x + v1.TexCoord.xy * barycentrics.y + v2.TexCoord.xy * barycentrics.z;
+
+    Material material = uMaterials[gl_InstanceCustomIndexEXT];
+    material.Albedo *= texture(uAlbedoTextures[gl_InstanceCustomIndexEXT], texCoord);
 
     // Computing the normal at hit position
     const vec3 nrm      = v0.Normal.xyz * barycentrics.x + v1.Normal.xyz * barycentrics.y + v2.Normal.xyz * barycentrics.z;

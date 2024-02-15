@@ -24,7 +24,7 @@ namespace Vulture
 			int vertexCount = createInfo.MaxLettersCount * 4;
 			int indexCount = createInfo.MaxLettersCount * 6;
 			ChangeText(createInfo.Text);
-			for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+			for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 			{
 				m_TextMeshes.emplace_back(std::make_shared<Mesh>());
 				m_TextMeshes[i]->Init(vertexCount, indexCount, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);

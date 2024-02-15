@@ -55,15 +55,15 @@ void Sandbox::Init()
 	// Add skybox
 	Vulture::Entity skybox = m_Scene->CreateEntity();
 	//auto& skyboxComponent = skybox.AddComponent<Vulture::SkyboxComponent>("assets/sky.hdr");
+	//auto& skyboxComponent = skybox.AddComponent<Vulture::SkyboxComponent>("assets/night.hdr");
 	auto& skyboxComponent = skybox.AddComponent<Vulture::SkyboxComponent>("assets/sunrise.hdr");
-	m_SceneRenderer->SetSkybox(skyboxComponent);
+	m_SceneRenderer->SetSkybox(skyboxComponent); 
 
 	// Load Scene
 	m_Scene->CreateModel("assets/cornellBox.gltf", Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.5f)));
-	//m_Scene->CreateModel("assets/panther.obj", Vulture::Transform(glm::vec3(8.0f, -4.0f, 0.0f), glm::vec3(0.0f), glm::vec3(3.0f)));
-	//m_Scene->CreateModel("assets/ship.gltf", Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.5f)));
-	//m_Scene->CreateModel("assets/Sponza.gltf", Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.5f)));
 
+	m_Scene->CreateModel("assets/ship.gltf", Vulture::Transform(glm::vec3(-30.0f, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(1.0f)));
+	
 	// Initialize path tracer
 	m_Scene->InitAccelerationStructure();
 	m_SceneRenderer->CreateRayTracingDescriptorSets(*m_Scene);

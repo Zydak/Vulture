@@ -78,6 +78,9 @@ namespace Vulture
 		static void CreateImage(VkImageCreateInfo& createInfo, VkImage& image, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0);
 
 		static void SetObjectName(VkObjectType type, uint64_t handle, const char* name);
+		static void BeginLabel(VkCommandBuffer cmd, const char* name, glm::vec4 color);
+		static void EndLabel(VkCommandBuffer cmd);
+		static void InsertLabel(VkCommandBuffer cmd, const char* name, glm::vec4 color);
 
 		//TODO description
 		template <class integral>
@@ -170,5 +173,8 @@ namespace Vulture
 		static VkResult vkGetMemoryWin32HandleKHR(VkDevice device, const VkMemoryGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle);
 		static VkResult vkGetSemaphoreWin32HandleKHR(VkDevice device, const VkSemaphoreGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle);
 		static VkResult vkSetDebugUtilsObjectNameEXT(VkDevice device, const VkDebugUtilsObjectNameInfoEXT* pNameInfo);
+		static void vkCmdInsertDebugUtilsLabelEXT(VkCommandBuffer commandBuffer,const VkDebugUtilsLabelEXT* pLabelInfo);
+		static void vkCmdEndDebugUtilsLabelEXT(VkCommandBuffer commandBuffer);
+		static void vkCmdBeginDebugUtilsLabelEXT(VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT* pLabelInfo);
 	};
 }

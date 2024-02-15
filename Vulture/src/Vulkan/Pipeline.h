@@ -51,6 +51,8 @@ namespace Vulture
 			VkPushConstantRange* PushConstants;
 			VkRenderPass RenderPass;
 			int ColorAttachmentCount = 1;
+
+			const char* debugName = "";
 		};
 
 		struct ComputeCreateInfo
@@ -58,6 +60,8 @@ namespace Vulture
 			std::string ShaderFilepath;
 			std::vector<VkDescriptorSetLayout> DescriptorSetLayouts;
 			VkPushConstantRange* PushConstants;
+
+			const char* debugName = "";
 		};
 
 		struct RayTracingCreateInfo
@@ -67,6 +71,8 @@ namespace Vulture
 			std::vector<std::string> HitShaderFilepaths;
 			VkPushConstantRange* PushConstants;
 			std::vector<VkDescriptorSetLayout> DescriptorSetLayouts;
+
+			const char* debugName = "";
 		};
 
 	private:

@@ -10,9 +10,11 @@ namespace Vulture
 	{
 	public:
 		void Init(DescriptorSetLayout* setLayout, DescriptorPool* pool);
+		void Destroy();
 
 		DescriptorWriter() = default;
 		DescriptorWriter(DescriptorSetLayout* setLayout, DescriptorPool* pool);
+		~DescriptorWriter();
 
 		void WriteBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo);
 		void WriteAs(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR* asInfo);
@@ -25,5 +27,7 @@ namespace Vulture
 		DescriptorSetLayout* m_SetLayout;
 		DescriptorPool* m_Pool;
 		std::vector<VkWriteDescriptorSet> m_Writes;
+
+		bool m_Initialized = false;
 	};
 }

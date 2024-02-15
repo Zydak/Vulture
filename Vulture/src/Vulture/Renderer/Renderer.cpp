@@ -30,16 +30,6 @@ namespace Vulture
 		s_RendererSampler.reset();
 
 		s_HDRToPresentablePipeline.Destroy();
-		s_ToneMapPipeline.Destroy();
-		for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			s_BloomSeparateBrightnessDescriptorSet[i].reset();
-			s_BloomDownSampleDescriptorSet[i].clear();
-			s_BloomAccumulateDescriptorSet[i].clear();
-			s_BloomSeparateBrightnessPipeline[i].Destroy();
-			s_BloomAccumulatePipeline[i].Destroy();
-			s_BloomDownSamplePipeline[i].Destroy();
-		}
 		s_EnvToCubemapPipeline.Destroy();
 
 		s_QuadMesh.Destroy();
@@ -223,7 +213,7 @@ namespace Vulture
 
 		// End the frame and update frame index
 		s_IsFrameStarted = false;
-		s_CurrentFrameIndex = (s_CurrentFrameIndex + 1) % Swapchain::MAX_FRAMES_IN_FLIGHT;
+		s_CurrentFrameIndex = (s_CurrentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 		return retVal;
 	}
 
@@ -303,7 +293,7 @@ namespace Vulture
 		imageInfo.Type = Image::ImageType::Image2D;
 		imageInfo.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		Image image8Bit(imageInfo);
-		image8Bit.TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT, 0, VK_PIPELINE_STAGE_TRANSFER_BIT, cmd);
+		image8Bit.TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmd, 0, VK_ACCESS_TRANSFER_WRITE_BIT, 0, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 		VkImageBlit blitRegion{};
 		blitRegion.dstOffsets[0] = {0, 0, 0};
@@ -314,7 +304,7 @@ namespace Vulture
 		blitRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 
 		vkCmdBlitImage(cmd, image->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image8Bit.GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blitRegion, VK_FILTER_LINEAR);
-		image8Bit.TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, cmd);
+		image8Bit.TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, cmd, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
 		Buffer::CreateInfo info{};
 		info.InstanceCount = 1;
@@ -460,185 +450,6 @@ namespace Vulture
 		);
 	}
 
-	// TODO description
-	void Renderer::ToneMapPass(Ref<DescriptorSet> tonemapSet, VkExtent2D dstSize, TonemapInfo tonInfo)
-	{
-		s_ToneMapPipeline.Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
-
-		tonemapSet->Bind(
-			0,
-			s_ToneMapPipeline.GetPipelineLayout(),
-			VK_PIPELINE_BIND_POINT_COMPUTE,
-			GetCurrentCommandBuffer()
-		);
-
-		s_TonemapperPush.GetDataPtr()->Brightness = tonInfo.Brightness;
-		s_TonemapperPush.GetDataPtr()->Contrast = tonInfo.Contrast;
-		s_TonemapperPush.GetDataPtr()->Exposure = tonInfo.Exposure;
-		s_TonemapperPush.GetDataPtr()->Vignette = tonInfo.Vignette;
-		s_TonemapperPush.GetDataPtr()->Saturation = tonInfo.Saturation;
-
-		s_TonemapperPush.Push(s_ToneMapPipeline.GetPipelineLayout(), GetCurrentCommandBuffer());
-
-		vkCmdDispatch(GetCurrentCommandBuffer(), ((int)dstSize.width) / 8 + 1, ((int)dstSize.width) / 8 + 1, 1);
-	}
-
-	void Renderer::BloomPass(Ref<Image> inputImage, Ref<Image> outputImage, BloomInfo bloomInfo)
-	{
-		inputImage->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_ACCESS_TRANSFER_READ_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			GetCurrentCommandBuffer()
-		);
-		outputImage->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			0,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			0,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			GetCurrentCommandBuffer()
-		);
-
-		VkImageBlit region{};
-		region.dstOffsets[0] = { 0, 0, 0 };
-		region.dstOffsets[1] = { (int)outputImage->GetImageSize().width, (int)outputImage->GetImageSize().height, 1 };
-		region.srcOffsets[0] = { 0, 0, 0 };
-		region.srcOffsets[1] = { (int)inputImage->GetImageSize().width, (int)inputImage->GetImageSize().height, 1 };
-		region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-		region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-		vkCmdBlitImage(GetCurrentCommandBuffer(), inputImage->GetImage(), inputImage->GetLayout(), outputImage->GetImage(), outputImage->GetLayout(), 1, &region, VK_FILTER_LINEAR);
-		outputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, GetCurrentCommandBuffer());
-		//inputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, GetCurrentCommandBuffer());
-		
-		static int descriptorsRecreatedForFrames = 0;
-		if (bloomInfo.MipCount <= 0 || bloomInfo.MipCount > 10)
-		{
-			VL_CORE_WARN("Incorrect mips count! {}. Min = 1 & Max = 10", bloomInfo.MipCount);
-			return;
-		}
-		if ((inputImage->GetImageSize().width != s_MipSize.width || inputImage->GetImageSize().height != s_MipSize.height)
-			|| (outputImage->GetImageSize().width != s_MipSize.width || outputImage->GetImageSize().height != s_MipSize.height)
-			)
-		{
-			VL_CORE_INFO("Recreating bloom framebuffers");
-			CreateBloomImages(inputImage, outputImage, bloomInfo.MipCount);
-			descriptorsRecreatedForFrames = Swapchain::MAX_FRAMES_IN_FLIGHT;
-		}
-		else if (bloomInfo.MipCount != m_PrevMipsCount)
-		{
-			descriptorsRecreatedForFrames = 0; // Start recreating
-			CreateBloomDescriptors(inputImage, outputImage, bloomInfo.MipCount);
-		}
-		else if (descriptorsRecreatedForFrames < Swapchain::MAX_FRAMES_IN_FLIGHT) // recreate one each frame
-		{
-			CreateBloomDescriptors(inputImage, outputImage, bloomInfo.MipCount);
-			descriptorsRecreatedForFrames++;
-		}
-
-		s_BloomPush.GetDataPtr()->MipCount = bloomInfo.MipCount;
-		s_BloomPush.GetDataPtr()->Strength = bloomInfo.Strength;
-		s_BloomPush.GetDataPtr()->Threshold = bloomInfo.Threshold;
-
-		s_BloomImages[0]->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_GENERAL, 
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			GetCurrentCommandBuffer()
-		);
-
-		s_BloomSeparateBrightnessPipeline[GetCurrentFrameIndex()].Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
-		s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->Bind(0, s_BloomSeparateBrightnessPipeline[GetCurrentFrameIndex()].GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
-
-		s_BloomPush.Push(s_BloomAccumulatePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), GetCurrentCommandBuffer());
-
-		vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[0]->GetImageSize().width / 8 + 1, s_BloomImages[0]->GetImageSize().height / 8 + 1, 1);
-		
-		s_BloomImages[0]->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			GetCurrentCommandBuffer()
-		);
-
-		for (int i = 1; i < (int)bloomInfo.MipCount + 1; i++)
-		{
-			s_BloomImages[i]->TransitionImageLayout(
-				VK_IMAGE_LAYOUT_GENERAL,
-				VK_ACCESS_SHADER_READ_BIT,
-				VK_ACCESS_SHADER_WRITE_BIT, 
-				VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				GetCurrentCommandBuffer()
-			);
-		}
-
-		s_BloomDownSamplePipeline[GetCurrentFrameIndex()].Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
-		s_BloomPush.Push(s_BloomAccumulatePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), GetCurrentCommandBuffer());
-		for (int i = 1; i < (int)bloomInfo.MipCount + 1; i++)
-		{
-			s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i-1]->Bind(0, s_BloomDownSamplePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
-		
-			vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[i]->GetImageSize().width / 8 + 1, s_BloomImages[i]->GetImageSize().height / 8 + 1, 1);
-		
-			s_BloomImages[i]->TransitionImageLayout(
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				VK_ACCESS_SHADER_WRITE_BIT,
-				VK_ACCESS_SHADER_READ_BIT,
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				GetCurrentCommandBuffer()
-			);
-		}
-
-		s_BloomAccumulatePipeline[GetCurrentFrameIndex()].Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_COMPUTE);
-		s_BloomPush.Push(s_BloomAccumulatePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), GetCurrentCommandBuffer());
-		
-		int i;
-		int idx;
-		for (i = 0; i < (int)bloomInfo.MipCount; i++)
-		{
-			idx = bloomInfo.MipCount - i;
-
-			if (idx != bloomInfo.MipCount)
-			{
-				s_BloomImages[idx]->TransitionImageLayout(
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					VK_ACCESS_SHADER_WRITE_BIT,
-					VK_ACCESS_SHADER_READ_BIT,
-					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-					GetCurrentCommandBuffer()
-				);
-			}
-
-			s_BloomImages[idx - 1]->TransitionImageLayout(
-				VK_IMAGE_LAYOUT_GENERAL,
-				VK_ACCESS_SHADER_READ_BIT,
-				VK_ACCESS_SHADER_WRITE_BIT,
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-				GetCurrentCommandBuffer()
-			);
-
-			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i]->Bind(0, s_BloomAccumulatePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
-
-			vkCmdDispatch(GetCurrentCommandBuffer(), s_BloomImages[idx - 1]->GetImageSize().width / 8 + 1, s_BloomImages[idx - 1]->GetImageSize().height / 8 + 1, 1);
-		}
-
-		outputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, GetCurrentCommandBuffer());
-		
-		s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i]->Bind(0, s_BloomAccumulatePipeline[GetCurrentFrameIndex()].GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, GetCurrentCommandBuffer());
-
-		vkCmdDispatch(GetCurrentCommandBuffer(), outputImage->GetImageSize().width / 8 + 1, outputImage->GetImageSize().height / 8 + 1, 1);
-	}
-
 	void Renderer::EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap)
 	{
 		{
@@ -668,11 +479,11 @@ namespace Vulture
 
 		cubemap->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL,
+			cmdBuf,
 			VK_ACCESS_TRANSFER_WRITE_BIT,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf,
 			range
 		);
 
@@ -683,11 +494,11 @@ namespace Vulture
 
 		cubemap->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf,
 			range
 		);
 
@@ -1022,11 +833,11 @@ namespace Vulture
 
 		grayScaleImage.TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
 		);
 
 		// AVERAGE ROW
@@ -1038,11 +849,11 @@ namespace Vulture
 
 		averageRowImage.TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
 		);
 
 		// AVERAGE
@@ -1054,11 +865,11 @@ namespace Vulture
 
 		averageImage.TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
 		);
 
 		// PDF
@@ -1077,20 +888,20 @@ namespace Vulture
 
 		marginalPDF.TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
 		);
 
 		averageImage.TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
 		);
 
 		// Gray Scale PDF
@@ -1102,29 +913,29 @@ namespace Vulture
 
 		conditionalPDF.TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
 		);
 
 		averageRowImage.TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
 		);
 
 		grayScaleImage.TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
 		);
 
 		// Marginal Inv
@@ -1135,11 +946,11 @@ namespace Vulture
 
 		marginalPDF.TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
 		);
 
 		// Conditional INV
@@ -1151,36 +962,36 @@ namespace Vulture
 
 		conditionalPDF.TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			cmdBuf
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
 		);
 
 		image->GetCDFInverseX()->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			0,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			0,
-			cmdBuf
+			0
 		);
 		image->GetCDFInverseY()->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			0,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			0,
-			cmdBuf
+			0
 		);
 		image->GetJointPDF()->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			cmdBuf,
 			VK_ACCESS_SHADER_WRITE_BIT,
 			0,
 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			0,
-			cmdBuf
+			0
 		);
 
 		Device::EndSingleTimeCommands(cmdBuf, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
@@ -1221,7 +1032,6 @@ namespace Vulture
 
 		// Recreate other resources dependent on the swapchain, such as pipelines or framebuffers
 		CreatePipeline();
-		CreateBloomImages(nullptr, nullptr, 0);
 	}
 
 	/*
@@ -1244,6 +1054,11 @@ namespace Vulture
 			VK_SUCCESS,
 			"Failed to allocate command buffers!"
 		);
+
+		for (int i = 0; i < s_Swapchain->GetImageCount(); i++)
+		{
+			Device::SetObjectName(VK_OBJECT_TYPE_COMMAND_BUFFER, (uint64_t)s_CommandBuffers[i], "Main Frame Command Buffer");
+		}
 	}
 
 	/*
@@ -1253,12 +1068,12 @@ namespace Vulture
 	{
 		// Create and initialize the descriptor pool
 		std::vector<DescriptorPool::PoolSize> poolSizes;
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000 });
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000 });
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000 });
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000 });
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 100 });
-		s_Pool = std::make_unique<DescriptorPool>(poolSizes, (Swapchain::MAX_FRAMES_IN_FLIGHT) * 1000, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (MAX_FRAMES_IN_FLIGHT) * 1000 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (MAX_FRAMES_IN_FLIGHT) * 1000 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, (MAX_FRAMES_IN_FLIGHT) * 1000 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, (MAX_FRAMES_IN_FLIGHT) * 1000 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, (MAX_FRAMES_IN_FLIGHT) * 100 });
+		s_Pool = std::make_unique<DescriptorPool>(poolSizes, (MAX_FRAMES_IN_FLIGHT) * 1000, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 	}
 
 	/**
@@ -1294,32 +1109,10 @@ namespace Vulture
 				imageLayout.GetDescriptorSetLayoutHandle()
 			};
 			info.DescriptorSetLayouts = layouts;
+			info.debugName = "HDR To Presentable Pipeline";
 
 			// Create the graphics pipeline
 			s_HDRToPresentablePipeline.Init(info);
-		}
-
-		// Tone map
-		{
-			s_TonemapperPush.Init({ VK_SHADER_STAGE_COMPUTE_BIT });
-
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout imageLayout({ bin, bin1 });
-
-			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/Tonemap.comp.spv";
-
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
-				imageLayout.GetDescriptorSetLayoutHandle()
-			};
-			info.DescriptorSetLayouts = layouts;
-			info.PushConstants = s_TonemapperPush.GetRangePtr();
-
-			// Create the graphics pipeline
-			s_ToneMapPipeline.Init(info);
 		}
 
 		// Env to cubemap
@@ -1337,6 +1130,7 @@ namespace Vulture
 				imageLayout.GetDescriptorSetLayoutHandle()
 			};
 			info.DescriptorSetLayouts = layouts;
+			info.debugName = "Env To Cubemap Pipeline";
 
 			// Create the graphics pipeline
 			s_EnvToCubemapPipeline.Init(info);
@@ -1346,191 +1140,6 @@ namespace Vulture
 	void Renderer::CreateDescriptorSets()
 	{
 
-	}
-
-	void Renderer::CreateBloomImages(Ref<Image> inputImage, Ref<Image> outputImage, int mipsCount)
-	{
-		if (inputImage == nullptr)
-		{
-			s_BloomImages.clear();
-			m_MipsCount = 0;
-			s_MipSize = VkExtent2D{ 0, 0 };
-			return;
-		}
-		s_MipSize = inputImage->GetImageSize();
-		s_BloomImages.clear();
-
-		Image::CreateInfo info{};
-		info.Format = VK_FORMAT_R16G16B16A16_SFLOAT;
-		info.Width = inputImage->GetImageSize().width;
-		info.Height = inputImage->GetImageSize().height;
-		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-		info.Usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
-		info.Properties = inputImage->GetMemoryProperties();
-		info.LayerCount = 1;
-		info.SamplerInfo = SamplerInfo{};
-		info.Type = Image::ImageType::Image2D;
-
-		// First Image is just a copy with separated bright values
-		s_BloomImages.push_back(std::make_shared<Image>(info));
-
-		for (int i = 0; i < 10; i++)
-		{
-			info.Width = glm::max(1, (int)info.Width / 2);
-			info.Height = glm::max(1, (int)info.Height / 2);
-			s_BloomImages.push_back(std::make_shared<Image>(info));
-		}
-
-		int prevFrameIndex = GetCurrentFrameIndex();
-		for (int i = 0; i < Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			s_CurrentFrameIndex = i;
-			CreateBloomDescriptors(inputImage, outputImage, mipsCount);
-		}
-		s_CurrentFrameIndex = prevFrameIndex;
-	}
-
-	void Renderer::CreateBloomDescriptors(Ref<Image> inputImage, Ref<Image> outputImage, int mipsCount)
-	{
-		m_PrevMipsCount = mipsCount;
-		//-----------------------------------------------
-		// Descriptor sets
-		//-----------------------------------------------
-
-		// Bloom Separate Bright Values
-		{
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-
-			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()] = std::make_shared<Vulture::DescriptorSet>();
-			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->AddImageSampler(
-				0,
-				outputImage->GetSamplerHandle(), // input image is copied to output at the start of bloom pass
-				outputImage->GetImageView(),
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-			);
-			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->AddImageSampler(1, s_BloomImages[0]->GetSamplerHandle(), s_BloomImages[0]->GetImageView(),
-				VK_IMAGE_LAYOUT_GENERAL
-			);
-			s_BloomSeparateBrightnessDescriptorSet[GetCurrentFrameIndex()]->Build();
-		}
-
-		// Bloom Accumulate
-		{
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-
-			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()].resize(mipsCount + 1);
-			int i;
-			int descIdx;
-			for (i = 0; i < s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()].size() - 1; i++)
-			{
-				descIdx = (mipsCount) - i;
-				s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i] = std::make_shared<Vulture::DescriptorSet>();
-				s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-
-				s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i]->AddImageSampler(0, s_BloomImages[descIdx]->GetSamplerHandle(), s_BloomImages[descIdx]->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-				s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i]->AddImageSampler(1, s_BloomImages[descIdx-1]->GetSamplerHandle(), s_BloomImages[descIdx-1]->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
-				s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i]->Build();
-			}
-			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i] = std::make_shared<Vulture::DescriptorSet>();
-			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-
-			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i]->AddImageSampler(0, s_BloomImages[descIdx]->GetSamplerHandle(), s_BloomImages[descIdx]->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i]->AddImageSampler(1, outputImage->GetSamplerHandle(), outputImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
-			s_BloomAccumulateDescriptorSet[GetCurrentFrameIndex()][i]->Build();
-		}
-
-		// Bloom Down Sample
-		{
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-
-			s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()].resize(mipsCount);
-			for (int i = 0; i < s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()].size(); i++)
-			{
-				s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i] = std::make_shared<Vulture::DescriptorSet>();
-				s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-				s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i]->AddImageSampler(0, s_BloomImages[i]->GetSamplerHandle(), s_BloomImages[i]->GetImageView(),
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-				);
-				s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i]->AddImageSampler(1, s_BloomImages[i + 1]->GetSamplerHandle(), s_BloomImages[i + 1]->GetImageView(),
-					VK_IMAGE_LAYOUT_GENERAL
-				);
-				s_BloomDownSampleDescriptorSet[GetCurrentFrameIndex()][i]->Build();
-			}
-		}
-
-
-		//-----------------------------------------------
-		// Pipelines
-		//-----------------------------------------------
-
-		s_BloomPush.Init({ VK_SHADER_STAGE_COMPUTE_BIT });
-		// Bloom Separate Bright Values
-		{
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout imageLayout({ bin, bin1 });
-
-			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/SeparateBrightValues.comp.spv";
-			info.PushConstants = s_BloomPush.GetRangePtr();
-
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
-				imageLayout.GetDescriptorSetLayoutHandle()
-			};
-			info.DescriptorSetLayouts = layouts;
-
-			// Create the graphics pipeline
-			s_BloomSeparateBrightnessPipeline[GetCurrentFrameIndex()].Init(info);
-		}
-
-		// Bloom Accumulate
-		{
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout imageLayout({ bin, bin1 });
-
-			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/Bloom.comp.spv";
-			info.PushConstants = s_BloomPush.GetRangePtr();
-
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
-				imageLayout.GetDescriptorSetLayoutHandle()
-			};
-			info.DescriptorSetLayouts = layouts;
-
-			// Create the graphics pipeline
-			s_BloomAccumulatePipeline[GetCurrentFrameIndex()].Init(info);
-		}
-
-		// Bloom Down Sample
-		{
-			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-			DescriptorSetLayout imageLayout({ bin, bin1 });
-
-			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/BloomDownSample.comp.spv";
-			info.PushConstants = s_BloomPush.GetRangePtr();
-
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
-				imageLayout.GetDescriptorSetLayoutHandle()
-			};
-			info.DescriptorSetLayouts = layouts;
-
-			// Create the graphics pipeline
-			s_BloomDownSamplePipeline[GetCurrentFrameIndex()].Init(info);
-		}
 	}
 
 	// TODO description
@@ -1574,20 +1183,11 @@ namespace Vulture
 	Scene* Renderer::s_CurrentSceneRendered;
 	bool Renderer::s_IsInitialized = true;
 	Pipeline Renderer::s_HDRToPresentablePipeline;
-	Pipeline Renderer::s_ToneMapPipeline;
-	std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomSeparateBrightnessPipeline;
-	std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomAccumulatePipeline;
-	std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomDownSamplePipeline;
 	Image Renderer::m_EnvMap;
 	Vulture::Pipeline Renderer::s_EnvToCubemapPipeline;
 	std::vector<Ref<Image>> Renderer::s_BloomImages;
 	Mesh Renderer::s_QuadMesh;
 	Scope<Sampler> Renderer::s_RendererSampler;
-	PushConstant<Vulture::Renderer::TonemapInfo> Renderer::s_TonemapperPush;
-	Vulture::PushConstant<Vulture::Renderer::BloomInfo> Renderer::s_BloomPush;
-	std::array<Ref<Vulture::DescriptorSet>, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomSeparateBrightnessDescriptorSet;
-	std::array<std::vector<Ref<Vulture::DescriptorSet>>, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomAccumulateDescriptorSet;
-	std::array<std::vector<Ref<Vulture::DescriptorSet>>, Swapchain::MAX_FRAMES_IN_FLIGHT> Renderer::s_BloomDownSampleDescriptorSet;
 	Ref<Vulture::DescriptorSet> Renderer::s_EnvToCubemapDescriptorSet;
 	VkExtent2D Renderer::s_MipSize = { 0, 0 };
 	int Renderer::m_MipsCount = 0;

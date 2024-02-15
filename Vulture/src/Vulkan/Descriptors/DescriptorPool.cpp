@@ -7,6 +7,9 @@ namespace Vulture
 
 	void DescriptorPool::Init(const std::vector<PoolSize>& poolSizes, uint32_t maxSets, VkDescriptorPoolCreateFlags poolFlags)
 	{
+		if (m_Initialized)
+			Destroy();
+
 		m_PoolSizes = poolSizes;
 		std::vector<VkDescriptorPoolSize> poolSizesVK;
 		for (int i = 0; i < poolSizes.size(); i++)
@@ -30,6 +33,15 @@ namespace Vulture
 			VK_SUCCESS,
 			"failed to create descriptor pool!"
 		);
+
+		m_Initialized = true;
+	}
+
+	void DescriptorPool::Destroy()
+	{
+		m_PoolSizes.clear();
+		vkDestroyDescriptorPool(Device::GetDevice(), m_DescriptorPoolHandle, nullptr);
+		m_Initialized = false;
 	}
 
 	// *************** Descriptor Pool *********************
@@ -41,7 +53,8 @@ namespace Vulture
 
 	DescriptorPool::~DescriptorPool() 
 	{
-		vkDestroyDescriptorPool(Device::GetDevice(), m_DescriptorPoolHandle, nullptr);
+		if (m_Initialized)
+			Destroy();
 	}
 
 	/*

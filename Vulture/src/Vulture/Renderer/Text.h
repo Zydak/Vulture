@@ -59,7 +59,7 @@ namespace Vulture
 		float m_Height = 0;
 		Ref<FontAtlas> m_FontAtlas;
 		float m_KerningOffset = 0.0f;
-		std::array<bool, Swapchain::MAX_FRAMES_IN_FLIGHT> m_Changed;
+		std::array<bool, MAX_FRAMES_IN_FLIGHT> m_Changed;
 		std::string m_Text;
 		std::vector<std::shared_ptr<Mesh>> m_TextMeshes;
 		glm::vec4 m_Color;

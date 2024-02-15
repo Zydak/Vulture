@@ -29,6 +29,18 @@ SceneRenderer::SceneRenderer()
 	CreateRenderPasses();
 
 	CreateFramebuffers();
+
+	Vulture::Tonemap::CreateInfo tonemapInfo{};
+	tonemapInfo.InputImages = { m_BloomImage };
+	tonemapInfo.OutputImages = { m_TonemappedImage };
+	m_Tonemapper.Init(tonemapInfo);
+
+	Vulture::Bloom::CreateInfo bloomInfo{};
+	bloomInfo.InputImages = { m_PathTracingImage };
+	bloomInfo.OutputImages = { m_BloomImage };
+	bloomInfo.mipsCount = 6;
+	m_Bloom.Init(bloomInfo);
+
 	m_PresentedImage = m_PathTracingImage;
 
 	CreateDescriptorSets();
@@ -54,6 +66,12 @@ SceneRenderer::~SceneRenderer()
 void SceneRenderer::Render(Vulture::Scene& scene)
 {
 	m_CurrentSceneRendered = &scene;
+
+	if (m_ShowDenoised)
+		m_PresentedImage = m_TonemappedImage;
+	else
+		m_PresentedImage = m_DenoisedImage;
+
 
 	if (m_DrawIntoAFileChanged)
 	{
@@ -81,96 +99,31 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 				// tone map and denoise if finished
 				if (!m_ToneMapped)
 				{
-					m_PathTracingImage->TransitionImageLayout(
-						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-						VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
-						VK_ACCESS_SHADER_READ_BIT,
-						VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
-						VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-						Vulture::Renderer::GetCurrentCommandBuffer()
-					);
+					m_Bloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+					m_Tonemapper.Run(m_DrawInfo.TonemapInfo, Vulture::Renderer::GetCurrentCommandBuffer());
 
-					m_BloomImage->TransitionImageLayout(
-						VK_IMAGE_LAYOUT_GENERAL,
-						0,
-						VK_ACCESS_SHADER_WRITE_BIT,
-						0,
-						VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-						Vulture::Renderer::GetCurrentCommandBuffer()
-					);
-
-					Vulture::Renderer::BloomPass(m_PathTracingImage, m_BloomImage, m_DrawInfo.BloomInfo);
-
-					m_PathTracingImage->TransitionImageLayout(
-						VK_IMAGE_LAYOUT_GENERAL,
-						VK_ACCESS_SHADER_READ_BIT,
-						VK_ACCESS_SHADER_WRITE_BIT,
-						VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-						VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-						Vulture::Renderer::GetCurrentCommandBuffer()
-					);
-
-					m_BloomImage->TransitionImageLayout(
-						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-						VK_ACCESS_SHADER_WRITE_BIT,
-						VK_ACCESS_SHADER_READ_BIT,
-						VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-						VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-						Vulture::Renderer::GetCurrentCommandBuffer()
-					);
-
-					m_TonemappedImage->TransitionImageLayout(
-						VK_IMAGE_LAYOUT_GENERAL,
-						0,
-						VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
-						0,
-						VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
-						Vulture::Renderer::GetCurrentCommandBuffer()
-					);
-
-					Vulture::Renderer::ToneMapPass(m_ToneMapDescriptorSet, m_TonemappedImage->GetImageSize(), m_DrawInfo.TonemapInfo);
-
-					m_TonemappedImage->TransitionImageLayout(
-						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-						VK_ACCESS_SHADER_WRITE_BIT,
-						VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT,
-						VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-						VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
-						Vulture::Renderer::GetCurrentCommandBuffer()
-					);
-					m_ToneMapped = true;
+					m_BloomImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, Vulture::Renderer::GetCurrentCommandBuffer());
+					m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
 
 					Denoise();
 					m_PresentedImage = m_DenoisedImage;
 
 					CreateHDRSet();
 					finished = true;
+					m_DrawIntoAFileFinished = true;
+					m_ToneMapped = true;
 				}
 			}
 			else
 			{
-				m_PathTracingImage->TransitionImageLayout(
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
-					VK_ACCESS_SHADER_READ_BIT,
-					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
-					VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-					Vulture::Renderer::GetCurrentCommandBuffer()
-				);
+				m_PathTracingImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
 			}
 
 			Vulture::Renderer::ImGuiPass();
 
 			if (!rayTracingFinished)
 			{
-				m_PathTracingImage->TransitionImageLayout(
-					VK_IMAGE_LAYOUT_GENERAL,
-					VK_ACCESS_SHADER_READ_BIT,
-					0,
-					VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-					0,
-					Vulture::Renderer::GetCurrentCommandBuffer()
-				);
+				m_PathTracingImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, Vulture::Renderer::GetCurrentCommandBuffer());
 			}
 
 			Vulture::Renderer::EndFrame();
@@ -180,23 +133,10 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 				vkDeviceWaitIdle(Vulture::Device::GetDevice());
 				VkCommandBuffer snCmd;
 				Vulture::Device::BeginSingleTimeCommands(snCmd, Vulture::Device::GetGraphicsCommandPool());
-				m_PresentedImage->TransitionImageLayout(
-					VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					VK_ACCESS_SHADER_WRITE_BIT,
-					VK_ACCESS_TRANSFER_READ_BIT,
-					VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-					VK_PIPELINE_STAGE_TRANSFER_BIT,
-					snCmd
-				);
+				m_PresentedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,snCmd);
 				Vulture::Renderer::SaveImageToFile("", m_PresentedImage, snCmd);
 
-				m_PresentedImage->TransitionImageLayout(
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					0,
-					VK_ACCESS_SHADER_READ_BIT,
-					0,
-					VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-				);
+				m_PresentedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 				finished = false;
 			}
 		}
@@ -211,103 +151,11 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 		UpdateDescriptorSetsData();
 		RayTrace(glm::vec4(0.1f));
 
-		m_BloomImage->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_GENERAL,
-			0,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			0,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			Vulture::Renderer::GetCurrentCommandBuffer()
-		);
+		m_Bloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+		m_Tonemapper.Run(m_DrawInfo.TonemapInfo, Vulture::Renderer::GetCurrentCommandBuffer());
 
-		Vulture::Renderer::BloomPass(m_PathTracingImage, m_BloomImage, m_DrawInfo.BloomInfo);
-
-		m_PathTracingImage->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_ACCESS_TRANSFER_READ_BIT,
-			0,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			0,
-			Vulture::Renderer::GetCurrentCommandBuffer()
-		);
-
-		// prev layout is GENERAL
-// 		m_PathTracingImage->TransitionImageLayout(
-// 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, // new layout
-// 			VK_ACCESS_SHADER_WRITE_BIT, // src access
-// 			VK_ACCESS_TRANSFER_READ_BIT, // dst access
-// 			VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, // src stage
-// 			VK_PIPELINE_STAGE_TRANSFER_BIT, // dst stage
-// 			Vulture::Renderer::GetCurrentCommandBuffer()
-// 		);
-// 
-// 		// prev layout is SHADER_READ_ONLY_OPTIMAL
-// 		m_BloomImage->TransitionImageLayout(
-// 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, // new layout
-// 			VK_ACCESS_SHADER_READ_BIT, // src access
-// 			VK_ACCESS_TRANSFER_WRITE_BIT, // dst access
-// 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // src stage
-// 			VK_PIPELINE_STAGE_TRANSFER_BIT, // dst stage
-// 			Vulture::Renderer::GetCurrentCommandBuffer()
-// 		);
-// 
-// 		// prev layout is TRANSFER_SRC_OPTIMAL
-// 		m_PathTracingImage->TransitionImageLayout(
-// 			VK_IMAGE_LAYOUT_GENERAL, // new layout
-// 			VK_ACCESS_TRANSFER_READ_BIT, // src access
-// 			VK_ACCESS_SHADER_WRITE_BIT, // dst access
-// 			VK_PIPELINE_STAGE_TRANSFER_BIT, // src stage
-// 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // dst stage
-// 			Vulture::Renderer::GetCurrentCommandBuffer()
-// 		);
-// 
-// 		// prev layout is LAYOUT_TRANSFER_DST_OPTIMAL
-// 		m_BloomImage->TransitionImageLayout(
-// 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // new layout
-// 			VK_ACCESS_TRANSFER_WRITE_BIT, // src access
-// 			VK_ACCESS_SHADER_READ_BIT, // dst access
-// 			VK_PIPELINE_STAGE_TRANSFER_BIT, // src stage
-// 			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // dst stage
-// 			Vulture::Renderer::GetCurrentCommandBuffer()
-// 		);
-// 
-		m_TonemappedImage->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_GENERAL,
-			0,
-			VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
-			0,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
-			Vulture::Renderer::GetCurrentCommandBuffer()
-		);
-
-		m_BloomImage->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			Vulture::Renderer::GetCurrentCommandBuffer()
-		);
-
-		Vulture::Renderer::ToneMapPass(m_ToneMapDescriptorSet, m_TonemappedImage->GetImageSize(), m_DrawInfo.TonemapInfo);
-
-		m_BloomImage->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			Vulture::Renderer::GetCurrentCommandBuffer()
-		);
-
-		m_TonemappedImage->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			Vulture::Renderer::GetCurrentCommandBuffer()
-		);
+		m_BloomImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, Vulture::Renderer::GetCurrentCommandBuffer());
+		m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
 
 		// Run denoised if requested
 		if (m_RunDenoising)
@@ -317,7 +165,6 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 			m_Denoised = true;
 		}
 
-		//Vulture::Renderer::FramebufferCopyPassImGui(m_HDRDescriptorSet);
 		Vulture::Renderer::ImGuiPass();
 		
 		if (!Vulture::Renderer::EndFrame())
@@ -332,6 +179,8 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 // TODO descritpion
 bool SceneRenderer::RayTrace(const glm::vec4& clearColor)
 {
+	Vulture::Device::InsertLabel(Vulture::Renderer::GetCurrentCommandBuffer(), "Inserted label", { 0.0f, 1.0f, 0.0f, 1.0f });
+
 	m_PushContantRayTrace.GetDataPtr()->ClearColor = clearColor;
 	m_PushContantRayTrace.GetDataPtr()->maxDepth = m_DrawInfo.RayDepth;
 	m_PushContantRayTrace.GetDataPtr()->FocalLength = m_DrawInfo.FocalLength;
@@ -360,6 +209,8 @@ bool SceneRenderer::RayTrace(const glm::vec4& clearColor)
 		m_PushContantRayTrace.GetDataPtr()->frame++;
 		m_CurrentSamplesPerPixel += m_DrawInfo.SamplesPerFrame;
 	}
+
+	Vulture::Device::BeginLabel(Vulture::Renderer::GetCurrentCommandBuffer(), "Ray Trace Pass", { 1.0f, 0.0f, 0.0f, 1.0f });
 	
 	m_Time = m_TotalTimer.ElapsedSeconds();
 
@@ -381,6 +232,8 @@ bool SceneRenderer::RayTrace(const glm::vec4& clearColor)
 
 	Vulture::Renderer::RayTrace(Vulture::Renderer::GetCurrentCommandBuffer(), &m_SBT, m_PathTracingImage->GetImageSize());
 
+	Vulture::Device::EndLabel(Vulture::Renderer::GetCurrentCommandBuffer());
+
 	return true;
 }
 
@@ -388,6 +241,8 @@ void SceneRenderer::DrawGBuffer()
 {
 	if (!m_DrawGBuffer)
 		return;
+
+	Vulture::Device::BeginLabel(Vulture::Renderer::GetCurrentCommandBuffer(), "GBuffer rasterization", { 0.0f, 0.0f, 1.0f, 1.0f });
 
 	m_DrawGBuffer = false;
 	auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::ModelComponent, Vulture::TransformComponent>();
@@ -436,6 +291,8 @@ void SceneRenderer::DrawGBuffer()
 	}
 
 	m_GBufferPass.EndRenderPass();
+	
+	Vulture::Device::EndLabel(Vulture::Renderer::GetCurrentCommandBuffer());
 }
 
 void SceneRenderer::Denoise()
@@ -529,20 +386,23 @@ void SceneRenderer::RecreateResources()
 	m_PushContantRayTrace.GetDataPtr()->frame -= 1;
 
 	CreateFramebuffers();
+
+	Vulture::Tonemap::CreateInfo tonemapInfo{};
+	tonemapInfo.InputImages = { m_BloomImage };
+	tonemapInfo.OutputImages = { m_TonemappedImage };
+	m_Tonemapper.Init(tonemapInfo);
+
+	Vulture::Bloom::CreateInfo bloomInfo{};
+	bloomInfo.InputImages = { m_PathTracingImage };
+	bloomInfo.OutputImages = { m_BloomImage };
+	bloomInfo.mipsCount = 6;
+	m_Bloom.Init(bloomInfo);
+
 	CreatePipelines();
 
 	FixCameraAspectRatio();
 
 	m_Denoiser->AllocateBuffers(m_ViewportSize);
-
-	if (m_ShowDenoised)
-	{
-		m_PresentedImage = m_DenoisedImage;
-	}
-	else
-	{
-		m_PresentedImage = m_TonemappedImage;
-	}
 
 	RecreateDescriptorSets();
 }
@@ -731,29 +591,7 @@ void SceneRenderer::CreateDescriptorSets()
 
 	CreateHDRSet();
 
-	// Tonemap
-	{
-		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
-		Vulture::DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-
-		m_ToneMapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
-		m_ToneMapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-		m_ToneMapDescriptorSet->AddImageSampler(
-			0,
-			m_BloomImage->GetSamplerHandle(),
-			m_BloomImage->GetImageView(),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		);
-		m_ToneMapDescriptorSet->AddImageSampler(
-			1,
-			m_TonemappedImage->GetSamplerHandle(),
-			m_TonemappedImage->GetImageView(),
-			VK_IMAGE_LAYOUT_GENERAL
-		);
-		m_ToneMapDescriptorSet->Build();
-	}
-
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR };
 		Vulture::DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
@@ -856,7 +694,7 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 		m_RayTracingDescriptorSet->Build();
 	}
 
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		std::vector<MeshAdresses> meshAddresses;
 		std::vector<Vulture::Material> materials;
@@ -897,7 +735,7 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 
 void SceneRenderer::SetSkybox(Vulture::SkyboxComponent& skybox)
 {
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		m_GlobalDescriptorSets[i]->UpdateImageSampler(
 			1,
@@ -911,30 +749,9 @@ void SceneRenderer::SetSkybox(Vulture::SkyboxComponent& skybox)
 void SceneRenderer::RecreateDescriptorSets()
 {
 	m_Denoised = false;
-	m_PresentedImage = m_TonemappedImage;
 	m_ShowDenoised = false;
 	{
 		CreateHDRSet();
-	}
-	{
-		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
-		Vulture::DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
-
-		m_ToneMapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
-		m_ToneMapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-		m_ToneMapDescriptorSet->AddImageSampler(
-			0,
-			m_BloomImage->GetSamplerHandle(),
-			m_BloomImage->GetImageView(),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		);
-		m_ToneMapDescriptorSet->AddImageSampler(
-			1,
-			m_TonemappedImage->GetSamplerHandle(),
-			m_TonemappedImage->GetImageView(),
-			VK_IMAGE_LAYOUT_GENERAL
-		);
-		m_ToneMapDescriptorSet->Build();
 	}
 
 	{
@@ -971,6 +788,7 @@ void SceneRenderer::CreatePipelines()
 		info.Height = m_ViewportSize.height;
 		info.PushConstants = &m_PushContantGBuffer.GetRange();
 		info.ColorAttachmentCount = 4;
+		info.debugName = "GBuffer Pipeline";
 
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts
@@ -1007,6 +825,7 @@ void SceneRenderer::CreateRayTracingPipeline()
 			m_GlobalDescriptorSets[0]->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle()
 		};
 		info.DescriptorSetLayouts = layouts;
+		info.debugName = "Ray Tracing Pipeline";
 
 		m_RtPipeline.Init(info);
 	}
@@ -1035,18 +854,13 @@ void SceneRenderer::CreateFramebuffers()
 		info.Width = m_ViewportSize.width;
 		info.LayerCount = 1;
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
-		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		info.SamplerInfo = Vulture::SamplerInfo{};
 		info.Type = Vulture::Image::ImageType::Image2D;
+		info.DebugName = "Path Tracing Image";
 		m_PathTracingImage = std::make_shared<Vulture::Image>(info);
-		m_PathTracingImage->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_TRANSFER_READ_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT
-		);
+		m_PathTracingImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL);
 	}
 
 	// Denoised
@@ -1062,17 +876,10 @@ void SceneRenderer::CreateFramebuffers()
 		info.LayerCount = 1;
 		info.SamplerInfo = Vulture::SamplerInfo{};
 		info.Type = Vulture::Image::ImageType::Image2D;
+		info.DebugName = "Denoised Image";
 
 		m_DenoisedImage = std::make_shared<Vulture::Image>(info);
-		Vulture::Image::TransitionImageLayout(
-			m_DenoisedImage->GetImage(),
-			VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_GENERAL,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_TRANSFER_READ_BIT
-		);
+		m_DenoisedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL);
 	}
 
 	// TODO use this gbuffer to speed up path tracing and maybe do something with the formats?
@@ -1116,6 +923,7 @@ void SceneRenderer::CreateFramebuffers()
 		info.LayerCount = 1;
 		info.SamplerInfo = Vulture::SamplerInfo{};
 		info.Type = Vulture::Image::ImageType::Image2D;
+		info.DebugName = "Tonemapped Image";
 
 		m_TonemappedImage = std::make_shared<Vulture::Image>();
 		m_TonemappedImage->Init(info);
@@ -1134,6 +942,7 @@ void SceneRenderer::CreateFramebuffers()
 		info.LayerCount = 1;
 		info.SamplerInfo = Vulture::SamplerInfo{};
 		info.Type = Vulture::Image::ImageType::Image2D;
+		info.DebugName = "Bloom Image";
 
 		m_BloomImage = std::make_shared<Vulture::Image>();
 		m_BloomImage->Init(info);
@@ -1170,18 +979,31 @@ void SceneRenderer::CreateHDRSet()
 {
 	Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
 
-	m_HDRDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
-	m_HDRDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-	m_HDRDescriptorSet->AddImageSampler(
+	m_ToneMappedImageSet = std::make_shared<Vulture::DescriptorSet>();
+	m_ToneMappedImageSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
+	m_ToneMappedImageSet->AddImageSampler(
 		0,
-		m_PresentedImage->GetSamplerHandle(),
-		m_PresentedImage->GetImageView(),
+		m_TonemappedImage->GetSamplerHandle(),
+		m_TonemappedImage->GetImageView(),
 		VK_IMAGE_LAYOUT_GENERAL
 	);
-	m_HDRDescriptorSet->Build();
+	m_ToneMappedImageSet->Build();
+
+	m_DenoisedImageSet = std::make_shared<Vulture::DescriptorSet>();
+	m_DenoisedImageSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
+	m_DenoisedImageSet->AddImageSampler(
+		0,
+		m_DenoisedImage->GetSamplerHandle(),
+		m_DenoisedImage->GetImageView(),
+		VK_IMAGE_LAYOUT_GENERAL
+	);
+	m_DenoisedImageSet->Build();
 
 #ifdef VL_IMGUI
-	m_ImGuiViewportDescriptor = ImGui_ImplVulkan_AddTexture(m_PresentedImage->GetSamplerHandle(), m_PresentedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(m_TonemappedImage->GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiViewportDescriptorDenoised = ImGui_ImplVulkan_AddTexture(m_DenoisedImage->GetSamplerHandle(), m_DenoisedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(m_PathTracingImage->GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	
 #endif
 }
 
@@ -1209,6 +1031,40 @@ void SceneRenderer::ImGuiPass()
 		ImGuiViewport* viewport = ImGui::GetMainViewport();
 		ImGui::DockSpaceOverViewport(viewport);
 	}
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::Begin("Preview Viewport");
+
+	if (camScript && !m_DrawIntoAFile)
+	{
+		if (ImGui::IsWindowHovered() && (ImGui::IsWindowDocked()))
+			camScript->m_CameraLocked = false;
+		else
+			camScript->m_CameraLocked = true;
+	}
+
+	ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+	if (m_DrawIntoAFile && m_DrawIntoAFileFinished)
+		ImGui::Image(m_ImGuiViewportDescriptorDenoised, viewportSize);
+	if (m_DrawIntoAFile)
+		ImGui::Image(m_ImGuiViewportDescriptorPathTracing, viewportSize);
+	else if (m_ShowTonemapped)
+		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportSize);
+	else
+		ImGui::Image(m_ImGuiViewportDescriptorDenoised, viewportSize);
+
+	static VkExtent2D prevViewportSize = m_ImGuiViewportSize;
+	m_ImGuiViewportSize = { (unsigned int)viewportSize.x, (unsigned int)viewportSize.y };
+	if (m_ImGuiViewportSize.width != prevViewportSize.width || m_ImGuiViewportSize.height != prevViewportSize.height)
+	{
+		m_ImGuiViewportResized = true;
+		prevViewportSize = m_ImGuiViewportSize;
+	}
+	if (!m_DrawIntoAFile)
+		m_ViewportSize = m_ImGuiViewportSize;
+
+	ImGui::End();
+	ImGui::PopStyleVar();
 
 	ImGui::Begin("Settings");
 	if (!m_DrawIntoAFile)
@@ -1256,7 +1112,10 @@ void SceneRenderer::ImGuiPass()
 			ImGui::SeparatorText("Bloom");
 			ImGui::SliderFloat("Threshold",		&m_DrawInfo.BloomInfo.Threshold, 0.0f, 3.0f);
 			ImGui::SliderFloat("Strength",		&m_DrawInfo.BloomInfo.Strength, 0.0f, 3.0f);
-			ImGui::SliderInt("Mip Count",		&m_DrawInfo.BloomInfo.MipCount, 0, 10);
+			if (ImGui::SliderInt("Mip Count",	&m_DrawInfo.BloomInfo.MipCount, 1, 10))
+			{
+				m_Bloom.RecreateDescriptors(m_DrawInfo.BloomInfo.MipCount, ((Vulture::Renderer::GetCurrentFrameIndex() + 1) % MAX_FRAMES_IN_FLIGHT));
+			}
 
 			ImGui::SeparatorText("Tonemapping");
 			ImGui::SliderFloat("Exposure",		&m_DrawInfo.TonemapInfo.Exposure, 0.0f, 3.0f);
@@ -1294,17 +1153,11 @@ void SceneRenderer::ImGuiPass()
 				{
 					if (m_ShowDenoised)
 					{
-						m_PresentedImage = m_DenoisedImage;
-						{
-							CreateHDRSet();
-						}
+						m_ShowTonemapped = false;
 					}
 					else
 					{
-						m_PresentedImage = m_TonemappedImage;
-						{
-							CreateHDRSet();
-						}
+						m_ShowTonemapped = true;
 					}
 				}
 			}
@@ -1421,32 +1274,6 @@ void SceneRenderer::ImGuiPass()
 	}
 
 	ImGui::End();
-
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-	ImGui::Begin("Preview Viewport");
-
-	if (camScript && !m_DrawIntoAFile)
-	{
-		if (ImGui::IsWindowHovered() && (ImGui::IsWindowDocked()))
-			camScript->m_CameraLocked = false;
-		else
-			camScript->m_CameraLocked = true;
-	}
-
-	ImVec2 viewportSize = ImGui::GetContentRegionAvail();
-	ImGui::Image(m_ImGuiViewportDescriptor, viewportSize);
-	static VkExtent2D prevViewportSize = m_ImGuiViewportSize;
-	m_ImGuiViewportSize = { (unsigned int)viewportSize.x, (unsigned int)viewportSize.y };
-	if (m_ImGuiViewportSize.width != prevViewportSize.width || m_ImGuiViewportSize.height != prevViewportSize.height)
-	{
-		m_ImGuiViewportResized = true;
-		prevViewportSize = m_ImGuiViewportSize;
-	}
-	if (!m_DrawIntoAFile)
-		m_ViewportSize = m_ImGuiViewportSize;
-
-	ImGui::End();
-	ImGui::PopStyleVar();
 
 	ImGui::Render();
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), Vulture::Renderer::GetCurrentCommandBuffer());

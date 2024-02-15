@@ -22,6 +22,7 @@ namespace Vulture
 		};
 
 		void Init(std::vector<Binding> bindings);
+		void Destroy();
 
 		DescriptorSetLayout() = default;
 		DescriptorSetLayout(const std::vector<Binding>& bindings);
@@ -33,6 +34,8 @@ namespace Vulture
 	private:
 		VkDescriptorSetLayout m_DescriptorSetLayoutHandle;
 		std::vector<Binding> m_Bindings;
+
+		bool m_Initialized = false;
 
 		friend class DescriptorWriter;
 	};

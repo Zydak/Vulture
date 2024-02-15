@@ -37,6 +37,11 @@ namespace Vulture
 		}
 		CreateImageSampler(createInfo.SamplerInfo);
 
+		if (createInfo.DebugName != "")
+		{
+			Device::SetObjectName(VK_OBJECT_TYPE_IMAGE, (uint64_t)m_ImageHandle, createInfo.DebugName);
+		}
+
 		m_Initialized = true;
 	}
 
@@ -130,6 +135,7 @@ namespace Vulture
 
 		TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			0,
 			VK_ACCESS_TRANSFER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -138,6 +144,8 @@ namespace Vulture
 
 		CreateImageView(info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
 		CreateImageSampler(samplerInfo);
+
+		Device::SetObjectName(VK_OBJECT_TYPE_IMAGE, (uint64_t)m_ImageHandle, filepath.c_str());
 
 		m_Initialized = true;
 	}
@@ -198,11 +206,17 @@ namespace Vulture
 		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height);
 		TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			0,
 			VK_ACCESS_TRANSFER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
 		);
+
+		if (createInfo.DebugName != "")
+		{
+			Device::SetObjectName(VK_OBJECT_TYPE_IMAGE, (uint64_t)m_ImageHandle, createInfo.DebugName);
+		}
 
 		m_Initialized = true;
 	}
@@ -449,6 +463,7 @@ namespace Vulture
 
 		TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			0,
 			VK_ACCESS_TRANSFER_WRITE_BIT,
 			VK_ACCESS_SHADER_READ_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -570,7 +585,7 @@ namespace Vulture
 	 * @param cmdBuffer - Optional command buffer for the transition (useful for custom command buffer recording).
 	 * @param subresourceRange - Optional subresource range for the transition.
 	 */
-	void Image::TransitionImageLayout(const VkImageLayout& newLayout, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkCommandBuffer cmdBuffer, const VkImageSubresourceRange& subresourceRange)
+	void Image::TransitionImageLayout(const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, const VkImageSubresourceRange& subresourceRange)
 	{
 		VkCommandBuffer commandBuffer;
 
@@ -578,6 +593,50 @@ namespace Vulture
 			Device::BeginSingleTimeCommands(commandBuffer, Device::GetGraphicsCommandPool());
 		else
 			commandBuffer = cmdBuffer;
+
+		switch (m_Layout)
+		{
+		case VK_IMAGE_LAYOUT_GENERAL:
+			srcAccess |= VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+			srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+			break;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			srcAccess |= VK_ACCESS_SHADER_READ_BIT;
+			srcStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+			srcAccess |= VK_ACCESS_TRANSFER_READ_BIT;
+			srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			srcAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+			srcStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+			break;
+		default:
+			break;
+		}
+		
+		switch (newLayout)
+		{
+		case VK_IMAGE_LAYOUT_GENERAL:
+			dstAccess |= VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+			dstStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+			break;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+			dstAccess |= VK_ACCESS_SHADER_READ_BIT;
+			dstStage |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+			dstAccess |= VK_ACCESS_TRANSFER_READ_BIT;
+			dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			dstAccess |= VK_ACCESS_TRANSFER_WRITE_BIT;
+			dstStage |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+			break;
+		default:
+			break;
+		}
 
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -668,10 +727,15 @@ namespace Vulture
 	 * @param srcOffset - The offset in the source image to copy the data from.
 	 * @param dstOffset - The offset in the destination image to copy the data to.
 	 */
-	void Image::CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkImageLayout layout, VkOffset3D srcOffset, VkOffset3D dstOffset)
+	void Image::CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkImageLayout layout, VkCommandBuffer cmd = 0, VkOffset3D srcOffset, VkOffset3D dstOffset)
 	{
 		VkCommandBuffer commandBuffer;
-		Device::BeginSingleTimeCommands(commandBuffer, Device::GetGraphicsCommandPool());
+
+		if (cmd == 0)
+			Device::BeginSingleTimeCommands(commandBuffer, Device::GetGraphicsCommandPool());
+		else
+			commandBuffer = cmd;
+
 
 		VkImageCopy region{};
 
@@ -689,9 +753,10 @@ namespace Vulture
 		region.dstOffset = dstOffset;
 		region.extent = { width, height, 1 };
 
-		vkCmdCopyImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_ImageHandle, layout, 1, &region);
+		vkCmdCopyImage(commandBuffer, image, layout, m_ImageHandle, m_Layout, 1, &region);
 
-		Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
+		if (cmd == 0)
+			Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 	}
 
 	// TODO description
@@ -712,7 +777,7 @@ namespace Vulture
 		std::vector<float> importanceData(rx * ry);
 
 		float cosTheta0			= 1.0F; // cosine of the up vector
-		const float stepPhi		= (float)2.0F * M_PI / (float)rx; // azimuth step
+		const float stepPhi		= (float)2.0F * (float)M_PI / (float)rx; // azimuth step
 		const float stepTheta	= (float)M_PI / (float)ry; // elevation step
 		double total			= 0.0;
 

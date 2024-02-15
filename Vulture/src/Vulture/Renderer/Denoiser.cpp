@@ -211,22 +211,22 @@ namespace Vulture
 
 			imgIn[i]->TransitionImageLayout(
 				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				cmdBuf,
 				VK_ACCESS_SHADER_READ_BIT,
 				VK_ACCESS_TRANSFER_READ_BIT,
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-				VK_PIPELINE_STAGE_TRANSFER_BIT,
-				cmdBuf
+				VK_PIPELINE_STAGE_TRANSFER_BIT
 			);
             
             vkCmdCopyImageToBuffer(cmdBuf, imgIn[i]->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_PixelBufferIn[i].BufferVk.GetBuffer(), 1, &region);
             
             imgIn[i]->TransitionImageLayout(
-                prevLayout,
+				prevLayout,
+				cmdBuf,
                 VK_ACCESS_TRANSFER_READ_BIT,
                 VK_ACCESS_SHADER_READ_BIT,
                 VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                cmdBuf
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
             );
         }
     }
@@ -246,22 +246,23 @@ namespace Vulture
         };
 
         imgOut->TransitionImageLayout(
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			cmdBuf,
             0,
             VK_ACCESS_TRANSFER_WRITE_BIT,
             0,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            cmdBuf);
+            VK_PIPELINE_STAGE_TRANSFER_BIT
+        );
         
         vkCmdCopyBufferToImage(cmdBuf, m_PixelBufferOut.BufferVk.GetBuffer(), imgOut->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
         
         imgOut->TransitionImageLayout(
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			cmdBuf,
             VK_ACCESS_TRANSFER_WRITE_BIT,
             VK_ACCESS_SHADER_READ_BIT,
             VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            cmdBuf
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
         );
     }
 

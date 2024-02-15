@@ -20,6 +20,7 @@ namespace Vulture
 
 		
 		void Init(const std::vector<PoolSize>& poolSizes, uint32_t maxSets, VkDescriptorPoolCreateFlags poolFlags);
+		void Destroy();
 
 		DescriptorPool() = default;
 		DescriptorPool(const std::vector<PoolSize>& poolSizes, uint32_t maxSets, VkDescriptorPoolCreateFlags poolFlags);
@@ -37,6 +38,8 @@ namespace Vulture
 	private:
 		VkDescriptorPool m_DescriptorPoolHandle;
 		std::vector<PoolSize> m_PoolSizes;
+
+		bool m_Initialized = false;
 
 		friend class DescriptorWriter;
 	};

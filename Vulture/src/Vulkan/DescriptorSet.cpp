@@ -8,6 +8,9 @@ namespace Vulture
 
 	void DescriptorSet::Init(DescriptorPool* pool, const std::vector<DescriptorSetLayout::Binding>& bindings)
 	{
+		if (m_Initialized)
+			Destroy();
+
 		m_Pool = pool;
 
 		m_DescriptorSetLayout.Init(bindings);
@@ -15,6 +18,11 @@ namespace Vulture
 
 	void DescriptorSet::Destroy()
 	{
+		m_DescriptorSetLayout.Destroy();
+		m_BindingsWriteInfo.clear();
+		m_Pool = nullptr;
+		m_Buffers.clear();
+
 		m_Initialized = false;
 	}
 

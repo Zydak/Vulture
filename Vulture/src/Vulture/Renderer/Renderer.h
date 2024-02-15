@@ -53,23 +53,6 @@ namespace Vulture
 		static void EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap);
 		static void SampleEnvMap(Image* image);
 
-		struct BloomInfo
-		{
-			float Threshold = 1.5f;
-			float Strength = 0.5f;
-			int MipCount = 6;
-		};
-		static void BloomPass(Ref<Image> inputImage, Ref<Image> outputImage, BloomInfo bloomInfo = BloomInfo());
-		
-		struct TonemapInfo
-		{
-			float Contrast = 1.0f;
-			float Saturation = 1.0f;
-			float Exposure = 1.0f;
-			float Brightness = 1.0f;
-			float Vignette = 0.0f;
-		};
-		static void ToneMapPass(Ref<DescriptorSet> tonemapSet, VkExtent2D dstSize, TonemapInfo tonInfo = TonemapInfo());
 	private:
 		static bool BeginFrameInternal();
 		static bool EndFrameInternal();
@@ -81,8 +64,6 @@ namespace Vulture
 		static void CreatePool();
 		static void CreatePipeline();
 		static void CreateDescriptorSets();
-		static void CreateBloomImages(Ref<Image> inputImage, Ref<Image> outputImage, int mipsCount);
-		static void CreateBloomDescriptors(Ref<Image> inputImage, Ref<Image> outputImage, int mipsCount);
 		static void WriteToFile(const char* filename, std::vector<unsigned char>& image, unsigned width, unsigned height);
 		
 		static Scope<DescriptorPool> s_Pool;
@@ -102,20 +83,9 @@ namespace Vulture
 		static Mesh s_QuadMesh;
 		static Scope<Sampler> s_RendererSampler;
 
-		static PushConstant<TonemapInfo> s_TonemapperPush;
-		static PushConstant<BloomInfo> s_BloomPush;
-
-		static std::array<Ref<DescriptorSet>, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomSeparateBrightnessDescriptorSet;
-		static std::array<std::vector<Ref<DescriptorSet>>, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomAccumulateDescriptorSet;
-		static std::array<std::vector<Ref<DescriptorSet>>, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomDownSampleDescriptorSet;
-
 		static Ref<DescriptorSet> s_EnvToCubemapDescriptorSet;
 
 		static Pipeline s_HDRToPresentablePipeline;
-		static Pipeline s_ToneMapPipeline;
-		static std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomSeparateBrightnessPipeline;
-		static std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomAccumulatePipeline;
-		static std::array<Pipeline, Swapchain::MAX_FRAMES_IN_FLIGHT> s_BloomDownSamplePipeline;
 
 		static Image m_EnvMap;
 

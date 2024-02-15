@@ -13,8 +13,8 @@ SceneRenderer::SceneRenderer()
 	CreateDescriptorSets();
 	CreatePipelines();
 
-	m_StorageBufferTransforms.resize(Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT);
-	m_TextStorageBufferTransforms.resize(Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT);
+	m_StorageBufferTransforms.resize(MAX_FRAMES_IN_FLIGHT);
+	m_TextStorageBufferTransforms.resize(MAX_FRAMES_IN_FLIGHT);
 	Vulture::Renderer::RenderImGui([this](){ImGuiPass(); });
 }
 
@@ -422,7 +422,7 @@ void SceneRenderer::CreateRenderPasses()
 void SceneRenderer::CreateDescriptorSets()
 {
 	// Create and initialize uniform buffers
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
 		m_ObjectsUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
@@ -434,7 +434,7 @@ void SceneRenderer::CreateDescriptorSets()
 		//m_ObjectsUbos[i]->Resize(0, sizeof(StorageBufferEntry) * 200, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetGraphicsCommandPool());
 	}
 
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
 		m_TextUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
@@ -446,7 +446,7 @@ void SceneRenderer::CreateDescriptorSets()
 		//m_TextUbos[i]->Resize(0, sizeof(glm::mat4) * 100, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetGraphicsCommandPool());
 	}
 
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
 		m_MainUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
@@ -454,7 +454,7 @@ void SceneRenderer::CreateDescriptorSets()
 		m_MainUbos[i]->Build();
 	}
 
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		m_HDRDescriptorSet.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
 		m_HDRDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSamplerHandle().GetSamplerHandle(), m_HDRFramebuffer[i]->GetColorImageView(0),
@@ -478,7 +478,7 @@ void SceneRenderer::RecreateDescriptorSets()
 {
 	m_MainUbos.clear();
 	m_HDRDescriptorSet.clear();
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
 		m_MainUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
@@ -486,7 +486,7 @@ void SceneRenderer::RecreateDescriptorSets()
 		m_MainUbos[i]->Build();
 	}
 
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		m_HDRDescriptorSet.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
 		m_HDRDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSamplerHandle().GetSamplerHandle(), m_HDRFramebuffer[i]->GetColorImageView(0),
@@ -568,7 +568,7 @@ void SceneRenderer::CreateFramebuffers()
 {
 	m_HDRFramebuffer.clear();
 	std::vector<Vulture::FramebufferAttachment> attachments{ Vulture::FramebufferAttachment::ColorRGBA16, Vulture::FramebufferAttachment::Depth };
-	for (int i = 0; i < Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT; i++)
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		m_HDRFramebuffer.push_back(std::make_unique<Vulture::Framebuffer>(attachments, m_HDRPass.GetRenderPass(), Vulture::Renderer::GetSwapchain().GetSwapchainExtent(), Vulture::Swapchain::FindDepthFormat()));
 	}

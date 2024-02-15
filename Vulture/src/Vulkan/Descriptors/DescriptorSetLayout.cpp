@@ -6,6 +6,9 @@ namespace Vulture
 	// todo: description
 	void DescriptorSetLayout::Init(std::vector<Binding> bindings)
 	{
+		if (m_Initialized)
+			Destroy();
+
 		m_Bindings = bindings;
 		std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings{};
 		for (int i = 0; i < bindings.size(); i++)
@@ -30,6 +33,16 @@ namespace Vulture
 			VK_SUCCESS,
 			"failed to create descriptor set layout!"
 		);
+
+		m_Initialized = true;
+	}
+
+	void DescriptorSetLayout::Destroy()
+	{
+		m_Initialized = false;
+
+		vkDestroyDescriptorSetLayout(Device::GetDevice(), m_DescriptorSetLayoutHandle, nullptr);
+		m_Bindings.clear();
 	}
 
 	DescriptorSetLayout::DescriptorSetLayout(const std::vector<Binding>& bindings)
@@ -39,6 +52,7 @@ namespace Vulture
 
 	DescriptorSetLayout::~DescriptorSetLayout()
 	{
-		vkDestroyDescriptorSetLayout(Device::GetDevice(), m_DescriptorSetLayoutHandle, nullptr);
+		if (m_Initialized)
+			Destroy();
 	}
 }

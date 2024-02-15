@@ -7,9 +7,10 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include "Defines.h"
+
 namespace Vulture
 {
-
 	enum class PresentModes
 	{
 		VSync,
@@ -26,8 +27,6 @@ namespace Vulture
 	class Swapchain
 	{
 	public:
-		static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-
 		void Init(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode);
 		void Init(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode, Ref<Swapchain> previousSwapchain);
 		void Destroy();

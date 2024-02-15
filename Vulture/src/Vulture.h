@@ -4,6 +4,8 @@
 #include "Vulture/src/Vulture/core/EntryPoint.h"
 #endif
 
+#include "Defines.h"
+
 #include "Vulture/src/Vulture/core/Application.h"
 #include "Vulture/src/Vulture/core/Input.h"
 #include "Vulture/src/Vulture/Scene/Components.h"
@@ -20,3 +22,6 @@
 #include "Vulture/src/Vulkan/SBT.h"
 #include "Vulture/src/Vulkan/PushConstant.h"
 #include "Vulture/src/Vulture/Math/Quaternion.h"
+
+#include "Vulture/src/Vulture/Effects/Tonemap.h"
+#include "Vulture/src/Vulture/Effects/Bloom.h"

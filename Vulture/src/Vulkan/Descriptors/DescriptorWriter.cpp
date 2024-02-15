@@ -6,13 +6,32 @@ namespace Vulture
 
 	void DescriptorWriter::Init(DescriptorSetLayout* setLayout, DescriptorPool* pool)
 	{
+		if (m_Initialized)
+			Destroy();
+
 		m_SetLayout = setLayout;
 		m_Pool = pool;
+
+		m_Initialized = true;
+	}
+
+	void DescriptorWriter::Destroy()
+	{
+		m_Writes.clear();
+		m_Pool = nullptr;
+		m_SetLayout = nullptr;
+		m_Initialized = false;
 	}
 
 	DescriptorWriter::DescriptorWriter(DescriptorSetLayout* setLayout, DescriptorPool* pool)
 	{
 		Init(setLayout, pool);
+	}
+
+	DescriptorWriter::~DescriptorWriter()
+	{
+		if (m_Initialized)
+			Destroy();
 	}
 
 	/*

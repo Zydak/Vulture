@@ -79,13 +79,14 @@ private:
 
 	Vulture::Ref<Vulture::Image> m_DenoisedImage;
 	Vulture::Ref<Vulture::Image> m_PathTracingImage;
-	Vulture::Ref<Vulture::DescriptorSet> m_HDRDescriptorSet;
-	Vulture::Ref<Vulture::DescriptorSet> m_ToneMapDescriptorSet;
+	Vulture::Ref<Vulture::DescriptorSet> m_ToneMappedImageSet;
+	Vulture::Ref<Vulture::DescriptorSet> m_DenoisedImageSet;
 
 	Vulture::Ref<Vulture::DescriptorSet> m_RayTracingDescriptorSet; // there is only one set for ray tracing
 	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_GlobalDescriptorSets;
 	Vulture::Pipeline m_RtPipeline;
 	
+	bool m_ShowTonemapped = true;
 	Vulture::Ref<Vulture::Image> m_PresentedImage;
 	Vulture::Ref<Vulture::Image> m_TonemappedImage;
 	Vulture::Ref<Vulture::Image> m_BloomImage;
@@ -102,12 +103,16 @@ private:
 	VkFence m_DenoiseFence;
 	uint64_t m_DenoiseFenceValue = 0U;
 	Vulture::Ref<Vulture::Denoiser> m_Denoiser;
+	Vulture::Tonemap m_Tonemapper;
+	Vulture::Bloom m_Bloom;
 
 	// ImGui Stuff / Interface
 	Timer m_Timer;
 	Timer m_TotalTimer;
 	uint32_t m_CurrentSamplesPerPixel = 0;
-	VkDescriptorSet m_ImGuiViewportDescriptor;
+	VkDescriptorSet m_ImGuiViewportDescriptorTonemapped;
+	VkDescriptorSet m_ImGuiViewportDescriptorDenoised;
+	VkDescriptorSet m_ImGuiViewportDescriptorPathTracing;
 	VkDescriptorSet m_ImGuiNormalDescriptor;
 	VkDescriptorSet m_ImGuiAlbedoDescriptor;
 	VkDescriptorSet m_ImGuiRoughnessDescriptor;
@@ -128,17 +133,18 @@ private:
 	{
 		float DOFStrength		 = 0.0f;
 		float FocalLength		 = 8.0f;
-		int TotalSamplesPerPixel = 1500;
+		int TotalSamplesPerPixel = 15000;
 		int RayDepth = 20;
 		int SamplesPerFrame = 15;
 		float EnvAzimuth = 0.0f;
 		float EnvAltitude = 0.0f;
 
-		Vulture::Renderer::TonemapInfo TonemapInfo{};
-		Vulture::Renderer::BloomInfo BloomInfo{};
+		Vulture::Tonemap::TonemapInfo TonemapInfo{};
+		Vulture::Bloom::BloomInfo BloomInfo{};
 	};
 
 	bool m_DrawIntoAFile = false;
+	bool m_DrawIntoAFileFinished = false;
 	bool m_DrawIntoAFileChanged = false;
 
 	struct DrawFileInfo

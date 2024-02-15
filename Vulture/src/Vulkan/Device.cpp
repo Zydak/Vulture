@@ -506,6 +506,36 @@ namespace Vulture
 
 #endif
 	}
+
+	void Device::BeginLabel(VkCommandBuffer cmd, const char* name, glm::vec4 color)
+	{
+#ifndef DIST
+
+		VkDebugUtilsLabelEXT utilsInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT, nullptr, name, *(float*)&color};
+		Device::vkCmdBeginDebugUtilsLabelEXT(cmd, &utilsInfo);
+
+#endif
+	}
+
+	void Device::EndLabel(VkCommandBuffer cmd)
+	{
+#ifndef DIST
+
+		Device::vkCmdEndDebugUtilsLabelEXT(cmd);
+
+#endif
+	}
+
+	void Device::InsertLabel(VkCommandBuffer cmd, const char* name, glm::vec4 color)
+	{
+#ifndef DIST
+
+		VkDebugUtilsLabelEXT utilsInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT, nullptr, name, *(float*)&color };
+		Device::vkCmdInsertDebugUtilsLabelEXT(cmd, &utilsInfo);
+
+#endif
+	}
+
 	/*
 	 * @brief Evaluates the suitability of the specified Vulkan physical device based on criteria
 	 * such as queue families, required extensions, and swap chain support. It returns true if the device
@@ -984,7 +1014,7 @@ namespace Vulture
 	{
 		auto func = (PFN_vkCreateAccelerationStructureKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCreateAccelerationStructureKHR");
 		if (func != nullptr) { return func(device, createInfo, nullptr, structure); }
-		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
 
 	void Device::vkDestroyAccelerationStructureKHR(VkDevice device, VkAccelerationStructureKHR structure)
@@ -1026,21 +1056,21 @@ namespace Vulture
 	{
 		auto func = (PFN_vkCreateRayTracingPipelinesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCreateRayTracingPipelinesKHR");
 		if (func != nullptr) { return func(device, deferredOperation, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines); }
-		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
 
 	VkDeviceAddress Device::vkGetAccelerationStructureDeviceAddressKHR(VkDevice device, const VkAccelerationStructureDeviceAddressInfoKHR* pInfo)
 	{
 		auto func = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetAccelerationStructureDeviceAddressKHR");
 		if (func != nullptr) { return func(device, pInfo); }
-		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
 
 	VkResult Device::vkGetRayTracingShaderGroupHandlesKHR(VkDevice device, VkPipeline pipeline, uint32_t firstGroup, uint32_t groupCount, size_t dataSize, void* pData)
 	{
 		auto func = (PFN_vkGetRayTracingShaderGroupHandlesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetRayTracingShaderGroupHandlesKHR");
 		if (func != nullptr) { return func(device, pipeline, firstGroup, groupCount, dataSize, pData); }
-		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
 
 	void Device::vkCmdTraceRaysKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, uint32_t width, uint32_t height, uint32_t depth)
@@ -1061,20 +1091,41 @@ namespace Vulture
 	{
 		auto func = (PFN_vkGetMemoryWin32HandleKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetMemoryWin32HandleKHR");
 		if (func != nullptr) { return func(device, pGetWin32HandleInfo, pHandle); }
-		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
 
 	VkResult Device::vkGetSemaphoreWin32HandleKHR(VkDevice device, const VkSemaphoreGetWin32HandleInfoKHR* pGetWin32HandleInfo, HANDLE* pHandle)
 	{
 		auto func = (PFN_vkGetSemaphoreWin32HandleKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetSemaphoreWin32HandleKHR");
 		if (func != nullptr) { return func(device, pGetWin32HandleInfo, pHandle); }
-		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
 
 	VkResult Device::vkSetDebugUtilsObjectNameEXT(VkDevice device, const VkDebugUtilsObjectNameInfoEXT* pNameInfo)
 	{
 		auto func = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkSetDebugUtilsObjectNameEXT");
 		if (func != nullptr) { return func(device, pNameInfo); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
+	}
+
+	void Device::vkCmdInsertDebugUtilsLabelEXT(VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT* pLabelInfo)
+	{
+		auto func = (PFN_vkCmdInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdInsertDebugUtilsLabelEXT");
+		if (func != nullptr) { return func(commandBuffer, pLabelInfo); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	void Device::vkCmdEndDebugUtilsLabelEXT(VkCommandBuffer commandBuffer)
+	{
+		auto func = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdEndDebugUtilsLabelEXT");
+		if (func != nullptr) { return func(commandBuffer); }
+		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
+	}
+
+	void Device::vkCmdBeginDebugUtilsLabelEXT(VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT* pLabelInfo)
+	{
+		auto func = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdBeginDebugUtilsLabelEXT");
+		if (func != nullptr) { return func(commandBuffer, pLabelInfo); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
 

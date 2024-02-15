@@ -104,7 +104,7 @@ namespace Vulture
 			if (image.second.use_count() == 1)
 			{
 				AssetManager::Resource res;
-				res.FramesToDelete = Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT;
+				res.FramesToDelete = MAX_FRAMES_IN_FLIGHT;
 				res.ImagePtr = image.second;
 				s_DestroyQueue.push_back(res);
 
@@ -117,7 +117,7 @@ namespace Vulture
 			if (model.second.use_count() == 1)
 			{
 				AssetManager::Resource res;
-				res.FramesToDelete = Vulture::Swapchain::MAX_FRAMES_IN_FLIGHT;
+				res.FramesToDelete = MAX_FRAMES_IN_FLIGHT;
 				res.ModelPtr = model.second;
 				s_DestroyQueue.push_back(res);
 

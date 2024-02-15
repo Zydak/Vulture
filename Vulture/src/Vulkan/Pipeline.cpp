@@ -113,6 +113,11 @@ namespace Vulture
 			"failed to create graphics pipeline!"
 		);
 
+		if (info.debugName != "")
+		{
+			Device::SetObjectName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)m_PipelineHandle, info.debugName);
+		}
+
 		for (int i = 0; i < shaderModules.size(); i++)
 		{
 			vkDestroyShaderModule(Device::GetDevice(), shaderModules[i].Module, nullptr);
@@ -224,6 +229,11 @@ namespace Vulture
 
 		Device::vkCreateRayTracingPipelinesKHR(Device::GetDevice(), {}, {}, 1, &rayPipelineInfo, nullptr, &m_PipelineHandle);
 
+		if (info.debugName != "")
+		{
+			Device::SetObjectName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)m_PipelineHandle, info.debugName);
+		}
+
 		for (int i = 0; i < stages.size(); i++)
 		{
 			vkDestroyShaderModule(Device::GetDevice(), stages[i].module, nullptr);
@@ -270,6 +280,11 @@ namespace Vulture
 			VK_SUCCESS,
 			"failed to create graphics pipeline!"
 		);
+
+		if (info.debugName != "")
+		{
+			Device::SetObjectName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)m_PipelineHandle, info.debugName);
+		}
 
 		vkDestroyShaderModule(Device::GetDevice(), shaderModule.Module, nullptr);
 
