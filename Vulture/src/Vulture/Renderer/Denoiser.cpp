@@ -25,10 +25,6 @@ namespace Vulture
 
         m_Sampler.Init(SamplerInfo());
 
-		OptixDenoiserOptions d_options;
-		d_options.guideAlbedo = 1u;
-		d_options.guideNormal = 1u;
-
 		VkFenceCreateInfo createInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
 
 		CreateSemaphore();
@@ -78,6 +74,11 @@ namespace Vulture
 			VL_CORE_ASSERT(false, "Format Unsupported");
 			break;
 		}
+
+		OptixDenoiserOptions d_options;
+		d_options.guideAlbedo = 1;
+		d_options.guideNormal = 1;
+        d_options.denoiseAlpha = m_DenoiserAlpha;
 
 		m_DenoiserOptions = d_options;
 		OptixDenoiserModelKind modelKind = OPTIX_DENOISER_MODEL_KIND_AOV;
@@ -206,7 +207,6 @@ namespace Vulture
 
         for (int i = 0; i < imgIn.size(); i++)
 		{
-			// TODO: fix those fucking barriers
             VkImageLayout prevLayout = imgIn[i]->GetLayout();
 
 			imgIn[i]->TransitionImageLayout(

@@ -11,11 +11,12 @@ namespace Vulture
 
 	void Model::Init(const std::string& filepath)
 	{
+		VL_CORE_INFO("Loading Model... {0}", filepath);
 		Assimp::Importer importer;
-		const aiScene* scene = importer.ReadFile(filepath, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_CalcTangentSpace);
+		const aiScene* scene = importer.ReadFile(filepath, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_GenSmoothNormals | aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph | aiProcess_CalcTangentSpace);
 		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 		{
-			VL_CORE_ERROR("Failed to load mesh: {0}", importer.GetErrorString());
+			VL_CORE_ERROR("Failed to load model: {0}", importer.GetErrorString());
 			return;
 		}
 
@@ -88,6 +89,12 @@ namespace Vulture
 			material->Get(AI_MATKEY_COLOR_DIFFUSE, albedoColor);
 			material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
 			material->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
+
+			albedoColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+			metallic = 0.0f;
+			roughness = 0.1f;
+			m_Materials[index].Ior = 2.0f;
+			m_Materials[index].SpecTrans = 1.0f;
 
 			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_BASE_COLOR); i++)
 			{

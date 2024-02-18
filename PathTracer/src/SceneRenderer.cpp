@@ -70,7 +70,7 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 	if (m_ShowDenoised)
 		m_PresentedImage = m_TonemappedImage;
 	else
-		m_PresentedImage = m_DenoisedImage;
+		m_PresentedImage = m_TonemappedImage;
 
 
 	if (m_DrawIntoAFileChanged)
@@ -99,14 +99,16 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 				// tone map and denoise if finished
 				if (!m_ToneMapped)
 				{
-					m_Bloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+					if (m_DrawFileInfo.Denoise)
+					{
+						Denoise();
+						m_PresentedImage = m_TonemappedImage;
+					}
+					m_DenoisedBloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
 					m_Tonemapper.Run(m_DrawInfo.TonemapInfo, Vulture::Renderer::GetCurrentCommandBuffer());
 
 					m_BloomImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, Vulture::Renderer::GetCurrentCommandBuffer());
 					m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
-
-					Denoise();
-					m_PresentedImage = m_DenoisedImage;
 
 					CreateHDRSet();
 					finished = true;
@@ -133,7 +135,7 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 				vkDeviceWaitIdle(Vulture::Device::GetDevice());
 				VkCommandBuffer snCmd;
 				Vulture::Device::BeginSingleTimeCommands(snCmd, Vulture::Device::GetGraphicsCommandPool());
-				m_PresentedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,snCmd);
+				m_PresentedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, snCmd);
 				Vulture::Renderer::SaveImageToFile("", m_PresentedImage, snCmd);
 
 				m_PresentedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -151,12 +153,6 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 		UpdateDescriptorSetsData();
 		RayTrace(glm::vec4(0.1f));
 
-		m_Bloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
-		m_Tonemapper.Run(m_DrawInfo.TonemapInfo, Vulture::Renderer::GetCurrentCommandBuffer());
-
-		m_BloomImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, Vulture::Renderer::GetCurrentCommandBuffer());
-		m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
-
 		// Run denoised if requested
 		if (m_RunDenoising)
 		{
@@ -164,6 +160,17 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 			m_RunDenoising = false;
 			m_Denoised = true;
 		}
+
+		if (m_ShowDenoised)
+			m_DenoisedBloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+		else
+			m_Bloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+
+		m_Tonemapper.Run(m_DrawInfo.TonemapInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+
+		m_BloomImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, Vulture::Renderer::GetCurrentCommandBuffer());
+		m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
+
 
 		Vulture::Renderer::ImGuiPass();
 		
@@ -302,7 +309,7 @@ void SceneRenderer::Denoise()
 	// copy images to cuda buffers
 	std::vector<Vulture::Image*> vec = 
 	{
-		&(*m_TonemappedImage), // Path Tracing Result
+		&(*m_PathTracingImage), // Path Tracing Result
 		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Albedo))), // Albedo
 		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Normal))) // Normal
 	};
@@ -397,6 +404,10 @@ void SceneRenderer::RecreateResources()
 	bloomInfo.OutputImages = { m_BloomImage };
 	bloomInfo.mipsCount = 6;
 	m_Bloom.Init(bloomInfo);
+
+	bloomInfo.InputImages = { m_DenoisedImage };
+	bloomInfo.OutputImages = { m_BloomImage };
+	m_DenoisedBloom.Init(bloomInfo);
 
 	CreatePipelines();
 
@@ -786,7 +797,7 @@ void SceneRenderer::CreatePipelines()
 		info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		info.Width = m_ViewportSize.width;
 		info.Height = m_ViewportSize.height;
-		info.PushConstants = &m_PushContantGBuffer.GetRange();
+		info.PushConstants = m_PushContantGBuffer.GetRangePtr();
 		info.ColorAttachmentCount = 4;
 		info.debugName = "GBuffer Pipeline";
 
@@ -813,9 +824,9 @@ void SceneRenderer::CreateRayTracingPipeline()
 		m_PushContantRayTrace.Init(pushInfo);
 
 		Vulture::Pipeline::RayTracingCreateInfo info{};
-		info.PushConstants = &m_PushContantRayTrace.GetRange();
+		info.PushConstants = m_PushContantRayTrace.GetRangePtr();
 		info.RayGenShaderFilepaths.push_back("src/shaders/spv/raytrace.rgen.spv");
-		info.HitShaderFilepaths.push_back("src/shaders/spv/raytrace.rchit.spv");
+		info.HitShaderFilepaths.push_back("src/shaders/spv/Disney.rchit.spv");
 		info.MissShaderFilepaths.push_back("src/shaders/spv/raytrace.rmiss.spv");
 
 		// Descriptor set layouts for the pipeline
@@ -890,7 +901,7 @@ void SceneRenderer::CreateFramebuffers()
 			Vulture::FramebufferAttachment::ColorRGBA32, // This has to be 32 per channel otherwise optix won't work
 			Vulture::FramebufferAttachment::ColorRGBA32, // This has to be 32 per channel otherwise optix won't work
 			Vulture::FramebufferAttachment::ColorRG8,
-			Vulture::FramebufferAttachment::ColorRGBA32, // This has to be 32 per channel otherwise optix won't work
+			Vulture::FramebufferAttachment::ColorRGBA32,
 			Vulture::FramebufferAttachment::Depth
 		};
 		
@@ -1000,8 +1011,8 @@ void SceneRenderer::CreateHDRSet()
 	m_DenoisedImageSet->Build();
 
 #ifdef VL_IMGUI
+
 	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(m_TonemappedImage->GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiViewportDescriptorDenoised = ImGui_ImplVulkan_AddTexture(m_DenoisedImage->GetSamplerHandle(), m_DenoisedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(m_PathTracingImage->GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	
 #endif
@@ -1044,14 +1055,16 @@ void SceneRenderer::ImGuiPass()
 	}
 
 	ImVec2 viewportSize = ImGui::GetContentRegionAvail();
-	if (m_DrawIntoAFile && m_DrawIntoAFileFinished)
-		ImGui::Image(m_ImGuiViewportDescriptorDenoised, viewportSize);
+	if (m_DrawIntoAFile && m_DrawIntoAFileFinished && m_DrawFileInfo.Denoise)
+		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportSize);
+	if (m_DrawIntoAFile && m_DrawIntoAFileFinished && !m_DrawFileInfo.Denoise)
+		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportSize);
 	if (m_DrawIntoAFile)
 		ImGui::Image(m_ImGuiViewportDescriptorPathTracing, viewportSize);
 	else if (m_ShowTonemapped)
 		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportSize);
 	else
-		ImGui::Image(m_ImGuiViewportDescriptorDenoised, viewportSize);
+		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportSize);
 
 	static VkExtent2D prevViewportSize = m_ImGuiViewportSize;
 	m_ImGuiViewportSize = { (unsigned int)viewportSize.x, (unsigned int)viewportSize.y };
@@ -1182,6 +1195,7 @@ void SceneRenderer::ImGuiPass()
 
 
 				ImGui::InputInt2("Resolution",					m_DrawFileInfo.Resolution);
+				ImGui::Checkbox("Denoise", &m_DrawFileInfo.Denoise);
 
 				if (ImGui::Button("Copy Current Values"))
 				{

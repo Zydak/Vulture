@@ -15,12 +15,19 @@ namespace Vulture
 {
 	void Image::Init(const CreateInfo& createInfo)
 	{
+		if (m_Initialized)
+			Destroy();
+
 		VL_CORE_ASSERT(createInfo, "Incorectly initialized image create info! Values");
 		m_Usage = createInfo.Usage;
 		m_MemoryProperties = createInfo.Properties;
 		m_Allocation = new VmaAllocation();
 		m_Size.width = createInfo.Width;
 		m_Size.height = createInfo.Height;
+
+		m_Format = createInfo.Format;
+		m_Aspect = createInfo.Aspect;
+
 		CreateImage(createInfo);
 
 		if (createInfo.Type == ImageType::Cubemap)
@@ -47,9 +54,15 @@ namespace Vulture
 
 	void Image::Init(const std::string& filepath, SamplerInfo samplerInfo /*= { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST }*/)
 	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Format = VK_FORMAT_R8G8B8A8_UNORM;
+		m_Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		bool HDR = filepath.find(".hdr") != std::string::npos;
 		if (HDR)
 		{
+			m_Format = VK_FORMAT_R32G32B32A32_SFLOAT;
 			// TODO: ability to choose
 			CreateHDRImage(filepath, EnvMethod::ImportanceSampling, samplerInfo);
 			return;
@@ -152,12 +165,19 @@ namespace Vulture
 
 	void Image::Init(const glm::vec4& color, const CreateInfo& createInfo)
 	{
+		if (m_Initialized)
+			Destroy();
+
 		VL_CORE_ASSERT(createInfo, "Incorectly initialized image create info! Values");
 		m_Usage = createInfo.Usage;
 		m_MemoryProperties = createInfo.Properties;
 		m_Allocation = new VmaAllocation();
 		m_Size.width = (uint32_t)createInfo.Width;
 		m_Size.height = (uint32_t)createInfo.Height;
+
+		m_Format = createInfo.Format;
+		m_Aspect = createInfo.Aspect;
+
 		CreateImage(createInfo);
 
 		if (createInfo.Type == ImageType::Cubemap)
@@ -769,6 +789,7 @@ namespace Vulture
 	// And store the PDF into the ALPHA channel of pixels
 	std::vector<Image::EnvAccel> Image::CreateEnvAccel(float*& pixels, uint32_t width, uint32_t height, float& average, float& integral)
 	{
+		VL_CORE_INFO("Creating Env Accel Structure...");
 		const uint32_t rx = width;
 		const uint32_t ry = height;
 

@@ -56,12 +56,32 @@ struct MeshAdresses
     uint64_t IndexBuffer;
 };
 
+#define MEDIUM_ABSORB 1;
+#define MEDIUM_NONE 0;
+
 struct Material
 {
     vec4 Albedo;
     vec4 Emissive;
     float Metallic;
     float Roughness;
+
+    float Sheen;
+    float SheenTint;
+    float SpecularTint;
+    float Ior;
+    float Anisotropic;
+    float SpecTrans;
+    float Clearcoat;
+    float eta;
+    float Subsurface;
+    float ax;
+    float ay;
+    float ClearcoatRoughness;
+
+    uint mediumType;
+    vec4 mediumColor;
+    float mediumDensity;
 };
 
 struct EnvAccel
@@ -135,6 +155,40 @@ vec2 RandomPointInCircle(inout uint seed)
     float angle = Rnd(seed) * 2.0 * M_PI;
     vec2 pointOnCircle = vec2(cos(angle), sin(angle));
     return pointOnCircle * sqrt(Rnd(seed));
+}
+
+float GetLuminance(vec3 color)
+{
+    return color.r * 0.2126F + color.g * 0.7152F + color.b * 0.0722F;
+}
+
+vec3 Slerp(vec3 p0, vec3 p1, float t)
+{
+    float dotp = dot(normalize(p0), normalize(p1));
+    if ((dotp > 0.9999) || (dotp < -0.9999))
+    {
+        if (t <= 0.5)
+            return p0;
+        return p1;
+    }
+    float theta = acos(dotp);
+    vec3 P = ((p0 * sin((1 - t) * theta) + p1 * sin(t * theta)) / sin(theta));
+    return P;
+}
+
+vec3 OffsetRay(in vec3 p, in vec3 n)
+{
+    // Smallest epsilon that can be added without losing precision is 1.19209e-07, but we play safe
+    const float epsilon = 1.0f / 65536.0f;  // Safe epsilon
+
+    float magnitude = length(p);
+    float offset = epsilon * magnitude;
+    // multiply the direction vector by the smallest offset
+    vec3 offsetVector = n * offset;
+    // add the offset vector to the starting point
+    vec3 offsetPoint = p + offsetVector;
+
+    return offsetPoint;
 }
 
 #else

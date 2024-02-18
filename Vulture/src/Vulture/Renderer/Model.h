@@ -11,6 +11,23 @@ namespace Vulture
 		glm::vec4 Emissive;
 		float Metallic;
 		float Roughness;
+
+		float Sheen = 0.0f;
+		float SheenTint = 0.0f;
+		float SpecularTint = 0.0f;
+		float Ior = 1.01f;
+		float Anisotropic = 0.0f;
+		float SpecTrans = 0.0f;
+		float Clearcoat = 0.0f;
+		float eta = 0.0f;
+		float Subsurface = 0.0f;
+		float ax = 0.0f;
+		float ay = 0.0f;
+		float ClearcoatRoughness = 0.0f;
+
+		uint32_t mediumType;
+		glm::vec4 mediumColor;
+		float mediumDensity;
 	};
 
 	class Model

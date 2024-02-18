@@ -94,8 +94,7 @@ void main()
 
     vec3 hdrColor = texelFetch(uInput, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
 
-    hdrColor *= pTonemapInfo.Exposure;
-    vec3 mapped = Filmic(hdrColor);
+    vec3 mapped = Filmic(hdrColor * pTonemapInfo.Exposure);
     //vec3 mapped = Uncharted2Filmic(hdrColor);
 
     // contrast

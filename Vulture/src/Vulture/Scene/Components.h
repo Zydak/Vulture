@@ -162,7 +162,7 @@ namespace Vulture
 	class ModelComponent
 	{
 	public:
-		Ref<Vulture::Model> Model; // todo: don't use Ref here?
+		Ref<Vulture::Model> Model; // todo: don't use Ref here
 
 		ModelComponent(const std::string filepath);
 
@@ -174,7 +174,7 @@ namespace Vulture
 	class SkyboxComponent
 	{
 	public:
-		Ref<Vulture::Image> SkyboxImage;
+		Ref<Vulture::Image> SkyboxImage; // todo: don't use Ref here
 
 		SkyboxComponent(const std::string& filepath);
 

@@ -90,13 +90,13 @@ namespace Vulture
 				vector.x = mesh->mTangents[i].x;
 				vector.y = mesh->mTangents[i].y;
 				vector.z = mesh->mTangents[i].z;
-				vertex.Tangent = vector;
+				vertex.Tangent = glm::normalize(glm::vec3((glm::inverse(mat)) * glm::vec4(vector, 0.0f)));
 
 				// bitangent
 				vector.x = mesh->mBitangents[i].x;
 				vector.y = mesh->mBitangents[i].y;
 				vector.z = mesh->mBitangents[i].z;
-				vertex.Bitangent = vector;
+				vertex.Bitangent = glm::normalize(glm::vec3((glm::inverse(mat)) * glm::vec4(vector, 0.0f)));
 			}
 			else
 				vertex.TexCoord = glm::vec2(0.0f, 0.0f);

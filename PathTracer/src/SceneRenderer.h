@@ -104,14 +104,15 @@ private:
 	uint64_t m_DenoiseFenceValue = 0U;
 	Vulture::Ref<Vulture::Denoiser> m_Denoiser;
 	Vulture::Tonemap m_Tonemapper;
+	Vulture::Tonemap m_DenoisedTonemapper;
 	Vulture::Bloom m_Bloom;
+	Vulture::Bloom m_DenoisedBloom;
 
 	// ImGui Stuff / Interface
 	Timer m_Timer;
 	Timer m_TotalTimer;
 	uint32_t m_CurrentSamplesPerPixel = 0;
 	VkDescriptorSet m_ImGuiViewportDescriptorTonemapped;
-	VkDescriptorSet m_ImGuiViewportDescriptorDenoised;
 	VkDescriptorSet m_ImGuiViewportDescriptorPathTracing;
 	VkDescriptorSet m_ImGuiNormalDescriptor;
 	VkDescriptorSet m_ImGuiAlbedoDescriptor;
@@ -154,6 +155,7 @@ private:
 		SceneRenderer::DrawInfo DrawInfo{};
 
 		bool DrawingFramebufferFinished = false;
+		bool Denoise = true;
 	};
 
 	DrawInfo m_DrawInfo{};
