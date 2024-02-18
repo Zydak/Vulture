@@ -48,7 +48,8 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/Tonemap.comp.spv";
+			Shader shader({ "../Vulture/src/Vulture/Shaders/Tonemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			info.Shader = &shader;
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
@@ -124,7 +125,7 @@ namespace Vulture
 
 		m_Push.Push(m_Pipeline.GetPipelineLayout(), cmd);
 
-		vkCmdDispatch(cmd, ((int)m_ImageSize.width) / 8 + 1, ((int)m_ImageSize.width) / 8 + 1, 1);
+		vkCmdDispatch(cmd, ((int)m_ImageSize.width) / 8 + 1, ((int)m_ImageSize.height) / 8 + 1, 1);
 	}
 
 }

@@ -90,11 +90,11 @@ namespace Vulture
 			material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
 			material->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
 
-			albedoColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-			metallic = 0.0f;
-			roughness = 0.1f;
-			m_Materials[index].Ior = 2.0f;
-			m_Materials[index].SpecTrans = 1.0f;
+			//albedoColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+			//metallic = 0.0f;
+			//roughness = 0.1f;
+			//m_Materials[index].Ior = 2.0f;
+			//m_Materials[index].SpecTrans = 1.0f;
 
 			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_BASE_COLOR); i++)
 			{

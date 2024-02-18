@@ -6,6 +6,8 @@
 #include <vulkan/vulkan_core.h>
 #include "DescriptorSet.h"
 
+#include "Shader.h"
+
 namespace Vulture
 {
 	class Pipeline
@@ -37,7 +39,7 @@ namespace Vulture
 	public:
 		struct GraphicsCreateInfo
 		{
-			std::vector<std::string> ShaderFilepaths;
+			std::vector<Shader*> Shaders;
 			std::vector<VkVertexInputBindingDescription> BindingDesc;
 			std::vector<VkVertexInputAttributeDescription> AttributeDesc;
 			uint32_t Width;
@@ -57,7 +59,7 @@ namespace Vulture
 
 		struct ComputeCreateInfo
 		{
-			std::string ShaderFilepath;
+			Vulture::Shader* Shader;
 			std::vector<VkDescriptorSetLayout> DescriptorSetLayouts;
 			VkPushConstantRange* PushConstants;
 
@@ -66,9 +68,9 @@ namespace Vulture
 
 		struct RayTracingCreateInfo
 		{
-			std::vector<std::string> RayGenShaderFilepaths;
-			std::vector<std::string> MissShaderFilepaths;
-			std::vector<std::string> HitShaderFilepaths;
+			std::vector<Shader*> RayGenShaders;
+			std::vector<Shader*> MissShaders;
+			std::vector<Shader*> HitShaders;
 			VkPushConstantRange* PushConstants;
 			std::vector<VkDescriptorSetLayout> DescriptorSetLayouts;
 

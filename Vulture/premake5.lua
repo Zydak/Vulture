@@ -28,12 +28,15 @@ project "Vulture"
     {
         "src/**.cpp",
         "src/**.h",
+
+        "lib/shaderc/glslc/file_includer.cc",
     }
 
     includedirs 
     {
         "src/",
         "src/Vulture/",
+        "lib/shaderc/include/",
 
         globalIncludes,
     }
@@ -63,12 +66,16 @@ project "Vulture"
     filter "configurations:Debug"
         defines { "DEBUG" }
         symbols "On"
+        links {"lib/shaderc/shadercDebug.lib"}
 
     filter "configurations:Release"
         defines { "NDEBUG" }
+		runtime "Release"
         optimize "speed"
+        links {"lib/shaderc/shadercRelease.lib"}
 
     filter "configurations:Distribution"
 		defines "DISTRIBUTION"
 		runtime "Release"
 		optimize "on"
+        links {"lib/shaderc/shadercRelease.lib"}

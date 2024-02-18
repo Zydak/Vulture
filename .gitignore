@@ -6,3 +6,4 @@ bin-int/
 **.sln
 **/Vulture.log
 PathTracer/assets/panther.obj
+**/CachedShaders/**

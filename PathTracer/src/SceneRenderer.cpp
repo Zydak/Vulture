@@ -779,6 +779,10 @@ void SceneRenderer::RecreateDescriptorSets()
 
 void SceneRenderer::CreatePipelines()
 {
+	Vulture::Shader::CreateInfo shaderInfo{};
+	shaderInfo.Filepath = "src/shaders/GBuffer.vert";
+	shaderInfo.Type = VK_SHADER_STAGE_VERTEX_BIT;
+	Vulture::Shader testShader(shaderInfo);
 	{
 		Vulture::PushConstant<PushConstantGBuffer>::CreateInfo pushInfo{};
 		pushInfo.Stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -789,8 +793,10 @@ void SceneRenderer::CreatePipelines()
 		Vulture::Pipeline::GraphicsCreateInfo info{};
 		info.AttributeDesc = Vulture::Mesh::Vertex::GetAttributeDescriptions();
 		info.BindingDesc = Vulture::Mesh::Vertex::GetBindingDescriptions();
-		info.ShaderFilepaths.push_back("src/shaders/spv/GBuffer.vert.spv");
-		info.ShaderFilepaths.push_back("src/shaders/spv/GBuffer.frag.spv");
+		Vulture::Shader shader1({ "src/shaders/GBuffer.vert", VK_SHADER_STAGE_VERTEX_BIT });
+		Vulture::Shader shader2({ "src/shaders/GBuffer.frag", VK_SHADER_STAGE_FRAGMENT_BIT });
+		info.Shaders.push_back(&shader1);
+		info.Shaders.push_back(&shader2);
 		info.BlendingEnable = false;
 		info.DepthTestEnable = true;
 		info.CullMode = VK_CULL_MODE_NONE;
@@ -825,9 +831,12 @@ void SceneRenderer::CreateRayTracingPipeline()
 
 		Vulture::Pipeline::RayTracingCreateInfo info{};
 		info.PushConstants = m_PushContantRayTrace.GetRangePtr();
-		info.RayGenShaderFilepaths.push_back("src/shaders/spv/raytrace.rgen.spv");
-		info.HitShaderFilepaths.push_back("src/shaders/spv/Disney.rchit.spv");
-		info.MissShaderFilepaths.push_back("src/shaders/spv/raytrace.rmiss.spv");
+		Vulture::Shader shader1({ "src/shaders/raytrace.rgen", VK_SHADER_STAGE_RAYGEN_BIT_KHR });
+		Vulture::Shader shader2({ "src/shaders/Disney.rchit", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR });
+		Vulture::Shader shader3({ "src/shaders/raytrace.rmiss", VK_SHADER_STAGE_MISS_BIT_KHR });
+		info.RayGenShaders.push_back(&shader1);
+		info.HitShaders.push_back(&shader2);
+		info.MissShaders.push_back(&shader3);
 
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts

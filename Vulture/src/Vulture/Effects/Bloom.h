@@ -58,7 +58,7 @@ namespace Vulture
 		std::vector<Ref<Image>> m_InputImages;
 		std::vector<Ref<Image>> m_OutputImages;
 
-		bool m_Initialized;
+		bool m_Initialized = false;
 	};
 
 }

@@ -26,7 +26,8 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/SeparateBrightValues.comp.spv";
+			Shader shader({ "../Vulture/src/Vulture/Shaders/SeparateBrightValues.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			info.Shader = &shader;
 			info.PushConstants = m_Push.GetRangePtr();
 
 			// Descriptor set layouts for the pipeline
@@ -48,7 +49,8 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/Bloom.comp.spv";
+			Shader shader({ "../Vulture/src/Vulture/Shaders/Bloom.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			info.Shader = &shader;
 			info.PushConstants = m_Push.GetRangePtr();
 
 			// Descriptor set layouts for the pipeline
@@ -70,7 +72,8 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/BloomDownSample.comp.spv";
+			Shader shader({ "../Vulture/src/Vulture/Shaders/BloomDownSample.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			info.Shader = &shader;
 			info.PushConstants = m_Push.GetRangePtr();
 
 			// Descriptor set layouts for the pipeline

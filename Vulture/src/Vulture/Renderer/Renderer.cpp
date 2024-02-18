@@ -701,7 +701,8 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/Grayscale.comp.spv";
+			Shader shader({ "../Vulture/src/Vulture/Shaders/Grayscale.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			info.Shader = &shader;
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
@@ -722,7 +723,8 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/AverageRow.comp.spv";
+			Shader shader({ "../Vulture/src/Vulture/Shaders/AverageRow.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			info.Shader = &shader;
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
@@ -743,7 +745,8 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/AverageColumn.comp.spv";
+			Shader shader({ "../Vulture/src/Vulture/Shaders/AverageColumn.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			info.Shader = &shader;
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
@@ -765,7 +768,8 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1, bin2 });
 
 			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/JointPDF.comp.spv";
+			Shader shader({ "../Vulture/src/Vulture/Shaders/JointPDF.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			info.Shader = &shader;
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
@@ -786,7 +790,8 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/InverseMarginal.comp.spv";
+			Shader shader({ "../Vulture/src/Vulture/Shaders/InverseMarginal.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			info.Shader = &shader;
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
@@ -807,7 +812,8 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/InverseConditional.comp.spv";
+			Shader shader({ "../Vulture/src/Vulture/Shaders/InverseConditional.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			info.Shader = &shader;
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts
@@ -1092,8 +1098,11 @@ namespace Vulture
 			Pipeline::GraphicsCreateInfo info{};
 			info.AttributeDesc = Mesh::Vertex::GetAttributeDescriptions();
 			info.BindingDesc = Mesh::Vertex::GetBindingDescriptions();
-			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/HDRToPresentable.vert.spv");
-			info.ShaderFilepaths.push_back("../Vulture/src/Vulture/Shaders/spv/HDRToPresentable.frag.spv");
+
+			Vulture::Shader shader1({ "../Vulture/src/Vulture/Shaders/HDRToPresentable.vert", VK_SHADER_STAGE_VERTEX_BIT });
+			Vulture::Shader shader2({ "../Vulture/src/Vulture/Shaders/HDRToPresentable.frag", VK_SHADER_STAGE_FRAGMENT_BIT });
+			info.Shaders.push_back(&shader1);
+			info.Shaders.push_back(&shader2);
 			info.BlendingEnable = false;
 			info.DepthTestEnable = false;
 			info.CullMode = VK_CULL_MODE_BACK_BIT;
@@ -1122,7 +1131,8 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			Pipeline::ComputeCreateInfo info{};
-			info.ShaderFilepath = "../Vulture/src/Vulture/Shaders/spv/EnvToCubemap.comp.spv";
+			Shader shader({ "../Vulture/src/Vulture/Shaders/EnvToCubemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			info.Shader = &shader;
 
 			// Descriptor set layouts for the pipeline
 			std::vector<VkDescriptorSetLayout> layouts

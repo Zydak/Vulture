@@ -43,3 +43,6 @@
 [submodule "Vulture/lib/optix"]
 	path = Vulture/lib/optix
 	url = https://github.com/Zydak/Optix
+[submodule "Vulture/lib/shaderc"]
+	path = Vulture/lib/shaderc
+	url = https://github.com/Zydak/shaderc

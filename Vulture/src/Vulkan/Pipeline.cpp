@@ -33,33 +33,11 @@ namespace Vulture
 		CreatePipelineConfigInfo(configInfo, info.Width, info.Height, info.Topology, info.CullMode, info.DepthTestEnable, info.BlendingEnable, info.ColorAttachmentCount);
 
 		std::vector<ShaderModule> shaderModules;
-		shaderModules.resize(info.ShaderFilepaths.size());
+		shaderModules.resize(info.Shaders.size());
 		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-		for (int i = 0; i < info.ShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.Shaders.size(); i++)
 		{
-			auto code = ReadFile(info.ShaderFilepaths[i]);
-
-			if (info.ShaderFilepaths[i].rfind(".vert") != std::string::npos)
-			{
-				shaderModules[i].Type = VK_SHADER_STAGE_VERTEX_BIT;
-				CreateShaderModule(code, &shaderModules[i].Module);
-			}
-			else if (info.ShaderFilepaths[i].rfind(".frag") != std::string::npos)
-			{
-				shaderModules[i].Type = VK_SHADER_STAGE_FRAGMENT_BIT;
-				CreateShaderModule(code, &shaderModules[i].Module);
-			}
-
-			VkPipelineShaderStageCreateInfo stage;
-			stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-			stage.stage = shaderModules[i].Type;
-			stage.module = shaderModules[i].Module;
-			stage.pName = "main";
-			stage.flags = 0;
-			stage.pNext = nullptr;
-			stage.pSpecializationInfo = nullptr;
-
-			shaderStages.push_back(stage);
+			shaderStages.push_back(info.Shaders[i]->GetStageCreateInfo());
 		}
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -118,11 +96,6 @@ namespace Vulture
 			Device::SetObjectName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)m_PipelineHandle, info.debugName);
 		}
 
-		for (int i = 0; i < shaderModules.size(); i++)
-		{
-			vkDestroyShaderModule(Device::GetDevice(), shaderModules[i].Module, nullptr);
-		}
-
 		m_Initialized = true;
 	}
 
@@ -134,7 +107,7 @@ namespace Vulture
 		}
 
 		// All stages
-		int count = (int)info.RayGenShaderFilepaths.size() + (int)info.MissShaderFilepaths.size() + (int)info.HitShaderFilepaths.size();
+		int count = (int)info.RayGenShaders.size() + (int)info.MissShaders.size() + (int)info.HitShaders.size();
 		std::vector<VkPipelineShaderStageCreateInfo> stages(count);
 		VkPipelineShaderStageCreateInfo stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
 		stage.pName = "main";  // All the same entry point
@@ -143,33 +116,27 @@ namespace Vulture
 		int stageCount = 0;
 
 		// Ray gen
-		for (int i = 0; i < info.RayGenShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.RayGenShaders.size(); i++)
 		{
-			//auto code = ReadFile("src/shaders/spv/raytrace.rgen.spv");
-			auto code = ReadFile(info.RayGenShaderFilepaths[i]);
-			CreateShaderModule(code, &stage.module);
+			stage.module = info.RayGenShaders[i]->GetModuleHandle();
 			stage.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 			stages[stageCount] = stage;
 			stageCount++;
 		}
 
 		// Miss
-		for (int i = 0; i < info.MissShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.MissShaders.size(); i++)
 		{
-			//auto code = ReadFile("src/shaders/spv/raytrace.rmiss.spv");
-			auto code = ReadFile(info.MissShaderFilepaths[i]);
-			CreateShaderModule(code, &stage.module);
+			stage.module = info.MissShaders[i]->GetModuleHandle();
 			stage.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
 			stages[stageCount] = stage;
 			stageCount++;
 		}
 
 		// Hit Group - Closest Hit
-		for (int i = 0; i < info.HitShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.HitShaders.size(); i++)
 		{
-			//auto code = ReadFile("src/shaders/spv/raytrace.rchit.spv");
-			auto code = ReadFile(info.HitShaderFilepaths[i]);
-			CreateShaderModule(code, &stage.module);
+			stage.module = info.HitShaders[i]->GetModuleHandle();
 			stage.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 			stages[stageCount] = stage;
 			stageCount++;
@@ -185,7 +152,7 @@ namespace Vulture
 		// Ray gen
 		stageCount = 0;
 		std::vector<VkRayTracingShaderGroupCreateInfoKHR> rtShaderGroups;
-		for (int i = 0; i < info.RayGenShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.RayGenShaders.size(); i++)
 		{
 			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
 			group.generalShader = stageCount;
@@ -194,7 +161,7 @@ namespace Vulture
 		}
 
 		// Miss
-		for (int i = 0; i < info.MissShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.MissShaders.size(); i++)
 		{
 			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
 			group.generalShader = stageCount;
@@ -205,7 +172,7 @@ namespace Vulture
 		group.generalShader = VK_SHADER_UNUSED_KHR;
 
 		// closest hit shader
-		for (int i = 0; i < info.HitShaderFilepaths.size(); i++)
+		for (int i = 0; i < info.HitShaders.size(); i++)
 		{
 			group.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
 			group.closestHitShader = stageCount;
@@ -234,11 +201,6 @@ namespace Vulture
 			Device::SetObjectName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)m_PipelineHandle, info.debugName);
 		}
 
-		for (int i = 0; i < stages.size(); i++)
-		{
-			vkDestroyShaderModule(Device::GetDevice(), stages[i].module, nullptr);
-		}
-
 		m_Initialized = true;
 	}
 
@@ -250,30 +212,12 @@ namespace Vulture
 		}
 
 		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
-		
-		ShaderModule shaderModule;
-		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
-		auto code = ReadFile(info.ShaderFilepath);
-
-		shaderModule.Type = VK_SHADER_STAGE_COMPUTE_BIT;
-		CreateShaderModule(code, &shaderModule.Module);
-
-		VkPipelineShaderStageCreateInfo stage;
-		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		stage.stage = shaderModule.Type;
-		stage.module = shaderModule.Module;
-		stage.pName = "main";
-		stage.flags = 0;
-		stage.pNext = nullptr;
-		stage.pSpecializationInfo = nullptr;
-
-		shaderStages.push_back(stage);
 
 		VkComputePipelineCreateInfo computePipelineInfo = {};
 
 		computePipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
 		computePipelineInfo.layout = m_PipelineLayout;
-		computePipelineInfo.stage = shaderStages[0];
+		computePipelineInfo.stage = info.Shader->GetStageCreateInfo();
 
 		VL_CORE_RETURN_ASSERT(
 			vkCreateComputePipelines(Device::GetDevice(), VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_PipelineHandle),
@@ -285,8 +229,6 @@ namespace Vulture
 		{
 			Device::SetObjectName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)m_PipelineHandle, info.debugName);
 		}
-
-		vkDestroyShaderModule(Device::GetDevice(), shaderModule.Module, nullptr);
 
 		m_Initialized = true;
 	}
