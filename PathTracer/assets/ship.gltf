@@ -350,107 +350,107 @@
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_aft_nor_gl",
-      "uri": "textures/ship_pinnace_aft_nor_gl_1k.jpg"
+      "uri": "textures/ship_pinnace_aft_nor_gl_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_aft_diff",
-      "uri": "textures/ship_pinnace_aft_diff_1k.jpg"
+      "uri": "textures/ship_pinnace_aft_diff_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_aft_metal-ship_pinnace_aft_rough",
-      "uri": "textures/ship_pinnace_aft_arm_1k.jpg"
+      "uri": "textures/ship_pinnace_aft_arm_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_rigging_nor_gl",
-      "uri": "textures/ship_pinnace_rigging_nor_gl_1k.jpg"
+      "uri": "textures/ship_pinnace_rigging_nor_gl_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_rigging_diff",
-      "uri": "textures/ship_pinnace_rigging_diff_1k.jpg"
+      "uri": "textures/ship_pinnace_rigging_diff_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_rigging_metal-ship_pinnace_rigging_rough",
-      "uri": "textures/ship_pinnace_rigging_arm_1k.jpg"
+      "uri": "textures/ship_pinnace_rigging_arm_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_details_nor_gl",
-      "uri": "textures/ship_pinnace_details_nor_gl_1k.jpg"
+      "uri": "textures/ship_pinnace_details_nor_gl_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_details_diff",
-      "uri": "textures/ship_pinnace_details_diff_1k.jpg"
+      "uri": "textures/ship_pinnace_details_diff_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_details_metal-ship_pinnace_details_rough",
-      "uri": "textures/ship_pinnace_details_arm_1k.jpg"
+      "uri": "textures/ship_pinnace_details_arm_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_hull_nor_gl",
-      "uri": "textures/ship_pinnace_hull_nor_gl_1k.jpg"
+      "uri": "textures/ship_pinnace_hull_nor_gl_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_hull_diff",
-      "uri": "textures/ship_pinnace_hull_diff_1k.jpg"
+      "uri": "textures/ship_pinnace_hull_diff_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_hull_metal-ship_pinnace_hull_rough",
-      "uri": "textures/ship_pinnace_hull_arm_1k.jpg"
+      "uri": "textures/ship_pinnace_hull_arm_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_deck_nor_gl",
-      "uri": "textures/ship_pinnace_deck_nor_gl_1k.jpg"
+      "uri": "textures/ship_pinnace_deck_nor_gl_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_deck_diff",
-      "uri": "textures/ship_pinnace_deck_diff_1k.jpg"
+      "uri": "textures/ship_pinnace_deck_diff_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_deck_rough",
-      "uri": "textures/ship_pinnace_deck_arm_1k.jpg"
+      "uri": "textures/ship_pinnace_deck_arm_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_interior_nor_gl",
-      "uri": "textures/ship_pinnace_interior_nor_gl_1k.jpg"
+      "uri": "textures/ship_pinnace_interior_nor_gl_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_interior_diff",
-      "uri": "textures/ship_pinnace_interior_diff_1k.jpg"
+      "uri": "textures/ship_pinnace_interior_diff_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_interior_rough",
-      "uri": "textures/ship_pinnace_interior_arm_1k.jpg"
+      "uri": "textures/ship_pinnace_interior_arm_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_sails_nor_gl",
-      "uri": "textures/ship_pinnace_sails_nor_gl_1k.jpg"
+      "uri": "textures/ship_pinnace_sails_nor_gl_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_sails_diff",
-      "uri": "textures/ship_pinnace_sails_diff_1k.jpg"
+      "uri": "textures/ship_pinnace_sails_diff_2k.jpg"
     },
     {
       "mimeType": "image/jpeg",
       "name": "ship_pinnace_sails_metal-ship_pinnace_sails_rough",
-      "uri": "textures/ship_pinnace_sails_arm_1k.jpg"
+      "uri": "textures/ship_pinnace_sails_arm_2k.jpg"
     }
   ],
   "accessors": [

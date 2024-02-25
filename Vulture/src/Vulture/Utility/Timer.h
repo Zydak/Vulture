@@ -1,29 +1,34 @@
 #pragma once
 #include "pch.h"
 
-class Timer
+namespace Vulture
 {
-public:
-	Timer()
-	{
-		Reset();
-	}
 
-	void Reset()
+	class Timer
 	{
-		m_Start = std::chrono::high_resolution_clock::now();
-	}
+	public:
+		Timer()
+		{
+			Reset();
+		}
 
-	float ElapsedSeconds()
-	{
-		return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Start).count() * 0.001f * 0.001f * 0.001f;
-	}
+		void Reset()
+		{
+			m_Start = std::chrono::high_resolution_clock::now();
+		}
 
-	float ElapsedMillis()
-	{
-		return ElapsedSeconds() * 1000.0f;
-	}
+		float ElapsedSeconds()
+		{
+			return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Start).count() * 0.001f * 0.001f * 0.001f;
+		}
 
-private:
-	std::chrono::time_point<std::chrono::high_resolution_clock> m_Start;
-};
+		float ElapsedMillis()
+		{
+			return ElapsedSeconds() * 1000.0f;
+		}
+
+	private:
+		std::chrono::time_point<std::chrono::high_resolution_clock> m_Start;
+	};
+
+}

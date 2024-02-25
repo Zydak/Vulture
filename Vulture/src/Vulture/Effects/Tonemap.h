@@ -22,8 +22,8 @@ namespace Vulture
 		{
 			float Contrast = 1.0f;
 			float Saturation = 1.0f;
-			float Exposure = 1.0f;
-			float Brightness = 1.0f;
+			float Exposure = 0.5f;
+			float Brightness = 0.5f;
 			float Vignette = 0.0f;
 		};
 

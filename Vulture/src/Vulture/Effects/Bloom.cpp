@@ -89,7 +89,7 @@ namespace Vulture
 		}
 
 		CreateBloomMips();
-		RecreateDescriptors(info.mipsCount);
+		RecreateDescriptors(info.MipsCount);
 
 		m_Initialized = true;
 	}
@@ -201,6 +201,29 @@ namespace Vulture
 		vkCmdDispatch(cmd, m_InputImages[imageIndex]->GetImageSize().width / 8 + 1, m_InputImages[imageIndex]->GetImageSize().height / 8 + 1, 1);
 	}
 
+	void Bloom::UpdateDescriptors(const CreateInfo& info)
+	{
+		m_InputImages = info.InputImages;
+		m_OutputImages = info.OutputImages;
+
+		for (int i = 0; i < m_OutputImages.size(); i++)
+		{
+			m_SeparateBrightValuesSet[i].UpdateImageSampler(
+				0,
+				m_OutputImages[i]->GetSamplerHandle(), // input image is copied to output at the start of bloom pass
+				m_OutputImages[i]->GetImageView(),
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			);
+
+			m_AccumulateSet[i][info.MipsCount].AddImageSampler(
+				1,
+				m_OutputImages[i]->GetSamplerHandle(),
+				m_OutputImages[i]->GetImageView(),
+				VK_IMAGE_LAYOUT_GENERAL
+			);
+		}
+	}
+
 	void Bloom::RecreateDescriptors(uint32_t mipsCount, int32_t frameIndex)
 	{
 		if (mipsCount <= 0 || mipsCount > 10)
@@ -209,7 +232,7 @@ namespace Vulture
 			return;
 		}
 
-		uint32_t loopCount = m_OutputImages.size();
+		uint32_t loopCount = (uint32_t)m_OutputImages.size();
 		if (frameIndex != -1)
 		{
 			loopCount = 1;
@@ -225,7 +248,7 @@ namespace Vulture
 
 		// Bloom Separate Bright Values
 		m_SeparateBrightValuesSet.resize(m_InputImages.size());
-		for (int i = frameIndex; i < loopCount + frameIndex; i++)
+		for (uint32_t i = frameIndex; i < loopCount + frameIndex; i++)
 		{
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
@@ -248,7 +271,7 @@ namespace Vulture
 
 		// Bloom Accumulate
 		m_AccumulateSet.resize(m_InputImages.size());
-		for (int i = frameIndex; i < loopCount + frameIndex; i++)
+		for (uint32_t i = frameIndex; i < loopCount + frameIndex; i++)
 		{
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
@@ -275,7 +298,7 @@ namespace Vulture
 
 		// Bloom Down Sample
 		m_DownSampleSet.resize(m_InputImages.size());
-		for (int i = frameIndex; i < loopCount + frameIndex; i++)
+		for (uint32_t i = frameIndex; i < loopCount + frameIndex; i++)
 		{
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };

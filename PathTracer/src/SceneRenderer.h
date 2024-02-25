@@ -45,6 +45,7 @@ public:
 	void CreateRayTracingDescriptorSets(Vulture::Scene& scene);
 	void SetSkybox(Vulture::SkyboxComponent& skybox);
 private:
+	void RecreateRayTracingDescriptorSets();
 	bool RayTrace(const glm::vec4& clearColor);
 	void DrawGBuffer();
 	void Denoise();
@@ -108,9 +109,12 @@ private:
 	Vulture::Bloom m_Bloom;
 	Vulture::Bloom m_DenoisedBloom;
 
+	std::string m_CurrentHitShaderPath = "src/shaders/Disney.rchit";
+	bool m_RecreateRtPipeline = false;
+
 	// ImGui Stuff / Interface
-	Timer m_Timer;
-	Timer m_TotalTimer;
+	Vulture::Timer m_Timer;
+	Vulture::Timer m_TotalTimer;
 	uint32_t m_CurrentSamplesPerPixel = 0;
 	VkDescriptorSet m_ImGuiViewportDescriptorTonemapped;
 	VkDescriptorSet m_ImGuiViewportDescriptorPathTracing;
@@ -129,6 +133,15 @@ private:
 
 	bool m_ToneMapped = false;
 	bool m_DrawGBuffer = true;
+
+	bool m_UseNormalMaps = false;
+	bool m_UseNormalMapsChanged = false;
+	bool m_UseAlbedo = true;
+	bool m_UseAlbedoChanged = false;
+	bool m_SampleEnvMap = false;
+	bool m_HasEnvMap = false;
+	bool m_SampleEnvMapChanged = false;
+	bool m_AutoDoF = false;
 
 	struct DrawInfo
 	{

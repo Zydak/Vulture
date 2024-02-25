@@ -103,19 +103,20 @@ namespace Vulture
 	 * @param stage - The shader stage where the storage buffer will be used.
 	 * @param resizable - A flag indicating whether the storage buffer is resizable.
 	 */
-	void DescriptorSet::AddStorageBuffer(uint32_t binding, uint32_t bufferSize, bool resizable, bool deviceLocal)
+	void DescriptorSet::AddStorageBuffer(uint32_t binding, uint32_t bufferSize, bool resizable, bool deviceLocal, bool replace)
 	{
 		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() >= binding, "There is no such binding: {0}");
 
 		VkBufferUsageFlags bufferUsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		if (resizable) { bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; }
 		if (deviceLocal) { bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; }
-		m_Buffers[binding].push_back(Vulture::Buffer());
+		if (!replace)
+			m_Buffers[binding].push_back(Vulture::Buffer());
 		Buffer::CreateInfo info{};
 		info.InstanceCount = 1;
 		info.InstanceSize = bufferSize;
 		info.UsageFlags = bufferUsageFlags;
-		info.MemoryPropertyFlags = deviceLocal ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT; // TODO ability to create device local buffers?
+		info.MemoryPropertyFlags = deviceLocal ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 		m_Buffers[binding][m_Buffers[binding].size() - 1].Init(info);
 		
 		if (!deviceLocal)
@@ -133,30 +134,31 @@ namespace Vulture
 	void DescriptorSet::Build()
 	{
 		DescriptorWriter writer(&m_DescriptorSetLayout, m_Pool);
-		for (int i = 0; i < (int)m_BindingsWriteInfo.size(); i++)
+		for (auto& binding : m_BindingsWriteInfo)
 		{
-			switch (m_BindingsWriteInfo[i].m_Type)
+			switch (binding.second.m_Type)
 			{
 			case BindingType::Image: 
 			{
-				writer.WriteImage(i, m_BindingsWriteInfo[i].m_ImageInfo.data());
+				writer.WriteImage(binding.first, binding.second.m_ImageInfo.data());
 			} break;
 
 			case BindingType::Buffer: 
 			{
-				writer.WriteBuffer(i, m_BindingsWriteInfo[i].m_BufferInfo.data());
+				writer.WriteBuffer(binding.first, binding.second.m_BufferInfo.data());
 			} break;
 
 			case BindingType::AS:
 			{
-				writer.WriteAs(i, m_BindingsWriteInfo[i].m_AccelInfo.data());
+				writer.WriteAs(binding.first, binding.second.m_AccelInfo.data());
 			} break;
 
-			default: VL_CORE_ASSERT(false, "Unknown binding type: {0}", m_BindingsWriteInfo[i].m_Type); break;
+			default: VL_CORE_ASSERT(false, "Unknown binding type: {0}", binding.second.m_Type); break;
 			}
 		}
 
 		writer.Build(m_DescriptorSetHandle);
+		m_BindingsWriteInfo.clear();
 	}
 
 	/**

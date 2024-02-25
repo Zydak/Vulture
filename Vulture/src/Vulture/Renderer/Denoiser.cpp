@@ -209,25 +209,11 @@ namespace Vulture
 		{
             VkImageLayout prevLayout = imgIn[i]->GetLayout();
 
-			imgIn[i]->TransitionImageLayout(
-				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-				cmdBuf,
-				VK_ACCESS_SHADER_READ_BIT,
-				VK_ACCESS_TRANSFER_READ_BIT,
-				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-				VK_PIPELINE_STAGE_TRANSFER_BIT
-			);
+			imgIn[i]->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, cmdBuf);
             
             vkCmdCopyImageToBuffer(cmdBuf, imgIn[i]->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_PixelBufferIn[i].BufferVk.GetBuffer(), 1, &region);
             
-            imgIn[i]->TransitionImageLayout(
-				prevLayout,
-				cmdBuf,
-                VK_ACCESS_TRANSFER_READ_BIT,
-                VK_ACCESS_SHADER_READ_BIT,
-                VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
-            );
+            imgIn[i]->TransitionImageLayout(prevLayout, cmdBuf);
         }
     }
 
@@ -245,25 +231,11 @@ namespace Vulture
             .imageExtent = {.width = m_ImageSize.width, .height = m_ImageSize.height, .depth = 1},
         };
 
-        imgOut->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			cmdBuf,
-            0,
-            VK_ACCESS_TRANSFER_WRITE_BIT,
-            0,
-            VK_PIPELINE_STAGE_TRANSFER_BIT
-        );
+        imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,cmdBuf);
         
         vkCmdCopyBufferToImage(cmdBuf, m_PixelBufferOut.BufferVk.GetBuffer(), imgOut->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
         
-        imgOut->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			cmdBuf,
-            VK_ACCESS_TRANSFER_WRITE_BIT,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
-        );
+        imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,cmdBuf);
     }
 
     void Denoiser::DestroyBuffer()

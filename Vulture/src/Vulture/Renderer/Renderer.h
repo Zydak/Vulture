@@ -46,7 +46,7 @@ namespace Vulture
 		static VkCommandBuffer GetCurrentCommandBuffer();
 		static int GetFrameIndex();
 
-		static void SaveImageToFile(const std::string& filepath, Ref<Image> image, VkCommandBuffer cmd);
+		static void SaveImageToFile(const std::string& filepath, Ref<Image> image);
 		static void ImGuiPass();
 		static void FramebufferCopyPassImGui(Ref<DescriptorSet> descriptorWithImageSampler);
 		static void FramebufferCopyPassBlit(Ref<Image> image);
@@ -65,6 +65,8 @@ namespace Vulture
 		static void CreatePipeline();
 		static void CreateDescriptorSets();
 		static void WriteToFile(const char* filename, std::vector<unsigned char>& image, unsigned width, unsigned height);
+
+		static void InitImGui();
 		
 		static Scope<DescriptorPool> s_Pool;
 		static Window* s_Window;

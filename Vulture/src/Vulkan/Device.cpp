@@ -662,8 +662,8 @@ namespace Vulture
 		VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {};
 		indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
 
-		//VkPhysicalDeviceVulkan12Features vk12Features = {};
-		//vk12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+		VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = {};
+		rayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
 
 		s_Features.pNext = &indexingFeatures;
 		indexingFeatures.pNext = &memoryPriorityFeatures;
@@ -678,6 +678,8 @@ namespace Vulture
 			shaderClockFeatures.pNext = &hostQueryResetFeatures;
 			hostQueryResetFeatures.pNext = &timelineSemaphoreFeatures;
 			timelineSemaphoreFeatures.pNext = &synchronization2Features;
+			synchronization2Features.pNext = &rayQueryFeatures;
+			rayQueryFeatures.pNext = nullptr;
 		}
 
 		vkGetPhysicalDeviceFeatures2(s_PhysicalDevice, &s_Features);

@@ -4,6 +4,8 @@
 #include "../Utility/Utility.h"
 #include "glm/glm.hpp"
 
+#include "Vulkan/DescriptorSet.h"
+
 #include "assimp/scene.h"
 
 namespace Vulture
@@ -39,7 +41,6 @@ namespace Vulture
 
 		void UpdateVertexBuffer(VkCommandBuffer cmd, int offset, Buffer* buffer, const std::vector<Vertex>& vertices);
 
-
 		inline const Buffer* GetVertexBuffer() const { return &m_VertexBuffer; }
 		inline Buffer* GetVertexBuffer() { return &m_VertexBuffer; }
 
@@ -49,9 +50,7 @@ namespace Vulture
 		inline uint32_t& GetIndexCount() { return m_IndexCount; }
 		inline uint32_t& GetVertexCount() { return m_VertexCount; }
 
-
 		inline bool& HasIndexBuffer() { return m_HasIndexBuffer; }
-
 	private:
 		void CreateMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
 		void CreateMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 mat = glm::mat4(1.0f));

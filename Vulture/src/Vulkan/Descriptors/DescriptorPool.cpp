@@ -10,7 +10,10 @@ namespace Vulture
 		if (m_Initialized)
 			Destroy();
 
+		m_DescriptorPoolHandles.resize(1);
 		m_PoolSizes = poolSizes;
+		m_MaxSets = maxSets;
+		m_PoolFlags = poolFlags;
 		std::vector<VkDescriptorPoolSize> poolSizesVK;
 		for (int i = 0; i < poolSizes.size(); i++)
 		{
@@ -29,7 +32,7 @@ namespace Vulture
 		descriptorPoolInfo.maxSets = maxSets;
 		descriptorPoolInfo.flags = poolFlags;
 
-		VL_CORE_RETURN_ASSERT(vkCreateDescriptorPool(Device::GetDevice(), &descriptorPoolInfo, nullptr, &m_DescriptorPoolHandle),
+		VL_CORE_RETURN_ASSERT(vkCreateDescriptorPool(Device::GetDevice(), &descriptorPoolInfo, nullptr, &m_DescriptorPoolHandles[m_CurrentPool]),
 			VK_SUCCESS,
 			"failed to create descriptor pool!"
 		);
@@ -39,8 +42,10 @@ namespace Vulture
 
 	void DescriptorPool::Destroy()
 	{
-		m_PoolSizes.clear();
-		vkDestroyDescriptorPool(Device::GetDevice(), m_DescriptorPoolHandle, nullptr);
+		for (int i = 0; i <= m_CurrentPool; i++)
+		{
+			vkDestroyDescriptorPool(Device::GetDevice(), m_DescriptorPoolHandles[i], nullptr);
+		}
 		m_Initialized = false;
 	}
 
@@ -65,11 +70,11 @@ namespace Vulture
 	 *
 	 * @return True if the allocation is successful, false otherwise.
 	 */
-	bool DescriptorPool::AllocateDescriptorSets(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor) const
+	bool DescriptorPool::AllocateDescriptorSets(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor)
 	{
 		VkDescriptorSetAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		allocInfo.descriptorPool = m_DescriptorPoolHandle;
+		allocInfo.descriptorPool = m_DescriptorPoolHandles[m_CurrentPool];
 		allocInfo.pSetLayouts = &descriptorSetLayout;
 		allocInfo.descriptorSetCount = 1;
 
@@ -77,7 +82,20 @@ namespace Vulture
 		// build a new pool whenever an old pool fills up?
 		if (vkAllocateDescriptorSets(Device::GetDevice(), &allocInfo, &descriptor) != VK_SUCCESS) 
 		{
-			return false;
+			CreateNewPool();
+
+			VkDescriptorSetAllocateInfo allocInfo{};
+			allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+			allocInfo.descriptorPool = m_DescriptorPoolHandles[m_CurrentPool];
+			allocInfo.pSetLayouts = &descriptorSetLayout;
+			allocInfo.descriptorSetCount = 1;
+
+			m_Recreated = true;
+
+			if (vkAllocateDescriptorSets(Device::GetDevice(), &allocInfo, &descriptor) != VK_SUCCESS)
+			{
+				return false;
+			}
 		}
 		return true;
 	}
@@ -88,8 +106,37 @@ namespace Vulture
 	 * @note The function resets the descriptor pool associated with this DescriptorPool instance. After
 	 * the reset, any descriptor sets that were previously allocated from this pool become invalid.
 	 */
-	void DescriptorPool::ResetPool()
+	void DescriptorPool::ResetPool(uint32_t index)
 	{
-		vkResetDescriptorPool(Device::GetDevice(), m_DescriptorPoolHandle, 0);
+		vkResetDescriptorPool(Device::GetDevice(), m_DescriptorPoolHandles[index], 0);
 	}
+
+	void DescriptorPool::CreateNewPool()
+	{
+		m_DescriptorPoolHandles.resize(m_CurrentPool + 1);
+		m_CurrentPool++;
+		std::vector<VkDescriptorPoolSize> poolSizesVK;
+		for (int i = 0; i < m_PoolSizes.size(); i++)
+		{
+			VL_CORE_ASSERT(m_PoolSizes[i], "Incorectly initialized pool size!");
+
+			VkDescriptorPoolSize poolSizeVK;
+			poolSizeVK.descriptorCount = m_PoolSizes[i].DescriptorCount;
+			poolSizeVK.type = m_PoolSizes[i].PoolType;
+
+			poolSizesVK.push_back(poolSizeVK);
+		}
+		VkDescriptorPoolCreateInfo descriptorPoolInfo{};
+		descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		descriptorPoolInfo.poolSizeCount = (uint32_t)poolSizesVK.size();
+		descriptorPoolInfo.pPoolSizes = poolSizesVK.data();
+		descriptorPoolInfo.maxSets = m_MaxSets;
+		descriptorPoolInfo.flags = m_PoolFlags;
+
+		VL_CORE_RETURN_ASSERT(vkCreateDescriptorPool(Device::GetDevice(), &descriptorPoolInfo, nullptr, &m_DescriptorPoolHandles[m_CurrentPool]),
+			VK_SUCCESS,
+			"failed to create descriptor pool!"
+		);
+	}
+
 }

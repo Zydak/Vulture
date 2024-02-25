@@ -148,11 +148,7 @@ namespace Vulture
 
 		TransitionImageLayout(
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			0,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
+			0
 		);
 
 		CreateImageView(info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -216,22 +212,9 @@ namespace Vulture
 		buffer.WriteToBuffer((void*)pixels, size);
 		buffer.Unmap();
 
-		TransitionImageLayout(
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			0,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			0,
-			VK_PIPELINE_STAGE_TRANSFER_BIT
-		);
+		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height);
-		TransitionImageLayout(
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			0,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-		);
+		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		if (createInfo.DebugName != "")
 		{
@@ -481,14 +464,7 @@ namespace Vulture
 
 		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height);
 
-		TransitionImageLayout(
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			0,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
-		);
+		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		CreateImageView(info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
 		CreateImageSampler(samplerInfo);

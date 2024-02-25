@@ -30,7 +30,7 @@ namespace Vulture
 		void AddImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout);
 		void AddAccelerationStructure(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR asInfo);
 		void AddUniformBuffer(uint32_t binding, uint32_t bufferSize);
-		void AddStorageBuffer(uint32_t binding, uint32_t bufferSize, bool resizable = false, bool deviceLocal = false);
+		void AddStorageBuffer(uint32_t binding, uint32_t bufferSize, bool resizable = false, bool deviceLocal = false, bool replace = false);
 		void Build();
 		void Resize(uint32_t binding, uint32_t newSize, VkQueue queue, VkCommandPool pool, uint32_t buffer = 0);
 		void UpdateImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout layout);

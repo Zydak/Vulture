@@ -84,6 +84,15 @@ struct Material
     float mediumDensity;
 };
 
+struct Surface
+{
+    vec3 Normal;
+    vec3 Tangent;
+    vec3 Bitangent;
+
+    vec3 GeoNormal;
+};
+
 struct EnvAccel
 {
     uint Alias;
@@ -129,7 +138,6 @@ vec3 sphericalEnvmapToDirection(vec2 tex)
 
 vec3 SamplingHemisphere(inout uint seed, in vec3 x, in vec3 y, in vec3 z)
 {
-
     float r1 = Rnd(seed);
     float r2 = Rnd(seed);
     float sq = sqrt(r1);
@@ -189,6 +197,38 @@ vec3 OffsetRay(in vec3 p, in vec3 n)
     vec3 offsetPoint = p + offsetVector;
 
     return offsetPoint;
+}
+
+float CalculateLuminance(vec3 rgb)
+{
+    return 0.212671f * rgb.r + 0.715160f * rgb.g + 0.072169f * rgb.b;
+}
+
+void CalculateTangents1(in vec3 N, out vec3 T, out vec3 B)
+{
+    vec3 up = abs(N.z) < 0.9999999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
+    T = normalize(cross(up, N));
+    B = cross(N, T);
+}
+
+void CalculateTangents2(in vec3 normal, out vec3 tangent, out vec3 bitangent)
+{
+    float sgn = normal.z > 0.0F ? 1.0F : -1.0F;
+    float a = -1.0F / (sgn + normal.z);
+    float b = normal.x * normal.y * a;
+
+    tangent = vec3(1.0f + sgn * normal.x * normal.x * a, sgn * b, -sgn * normal.x);
+    bitangent = vec3(b, sgn + normal.y * normal.y * a, -normal.y);
+}
+
+vec3 TangentToWorld(vec3 T, vec3 B, vec3 N, vec3 V)
+{
+    return V.x * T + V.y * B + V.z * N;
+}
+
+vec3 WorldToTangent(vec3 T, vec3 B, vec3 N, vec3 V)
+{
+    return vec3(dot(V, T), dot(V, B), dot(V, N));
 }
 
 #else

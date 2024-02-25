@@ -18,7 +18,7 @@ namespace Vulture
 			std::vector<Ref<Image>> InputImages;
 			std::vector<Ref<Image>> OutputImages;
 
-			uint32_t mipsCount;
+			uint32_t MipsCount;
 		};
 
 		struct BloomInfo
@@ -37,6 +37,7 @@ namespace Vulture
 
 		void Run(const BloomInfo& bloomInfo, VkCommandBuffer cmd, uint32_t imageIndex = 0);
 
+		void UpdateDescriptors(const CreateInfo& info);
 		void RecreateDescriptors(uint32_t mipsCount, int32_t frameIndex = -1);
 	private:
 		void CreateBloomMips();

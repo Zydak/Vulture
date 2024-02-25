@@ -98,15 +98,7 @@ namespace Vulture
 			Vulture::Renderer::GetCurrentCommandBuffer()
 		);
 
-		m_InputImages[imageIndex]->TransitionImageLayout(
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			Vulture::Renderer::GetCurrentCommandBuffer(),
-			VK_ACCESS_SHADER_WRITE_BIT,
-			VK_ACCESS_SHADER_READ_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
-		);
-
+		m_InputImages[imageIndex]->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
 
 		m_Pipeline.Bind(cmd, VK_PIPELINE_BIND_POINT_COMPUTE);
 

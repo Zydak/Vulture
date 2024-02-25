@@ -112,5 +112,8 @@ void main()
     vec3 i = vec3(dot(mapped, vec3(0.299f, 0.587f, 0.114f)));
     mapped = mix(i, mapped, pTonemapInfo.Saturation);
 
+    // Convert to SRGB
+    mapped = pow(mapped, vec3(1.0f / 2.2f));
+
     imageStore(uOutput, ivec2(gl_GlobalInvocationID.xy), vec4(mapped, 1.0f));
 }

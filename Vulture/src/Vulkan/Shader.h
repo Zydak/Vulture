@@ -14,6 +14,8 @@ namespace Vulture
 		{
 			std::string Filepath;
 			VkShaderStageFlagBits Type;
+
+			std::vector<std::string> Macros;
 		};
 
 		void Init(const CreateInfo& info);
@@ -23,17 +25,15 @@ namespace Vulture
 		Shader(const CreateInfo& info);
 		~Shader();
 
-		std::string ReadFile(const std::string& filepath);
-		std::vector<uint32_t> ReadFileVec(const std::string& filepath);
-		void WriteFile(const std::string& filepath, const std::string& data);
-		void WriteFile(const std::string& filepath, const std::vector<uint32_t>& data);
-		std::vector<uint32_t> CompileSource(const std::string& filepath);
+		std::vector<uint32_t> CompileSource(const std::string& filepath, std::vector<std::string> macros);
 
 		void CreateCacheDir();
 
 		VkPipelineShaderStageCreateInfo GetStageCreateInfo();
 		inline VkShaderModule GetModuleHandle() { return m_ModuleHandle; }
 		inline VkShaderStageFlagBits GetType() { return m_Type; }
+
+		std::string ReadShaderFile(const std::string& filepath);
 
 	private:
 

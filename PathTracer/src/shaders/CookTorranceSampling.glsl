@@ -8,21 +8,20 @@
 
 struct BsdfEvaluateData
 {
-    vec3  k1;            // [in] Toward the incoming ray
-    vec3  k2;            // [in] Toward the sampled light
-    vec3  bsdfDiffuse;   // [out] Diffuse contribution
-    vec3  bsdfGlossy;    // [out] Specular contribution
-    float pdf;           // [out] PDF
+    vec3  View;         // [in] Toward the incoming ray
+    vec3  Light;        // [in] Toward the sampled light
+    vec3  Bsdf;         // [out] BSDF
+    float Pdf;          // [out] PDF
 };
 
 struct BsdfSampleData
 {
-    vec3  k1;             // [in] Toward the incoming ray
-    vec3  k2;             // [in] Toward the sampled light
-    vec4  xi;             // [in] 4 random [0..1]
-    float pdf;            // [out] PDF
-    vec3  bsdfOverPdf;    // [out] contribution / PDF
-    int   eventType;      // [out] one of the event above
+    vec3  View;         // [in] Toward the incoming ray
+    vec4  Random;       // [in] 4 random [0..1]
+    vec3  RayDir;       // [out] Reflect Dir
+    float Pdf;          // [out] PDF
+    vec3  Bsdf;         // [out] BSDF
+    int   EventType;    // [out] one of the event above
 };
 
 vec3 BrdfLambertian(vec3 diffuseColor, float metallic)
@@ -75,16 +74,6 @@ float ClampedDot(vec3 x, vec3 y)
     return clamp(dot(x, y), 0.0F, 1.0F);
 }
 
-void OrthonormalBasis(in vec3 normal, out vec3 tangent, out vec3 bitangent)
-{
-    float sgn = normal.z > 0.0F ? 1.0F : -1.0F;
-    float a = -1.0F / (sgn + normal.z);
-    float b = normal.x * normal.y * a;
-
-    tangent = vec3(1.0f + sgn * normal.x * normal.x * a, sgn * b, -sgn * normal.x);
-    bitangent = vec3(b, sgn + normal.y * normal.y * a, -normal.y);
-}
-
 vec3 GgxSampling(float alphaRoughness, float r1, float r2)
 {
     float alphaSqr = max(alphaRoughness * alphaRoughness, 1e-07);
@@ -107,106 +96,278 @@ vec3 CosineSampleHemisphere(float r1, float r2)
     return dir;
 }
 
-void BsdfEvaluate(inout BsdfEvaluateData data, in vec3 normal, in Material mat)
+
+float DielectricFresnel(float cosThetaI, float eta)
+{
+    float sinThetaTSq = eta * eta * (1.0f - cosThetaI * cosThetaI);
+
+    if (sinThetaTSq > 1.0)
+        return 1.0;
+
+    float cosThetaT = sqrt(max(1.0 - sinThetaTSq, 0.0));
+
+    float rs = (eta * cosThetaT - cosThetaI) / (eta * cosThetaT + cosThetaI);
+    float rp = (eta * cosThetaI - cosThetaT) / (eta * cosThetaI + cosThetaT);
+
+    return 0.5f * (rs * rs + rp * rp);
+}
+
+float GTR2Anisotropic(float NDotH, float HDotX, float HDotY, float ax, float ay)
+{
+    float a = HDotX / ax;
+    float b = HDotY / ay;
+    float c = a * a + b * b + NDotH * NDotH;
+    return 1.0 / (M_PI * ax * ay * c * c);
+}
+
+float SmithGAnisotropic(float NDotV, float VDotX, float VDotY, float ax, float ay)
+{
+    float a = VDotX * ax;
+    float b = VDotY * ay;
+    float c = NDotV;
+    return (2.0 * NDotV) / (NDotV + sqrt(a * a + b * b + c * c));
+}
+
+vec3 EvaluateMicrofacetReflection(Material mat, vec3 V, vec3 L, vec3 H, vec3 F, out float pdf)
+{
+    pdf = 0.0;
+    if (L.z <= 0.0)
+        return vec3(0.0);
+
+    float D = GTR2Anisotropic(H.z, H.x, H.y, mat.ax, mat.ay);
+    float G1 = SmithGAnisotropic(abs(V.z), V.x, V.y, mat.ax, mat.ay);
+    float G2 = G1 * SmithGAnisotropic(abs(L.z), L.x, L.y, mat.ax, mat.ay);
+
+    pdf = G1 * D / (4.0 * V.z);
+    return F * D * G2 / (4.0 * L.z * V.z);
+}
+
+vec3 EvalMicrofacetRefraction(Material mat, float eta, vec3 V, vec3 L, vec3 H, vec3 F, out float pdf)
+{
+    pdf = 0.0;
+    if (L.z >= 0.0)
+        return vec3(0.0);
+
+    float LDotH = dot(L, H);
+    float VDotH = dot(V, H);
+
+    float D = GTR2Anisotropic(H.z, H.x, H.y, mat.ax, mat.ay);
+    float G1 = SmithGAnisotropic(abs(V.z), V.x, V.y, mat.ax, mat.ay);
+    float G2 = G1 * SmithGAnisotropic(abs(L.z), L.x, L.y, mat.ax, mat.ay);
+    float denom = LDotH + VDotH * eta;
+    denom *= denom;
+    float eta2 = eta * eta;
+    float jacobian = abs(LDotH) / denom;
+
+    pdf = G1 * max(0.0, VDotH) * D * jacobian / V.z;
+    return pow(mat.Albedo.xyz, vec3(0.5)) * (1.0 - F) * D * G2 * abs(VDotH) * jacobian * eta2 / abs(L.z * V.z);
+}
+
+float SchlickWeight(float u)
+{
+    float m = clamp(1.0 - u, 0.0, 1.0);
+    float m2 = m * m;
+    return m2 * m2 * m;
+}
+
+void BsdfEvaluate(inout BsdfEvaluateData data, in Surface surface, in Material mat)
 {
     // Initialization
-    vec3 surfaceNormal = normal;
-    vec3 viewDir = data.k1;
-    vec3 lightDir = data.k2;
+    vec3 surfaceNormal = surface.Normal;
+
+    // Create tangent space
+    vec3 tangent, bitangent;
+    CalculateTangents2(surfaceNormal, tangent, bitangent);
     vec3 albedo = mat.Albedo.rgb;
     float metallic = mat.Metallic;
     float roughness = mat.Roughness;
-    vec3 f0 = mat.Albedo.rgb; // TODO: properly calculate material f0, for now it's just albedo
+    vec3 f0 = mix(vec3(0.04f), mat.Albedo.xyz, metallic);
     vec3 f90 = vec3(1.0F);
 
     // Specular roughness
     float alpha = roughness * roughness;
 
     // Compute half vector
-    vec3 halfVector = normalize(viewDir + lightDir);
+    vec3 halfVector = normalize(data.View + data.Light);
 
     // Compute various "angles" between vectors
-    float NdotV = ClampedDot(surfaceNormal, viewDir);
-    float NdotL = ClampedDot(surfaceNormal, lightDir);
-    float VdotH = ClampedDot(viewDir, halfVector);
-    float NdotH = ClampedDot(surfaceNormal, halfVector);
-    float LdotH = ClampedDot(lightDir, halfVector);
+    float NdotV = abs(dot(surfaceNormal, data.View));
+    float NdotL = abs(dot(surfaceNormal, data.Light));
+    float VdotH = abs(dot(data.View, halfVector));
+    float NdotH = abs(dot(surfaceNormal, halfVector));
+    float LdotH = abs(dot(data.Light, halfVector));
 
-    // Contribution
-    vec3 fDiffuse = BrdfLambertian(albedo, metallic);
-    vec3 fSpecular = BrdfSpecularGGX(f0, f90, alpha, VdotH, NdotL, NdotV, NdotH);
+    float dielectricWeight = (1.0 - mat.Metallic) * (1.0 - mat.SpecTrans);
+    float metalWeight = mat.Metallic;
+    float glassWeight = (1.0 - mat.Metallic) * mat.SpecTrans;
 
-    // Calculate PDF (probability density function)
-    float diffuseRatio = 0.5F * (1.0F - metallic);
-    float diffusePDF = (NdotL * M_1_OVER_PI);
-    float specularPDF = DistributionGGX(NdotH, alpha) * NdotH / (4.0F * LdotH);
+    // Lobe probabilities
+    float schlickWeight = SchlickWeight(WorldToTangent(surface.Tangent, surface.Bitangent, surfaceNormal, data.View).z);
 
-    // Results
-    data.bsdfDiffuse = fDiffuse * NdotL;
-    data.bsdfGlossy = fSpecular * NdotL;
-    data.pdf = mix(specularPDF, diffusePDF, diffuseRatio);
+    float diffProbability = dielectricWeight * CalculateLuminance(mat.Albedo.xyz);
+    float metalProbability = metalWeight * CalculateLuminance(mix(mat.Albedo.xyz, vec3(1.0), schlickWeight));
+    float glassProbability = glassWeight;
+    float clearCoatProbability = 0.25 * mat.Clearcoat;
+
+    // Normalize probabilities
+    float TotalWeight = (diffProbability + metalProbability + glassProbability + clearCoatProbability);
+    diffProbability /= TotalWeight;
+    metalProbability /= TotalWeight;
+    glassProbability /= TotalWeight;
+    clearCoatProbability /= TotalWeight;
+
+    // To use normal maps we would need to change Normal to GeoNormal but idk if that's something I can do?
+    vec3 L = WorldToTangent(surface.Tangent, surface.Bitangent, surface.GeoNormal, data.Light);
+    vec3 V = WorldToTangent(surface.Tangent, surface.Bitangent, surface.GeoNormal, data.View);
+    bool reflect = L.z * V.z > 0;
+
+    float diffusePDF = 0.0f;
+    float specularPDF = 0.0f;
+    data.Bsdf = vec3(0.0f);
+    data.Pdf = 0.0f;
+    if (diffProbability > 0.0 && reflect)
+    {
+        // Contribution
+        data.Bsdf += BrdfLambertian(albedo, metallic);
+
+        // Calculate PDF (probability density function)
+        data.Pdf += (NdotL * M_1_OVER_PI);
+    }
+    if (metalProbability > 0.0 && reflect)
+    {
+        // Contribution
+        data.Bsdf += BrdfSpecularGGX(f0, f90, alpha, VdotH, NdotL, NdotV, NdotH);
+
+        // Calculate PDF (probability density function)
+        data.Pdf += DistributionGGX(NdotH, alpha) * NdotH / (4.0F * LdotH);
+    }
+    if (glassProbability > 0.0)
+    {
+        float tmpPdf = 0.0;
+
+        vec3 H;
+        if (L.z > 0.0)
+            H = normalize(L + V);
+        else
+            H = normalize(L + V * mat.eta);
+
+        if (H.z < 0.0)
+            H = -H;
+
+        VdotH = abs(dot(V, H));
+        float F = DielectricFresnel(VdotH, mat.eta);
+
+        if (reflect)
+        {
+            data.Bsdf += EvaluateMicrofacetReflection(mat, V, L, H, vec3(F), tmpPdf) * glassWeight;
+            data.Pdf += tmpPdf * glassProbability * F;
+        }
+        else
+        {
+            data.Bsdf += EvalMicrofacetRefraction(mat, mat.eta, V, L, H, vec3(F), tmpPdf) * glassWeight;
+            data.Pdf += tmpPdf * glassProbability * (1.0 - F);
+        }
+    }
+
+    data.Bsdf *= NdotL;
 }
 
-void BsdfSample(inout BsdfSampleData data, in vec3 normal, in Material mat)
+void BsdfSample(inout BsdfSampleData data, in Surface surface, in Material mat)
 {
     // Initialization
-    vec3  surfaceNormal = normal;
-    vec3  viewDir = data.k1;
+    vec3  surfaceNormal = surface.Normal;
     float roughness = mat.Roughness;
     float metallic = mat.Metallic;
 
     // Random numbers for importance sampling
-    float r1 = data.xi.x;
-    float r2 = data.xi.y;
-    float r3 = data.xi.z;
+    float r1 = data.Random.x;
+    float r2 = data.Random.y;
+    float r3 = data.Random.z;
 
     // Create tangent space
-    vec3 tangent, binormal;
-    OrthonormalBasis(surfaceNormal, tangent, binormal);
+    vec3 tangent, bitangent;
+    CalculateTangents2(surfaceNormal, tangent, bitangent);
 
     // Specular roughness
     float alpha = roughness * roughness;
 
-    // Find Half vector for diffuse or glossy reflection
-    float diffuseRatio = 0.5F * (1.0F - metallic);
-    vec3  halfVector;
-    if (r3 < diffuseRatio)
-        halfVector = CosineSampleHemisphere(r1, r2);  // Diffuse
-    else
-        halfVector = GgxSampling(alpha, r1, r2);  // Glossy
+    float dielectricWeight = (1.0 - mat.Metallic) * (1.0 - mat.SpecTrans);
+    float metalWeight = mat.Metallic;
+    float glassWeight = (1.0 - mat.Metallic) * mat.SpecTrans;
 
-    // Transform the half vector to the hemisphere's tangent space
-    halfVector = tangent * halfVector.x + binormal * halfVector.y + surfaceNormal * halfVector.z;
+    // Lobe probabilities
+    float schlickWeight = SchlickWeight(WorldToTangent(surface.Tangent, surface.Bitangent, surfaceNormal, data.View).z);
 
-    // Compute the reflection direction from the sampled half vector and view direction
-    vec3 reflectVector = reflect(-viewDir, halfVector);
+    float diffProbability = dielectricWeight * CalculateLuminance(mat.Albedo.xyz);
+    float metalProbability = metalWeight * CalculateLuminance(mix(mat.Albedo.xyz, vec3(1.0), schlickWeight));
+    float glassProbability = glassWeight;
+    float clearCoatProbability = 0.25 * mat.Clearcoat;
 
-    // Early out: avoid internal reflection
-    if (dot(surfaceNormal, reflectVector) < 0.0F)
+    // Normalize probabilities
+    float TotalWeight = (diffProbability + metalProbability + glassProbability + clearCoatProbability);
+    diffProbability /= TotalWeight;
+    metalProbability /= TotalWeight;
+    glassProbability /= TotalWeight;
+    clearCoatProbability /= TotalWeight;
+
+    // CDF of the sampling probabilities
+    float diffuseCDF = diffProbability;
+    float dielectricCDF = diffuseCDF;
+    float metallicCDF = dielectricCDF + metalProbability;
+    float glassCDF = metallicCDF + glassProbability;
+    float clearCoatCDF = glassCDF + clearCoatProbability;
+
+    vec3 halfVector;
+    vec3 reflectVector;
+    if (r3 < diffuseCDF)
     {
-        data.eventType = EVENT_TYPE_END;
-        return;
+        reflectVector = CosineSampleHemisphere(r1, r2);  // Diffuse
+        reflectVector = TangentToWorld(tangent, bitangent, surfaceNormal, reflectVector);
+    }
+    else if (r3 < metallicCDF)
+    {
+        halfVector = GgxSampling(alpha, r1, r2);  // Glossy
+        halfVector = TangentToWorld(tangent, bitangent, surfaceNormal, halfVector);
+
+        // Compute the reflection direction from the sampled half vector and view direction
+        reflectVector = reflect(-data.View, halfVector);
+    }
+    else if (r3 < glassCDF) // Glass
+    {
+        halfVector = GgxSampling(mat.Roughness, r1, r2);
+        halfVector = TangentToWorld(tangent, bitangent, surfaceNormal, halfVector);
+
+        float F = DielectricFresnel(abs(dot(data.View, halfVector)), mat.eta);
+
+        // Rescale random number for reuse
+        r3 = (r3 - metallicCDF) / (glassCDF - metallicCDF);
+
+        // Reflection
+        if (r3 < F)
+        {
+            reflectVector = normalize(reflect(-data.View, halfVector));
+        }
+        else // refraction
+        {
+            reflectVector = normalize(refract(-data.View, halfVector, mat.eta));
+        }
     }
 
     // Evaluate the refection coefficient with this new ray direction
     BsdfEvaluateData evalData;
-    evalData.k1 = viewDir;
-    evalData.k2 = reflectVector;
-    BsdfEvaluate(evalData, surfaceNormal, mat);
+    evalData.View = data.View;
+    evalData.Light = reflectVector;
+    BsdfEvaluate(evalData, surface, mat);
 
     // Return values
-    data.bsdfOverPdf = (evalData.bsdfDiffuse + evalData.bsdfGlossy) / evalData.pdf;
-    data.pdf = evalData.pdf;
-    data.eventType = EVENT_TYPE_OK;
-    data.k2 = reflectVector;
+    data.Pdf = evalData.Pdf;
+    data.Bsdf = evalData.Bsdf;
+    data.EventType = EVENT_TYPE_OK;
+    data.RayDir = reflectVector;
 
     // Avoid internal reflection
-    if (data.pdf <= 0.00001)
-        data.eventType = EVENT_TYPE_END;
-
-    if (isnan(data.bsdfOverPdf.x) || isnan(data.bsdfOverPdf.y) || isnan(data.bsdfOverPdf.z))
-        data.eventType = EVENT_TYPE_END;
-
+    if (data.Pdf <= 0.0)
+        data.EventType = EVENT_TYPE_END;
 
     return;
 }

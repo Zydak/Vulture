@@ -46,33 +46,35 @@ struct HitState
     bool Valid;
 };
 
-HitState ClosestHit(Material mat, vec3 normal, vec3 worldPos)
+HitState ClosestHit(Material mat, Surface surface, vec3 worldPos)
 {
     HitState state;
     
     vec3 hitValue = mat.Emissive.xyz;
 
-    vec3 dirToLight;
-    vec3 lightContribution = vec3(0.0f);
-    vec3 randVal = vec3(Rnd(payload.Seed), Rnd(payload.Seed), Rnd(payload.Seed));
-    vec4 envColor = SampleImportanceEnvMap(uEnvMap, randVal, dirToLight);
-
-    bool lightRayValid = (dot(dirToLight, normal) > 0.0f);
-
     vec3 rayDir;
     float pdf;
-    vec3 bsdf = SampleDisney(mat, -payload.RayDirection, normal, rayDir, pdf);
+    vec3 bsdf = SampleDisney(mat, -payload.RayDirection, surface, rayDir, pdf);
 
     if((pdf <= 0.0f) || isnan(bsdf.x) || isnan(bsdf.y) || isnan(bsdf.z)) 
     {
         state.Valid = false;
         return state;
     }
+    
+// TODO: sampling env map is insanely slow for some reason, disabling this gives me almost 200% more performance
+#ifdef SAMPLE_ENV_MAP
+    vec3 dirToLight;
+    vec3 lightContribution = vec3(0.0f);
+    vec3 randVal = vec3(Rnd(payload.Seed), Rnd(payload.Seed), Rnd(payload.Seed));
+    vec4 envColor = SampleImportanceEnvMap(uEnvMap, randVal, dirToLight);
+
+    bool lightRayValid = (dot(dirToLight, surface.Normal) > 0.0f);
 
     if (lightRayValid)
     {
         float envPdf;
-        vec3 envBsdf = EvaluateDisney(mat, -payload.RayDirection, normal, dirToLight, envPdf);
+        vec3 envBsdf = EvaluateDisney(mat, -payload.RayDirection, surface, dirToLight, envPdf);
         if(envPdf > 0.0f)
         {
             const float misWeight = envColor.w / (envColor.w + envPdf);
@@ -109,10 +111,11 @@ HitState ClosestHit(Material mat, vec3 normal, vec3 worldPos)
         payload.Depth = prevDepth;
         payload.MissedAllGeometry = false;
     }
+#endif
 
     state.Weight       = bsdf / pdf;
     state.RayDir = rayDir;
-    vec3 offsetDir       = dot(payload.RayDirection, normal) > 0 ? normal : -normal;
+    vec3 offsetDir       = dot(payload.RayDirection, surface.Normal) > 0 ? surface.Normal : -surface.Normal;
     state.RayOrigin    = OffsetRay(worldPos, offsetDir);
     state.HitValue = hitValue;
 
@@ -142,9 +145,13 @@ void main()
     // -------------------------------------------
     // Calculate Surface Properties
     // -------------------------------------------
+
     const vec3 barycentrics = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
     vec2 texCoord = v0.TexCoord.xy * barycentrics.x + v1.TexCoord.xy * barycentrics.y + v2.TexCoord.xy * barycentrics.z;
 
+    const vec3 pos      = v0.Position.xyz * barycentrics.x + v1.Position.xyz * barycentrics.y + v2.Position.xyz * barycentrics.z;
+    const vec3 worldPos = vec3(gl_ObjectToWorldEXT * vec4(pos, 1.0));  // Transforming the position to world space
+    
     // Computing the normal at hit position
     const vec3 nrm      = v0.Normal.xyz * barycentrics.x + v1.Normal.xyz * barycentrics.y + v2.Normal.xyz * barycentrics.z;
     vec3 worldNrm = normalize(vec3(nrm * gl_ObjectToWorldEXT));  // Transforming the normal to world space
@@ -157,23 +164,38 @@ void main()
         worldNrm = -worldNrm;
     }
 
+    Surface surface;
+    surface.Normal = worldNrm;
+    surface.GeoNormal = worldNrm;
+    CalculateTangents1(worldNrm, surface.Tangent, surface.Bitangent);
+    
+#ifdef USE_NORMAL_MAPS
+    vec3 normalMapVal = texture(uNormalTextures[gl_InstanceCustomIndexEXT], texCoord).xyz;
+    normalMapVal = normalMapVal * 2.0f - 1.0f;
+    
+    normalMapVal = TangentToWorld(surface.Tangent, surface.Bitangent, worldNrm, normalMapVal);
+    surface.Normal = normalize(normalMapVal);
+    
+    CalculateTangents1(worldNrm, surface.Tangent, surface.Bitangent);
+#endif
+
     // -------------------------------------------
     // Calculate Material Properties
     // -------------------------------------------
     float aspect = sqrt(1.0 - material.Anisotropic * 0.99);
     material.ax = max(0.001, material.Roughness / aspect);
     material.ay = max(0.001, material.Roughness * aspect);
-
+    
+#ifdef USE_ALBEDO
     material.Albedo *= texture(uAlbedoTextures[gl_InstanceCustomIndexEXT], texCoord);
-
-    // Computing the coordinates of the hit position
-    const vec3 pos      = v0.Position.xyz * barycentrics.x + v1.Position.xyz * barycentrics.y + v2.Position.xyz * barycentrics.z;
-    const vec3 worldPos = vec3(gl_ObjectToWorldEXT * vec4(pos, 1.0));  // Transforming the position to world space
+#else
+    material.Albedo = vec4(0.5f);
+#endif
 
     // -------------------------------------------
     // Calculate Hit State
     // -------------------------------------------
-    HitState hitState = ClosestHit(material, worldNrm, worldPos);
+    HitState hitState = ClosestHit(material, surface, worldPos);
 
     if (hitState.Valid == false)
     {

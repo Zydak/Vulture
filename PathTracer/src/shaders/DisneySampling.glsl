@@ -1,18 +1,3 @@
-vec3 TangentToWorld(vec3 X, vec3 Y, vec3 Z, vec3 V)
-{
-	return V.x * X + V.y * Y + V.z * Z;
-}
-
-vec3 WorldToTangent(vec3 X, vec3 Y, vec3 Z, vec3 V)
-{
-	return vec3(dot(V, X), dot(V, Y), dot(V, Z));
-}
-
-float CalculateLuminance(vec3 rgb)
-{
-	return 0.212671f * rgb.r + 0.715160f * rgb.g + 0.072169f * rgb.b;
-}
-
 void TintColors(Material mat, float eta, out float F0, out vec3 Csheen, out vec3 Cspec0)
 {
 	float lum = CalculateLuminance(mat.Albedo.xyz);
@@ -145,13 +130,6 @@ vec3 EvalClearcoat(Material mat, vec3 V, vec3 L, vec3 H, out float pdf)
 	return vec3(F) * D * G;
 }
 
-void CalculateTangents(in vec3 N, inout vec3 T, inout vec3 B)
-{
-	vec3 up = abs(N.z) < 0.9999999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
-	T = normalize(cross(up, N));
-	B = cross(N, T);
-}
-
 vec3 CosineSampleHemisphere(float r1, float r2)
 {
 	vec3 dir;
@@ -198,17 +176,17 @@ float DielectricFresnel(float cosThetaI, float eta)
 	return 0.5f * (rs * rs + rp * rp);
 }
 
-vec3 EvaluateDisney(Material mat, vec3 V, vec3 N, vec3 L, out float pdf)
+vec3 EvaluateDisney(Material mat, vec3 V, Surface surface, vec3 L, out float pdf)
 {
 	pdf = 0.0;
 	vec3 f = vec3(0.0);
 
-	vec3 T, B;
-	CalculateTangents(N, T, B);
+	vec3 tangent, bitangent;
+	CalculateTangents2(surface.Normal, tangent, bitangent);
 
 	// Transform to tangent space to simplify calculations
-	V = WorldToTangent(T, B, N, V);
-	L = WorldToTangent(T, B, N, L);
+	V = WorldToTangent(tangent, bitangent, surface.GeoNormal, V);
+	L = WorldToTangent(tangent, bitangent, surface.GeoNormal, L);
 
 	vec3 H;
 	if (L.z > 0.0)
@@ -320,18 +298,18 @@ vec3 SampleGTR1(float rgh, float r1, float r2)
 	return vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);
 }
 
-vec3 SampleDisney(Material mat, vec3 V, vec3 N, out vec3 L, out float pdf)
+vec3 SampleDisney(Material mat, vec3 V, Surface surface, out vec3 L, out float pdf)
 {
 	pdf = 0.0;
+
+	vec3 tangent, bitangent;
+	CalculateTangents2(surface.Normal, tangent, bitangent);
 
 	float r1 = Rnd(payload.Seed);
 	float r2 = Rnd(payload.Seed);
 
-	vec3 T, B;
-	CalculateTangents(N, T, B);
-
 	// Transform to tangent space to simplify calculations
-	V = WorldToTangent(T, B, N, V);
+	V = WorldToTangent(tangent, bitangent, surface.Normal, V);
 
 	// Tint colors
 	vec3 Csheen, Cspec0;
@@ -414,8 +392,8 @@ vec3 SampleDisney(Material mat, vec3 V, vec3 N, out vec3 L, out float pdf)
 		L = normalize(reflect(-V, H));
 	}
 
-	L = TangentToWorld(T, B, N, L);
-	V = TangentToWorld(T, B, N, V);
+	L = TangentToWorld(tangent, bitangent, surface.Normal, L);
+	V = TangentToWorld(tangent, bitangent, surface.Normal, V);
 
-	return EvaluateDisney(mat, V, N, L, pdf);
+	return EvaluateDisney(mat, V, surface, L, pdf);
 }
