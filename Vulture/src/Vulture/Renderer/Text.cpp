@@ -100,8 +100,8 @@ namespace Vulture
 			// Not sure which way is faster :/
 
 			// Update Device local memory using vkCmdUpdateBuffer
-			m_TextMeshes[frameIndex]->GetVertexBuffer()->WriteToBuffer(cmdBuffer, vertices.data(), vertices.size() * sizeof(Mesh::Vertex), 0);
-			m_TextMeshes[frameIndex]->GetIndexBuffer()->WriteToBuffer(cmdBuffer, indices.data(), indices.size() * sizeof(uint32_t), 0);
+			m_TextMeshes[frameIndex]->GetVertexBuffer()->WriteToBuffer(vertices.data(), vertices.size() * sizeof(Mesh::Vertex), 0, cmdBuffer);
+			m_TextMeshes[frameIndex]->GetIndexBuffer()->WriteToBuffer(indices.data(), indices.size() * sizeof(uint32_t), 0, cmdBuffer);
 
 			// Map and memcopy data to host visible memory
 			// m_TextMeshes[frameIndex]->GetVertexBuffer()->Map();

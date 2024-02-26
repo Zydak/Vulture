@@ -102,8 +102,8 @@ namespace Vulture
 
 				std::vector<uint32_t> data(module.cbegin(), module.cend());
 
-				File::WriteToFile(sourceToCache.c_str(), sourceToCache.size(), ("CachedShaders/" + shaderName + ".cache"));
-				File::WriteToFile(data.data(), sizeof(uint32_t) * data.size(), ("CachedShaders/" + shaderName + ".spv"));
+				File::WriteToFile(sourceToCache.c_str(), (uint32_t)sourceToCache.size(), ("CachedShaders/" + shaderName + ".cache"));
+				File::WriteToFile(data.data(), sizeof(uint32_t) * (uint32_t)data.size(), ("CachedShaders/" + shaderName + ".spv"));
 
 				return data;
 			}
@@ -130,8 +130,8 @@ namespace Vulture
 
 			std::vector<uint32_t> data(module.cbegin(), module.cend());
 
-			File::WriteToFile(sourceToCache.c_str(), sourceToCache.size(), ("CachedShaders/" + shaderName + ".cache"));
-			File::WriteToFile(data.data(), sizeof(uint32_t) * data.size(), ("CachedShaders/" + shaderName + ".spv"));
+			File::WriteToFile(sourceToCache.c_str(), (uint32_t)sourceToCache.size(), ("CachedShaders/" + shaderName + ".cache"));
+			File::WriteToFile(data.data(), sizeof(uint32_t) * (uint32_t)data.size(), ("CachedShaders/" + shaderName + ".spv"));
 
 			return data;
 		}

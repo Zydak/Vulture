@@ -17,7 +17,6 @@ namespace Vulture
 				return (PoolType != VK_DESCRIPTOR_TYPE_MAX_ENUM) && (DescriptorCount != -1);
 			}
 		};
-
 		
 		void Init(const std::vector<PoolSize>& poolSizes, uint32_t maxSets, VkDescriptorPoolCreateFlags poolFlags);
 		void Destroy();
@@ -29,11 +28,9 @@ namespace Vulture
 		DescriptorPool(const DescriptorPool&) = delete;
 		DescriptorPool& operator=(const DescriptorPool&) = delete;
 
-		bool AllocateDescriptorSets(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptor);
+		bool AllocateDescriptorSets(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet* descriptor);
 
 		inline VkDescriptorPool GetDescriptorPoolHandle(uint32_t index = 0) { return m_DescriptorPoolHandles[index]; }
-		inline bool GetRecreatedFlag() { return m_Recreated; }
-		inline void ResetRecreatedFlag() { m_Recreated = false; }
 
 		void ResetPool(uint32_t index = 0);
 
@@ -47,7 +44,6 @@ namespace Vulture
 		VkDescriptorPoolCreateFlags m_PoolFlags;
 
 		bool m_Initialized = false;
-		bool m_Recreated = false;
 
 		friend class DescriptorWriter;
 	};

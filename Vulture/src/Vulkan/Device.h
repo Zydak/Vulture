@@ -93,7 +93,7 @@ namespace Vulture
 		static std::vector<int32_t> s_LayersIgnoreList;
 	private:
 		Device() {} // make constructor private
-
+		static bool s_Initialized;
 
 		static std::vector<const char*> GetRequiredGlfwExtensions();
 		static void CheckRequiredGlfwExtensions();
@@ -118,11 +118,10 @@ namespace Vulture
 		static bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
 		static SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device);
 
-
-		static VkMemoryAllocateInfo info;
-		static VkExportMemoryAllocateInfo exportMemoryInfo;
-		static VkExternalMemoryBufferCreateInfo externalMemoryBufferInfo;
-		static VkExternalMemoryImageCreateInfo externalMemoryImageInfo;
+		static VkMemoryAllocateInfo s_MemoryAllocateInfo;
+		static VkExportMemoryAllocateInfo s_ExportMemoryInfo;
+		static VkExternalMemoryBufferCreateInfo s_ExternalMemoryBufferInfo;
+		static VkExternalMemoryImageCreateInfo s_ExternalMemoryImageInfo;
 
 		static VmaAllocator s_Allocator;
 		static std::unordered_map<uint32_t, VmaPool> s_Pools;
@@ -176,5 +175,7 @@ namespace Vulture
 		static void vkCmdInsertDebugUtilsLabelEXT(VkCommandBuffer commandBuffer,const VkDebugUtilsLabelEXT* pLabelInfo);
 		static void vkCmdEndDebugUtilsLabelEXT(VkCommandBuffer commandBuffer);
 		static void vkCmdBeginDebugUtilsLabelEXT(VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT* pLabelInfo);
+		static void vkCmdBeginRenderingKHR(VkCommandBuffer commandBuffer, const VkRenderingInfo* pRenderingInfo);
+		static void vkCmdEndRenderingKHR(VkCommandBuffer commandBuffer);
 	};
 }

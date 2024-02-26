@@ -288,19 +288,13 @@ void SceneRenderer::DrawGBuffer()
 	clearVal.depthStencil = { 1.0f, 1 };
 	clearColors.push_back(clearVal);
 
-	m_GBufferPass.SetRenderTarget(&(*m_GBufferFramebuffer));
-	m_GBufferPass.BeginRenderPass(clearColors);
-	// TODO
-	m_GBufferFramebuffer->GetColorImageNoVk(0)->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_GBufferFramebuffer->GetColorImageNoVk(1)->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_GBufferFramebuffer->GetColorImageNoVk(2)->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_GBufferFramebuffer->GetColorImageNoVk(3)->SetLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_GBufferFramebuffer->GetDepthImageNoVk(0)->SetLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	m_GBufferFramebuffer->Bind(Vulture::Renderer::GetCurrentCommandBuffer(), clearColors);
+	m_GBufferPipeline.Bind(Vulture::Renderer::GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS);
 
 	m_GlobalDescriptorSets[Vulture::Renderer::GetCurrentFrameIndex()]->Bind
 	(
 		0,
-		m_GBufferPass.GetPipeline().GetPipelineLayout(),
+		m_GBufferPipeline.GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		Vulture::Renderer::GetCurrentCommandBuffer()
 	);
@@ -317,16 +311,16 @@ void SceneRenderer::DrawGBuffer()
 			m_PushContantGBuffer.GetDataPtr()->Material = modelComp.Model->GetMaterial(i);
 			m_PushContantGBuffer.GetDataPtr()->Model = TransformComp.transform.GetMat4();
 			
-			m_PushContantGBuffer.Push(m_GBufferPass.GetPipeline().GetPipelineLayout(), Vulture::Renderer::GetCurrentCommandBuffer());
+			m_PushContantGBuffer.Push(m_GBufferPipeline.GetPipelineLayout(), Vulture::Renderer::GetCurrentCommandBuffer());
 
-			sets[i]->Bind(1, m_GBufferPass.GetPipeline().GetPipelineLayout(), VK_PIPELINE_BIND_POINT_GRAPHICS, Vulture::Renderer::GetCurrentCommandBuffer());
+			sets[i]->Bind(1, m_GBufferPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_GRAPHICS, Vulture::Renderer::GetCurrentCommandBuffer());
 			meshes[i]->Bind(Vulture::Renderer::GetCurrentCommandBuffer());
 			meshes[i]->Draw(Vulture::Renderer::GetCurrentCommandBuffer(), 1, 0);
 		}
 	}
 
-	m_GBufferPass.EndRenderPass();
-	
+	m_GBufferFramebuffer->Unbind(Vulture::Renderer::GetCurrentCommandBuffer());
+
 	Vulture::Device::EndLabel(Vulture::Renderer::GetCurrentCommandBuffer());
 }
 
@@ -338,8 +332,8 @@ void SceneRenderer::Denoise()
 	std::vector<Vulture::Image*> vec = 
 	{
 		&(*m_PathTracingImage), // Path Tracing Result
-		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Albedo))), // Albedo
-		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetColorImageNoVk(GBufferImage::Normal))) // Normal
+		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Albedo))), // Albedo
+		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Normal))) // Normal
 	};
 
 	vkEndCommandBuffer(cmd);
@@ -459,169 +453,7 @@ void SceneRenderer::FixCameraAspectRatio()
 
 void SceneRenderer::CreateRenderPasses()
 {
-	// HDR Pass
-	{
-		VkAttachmentDescription colorAttachment = {};
-		colorAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-		VkAttachmentReference colorAttachmentRef = {};
-		colorAttachmentRef.attachment = 0;
-		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkSubpassDescription subpass = {};
-		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 1;
-		subpass.pColorAttachments = &colorAttachmentRef;
-		subpass.pDepthStencilAttachment = nullptr;
-
-		VkSubpassDependency dependency1 = {};
-		dependency1.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency1.dstSubpass = 0;
-		dependency1.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		dependency1.srcAccessMask = 0;
-		dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-		VkSubpassDependency dependency2 = {};
-		dependency2.srcSubpass = 0;
-		dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
-		dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
-
-		std::vector<VkAttachmentDescription> attachments = { colorAttachment };
-		VkRenderPassCreateInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = (uint32_t)attachments.size();
-		renderPassInfo.pAttachments = attachments.data();
-		renderPassInfo.subpassCount = 1;
-		renderPassInfo.pSubpasses = &subpass;
-		renderPassInfo.dependencyCount = (uint32_t)dependencies.size();
-		renderPassInfo.pDependencies = dependencies.data();
-
-		m_HDRPass.CreateRenderPass(renderPassInfo);
-	}
-
-	// GBuffer Pass
-	{
-		VkAttachmentDescription albedoAttachment = {};
-		albedoAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		albedoAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		albedoAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		albedoAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		albedoAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		albedoAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		albedoAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		albedoAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-		VkAttachmentReference albedoAttachmentRef = {};
-		albedoAttachmentRef.attachment = 0;
-		albedoAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription normalAttachment = {};
-		normalAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		normalAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		normalAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		normalAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		normalAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		normalAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		normalAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		normalAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-		VkAttachmentReference normalAttachmentRef = {};
-		normalAttachmentRef.attachment = 1;
-		normalAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription rougnessMetallnessAttachment = {};
-		rougnessMetallnessAttachment.format = VK_FORMAT_R8G8_UNORM;
-		rougnessMetallnessAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		rougnessMetallnessAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		rougnessMetallnessAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		rougnessMetallnessAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		rougnessMetallnessAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		rougnessMetallnessAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		rougnessMetallnessAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-		VkAttachmentReference RoghnessMetallnessAttachmentRef = {};
-		RoghnessMetallnessAttachmentRef.attachment = 2;
-		RoghnessMetallnessAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription emissiveAttachment = {};
-		emissiveAttachment.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		emissiveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		emissiveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		emissiveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		emissiveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		emissiveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		emissiveAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		emissiveAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-		VkAttachmentReference emissiveAttachmentRef = {};
-		emissiveAttachmentRef.attachment = 3;
-		emissiveAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentDescription depthAttachment = {};
-		depthAttachment.format = Vulture::Swapchain::FindDepthFormat();
-		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		VkAttachmentReference depthAttachmentRef = {};
-		depthAttachmentRef.attachment = 4;
-		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-		std::vector<VkAttachmentReference> references { albedoAttachmentRef, normalAttachmentRef, RoghnessMetallnessAttachmentRef, emissiveAttachmentRef };
-
-		VkSubpassDescription subpass = {};
-		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 4;
-		subpass.pColorAttachments = references.data();
-		subpass.pDepthStencilAttachment = &depthAttachmentRef;
-
-		VkSubpassDependency dependency1 = {};
-		dependency1.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency1.dstSubpass = 0;
-		dependency1.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		dependency1.srcAccessMask = 0;
-		dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-		VkSubpassDependency dependency2 = {};
-		dependency2.srcSubpass = 0;
-		dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
-		dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
-
-		std::vector<VkAttachmentDescription> attachments { albedoAttachment, normalAttachment, rougnessMetallnessAttachment, emissiveAttachment, depthAttachment };
-		VkRenderPassCreateInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = (uint32_t)attachments.size();
-		renderPassInfo.pAttachments = attachments.data();
-		renderPassInfo.subpassCount = 1;
-		renderPassInfo.pSubpasses = &subpass;
-		renderPassInfo.dependencyCount = (uint32_t)dependencies.size();
-		renderPassInfo.pDependencies = dependencies.data();
-
-		m_GBufferPass.CreateRenderPass(renderPassInfo);
-	}
+	// none for now
 }
 
 void SceneRenderer::CreateDescriptorSets()
@@ -664,10 +496,11 @@ void SceneRenderer::CreateDescriptorSets()
 
 	
 #ifdef VL_IMGUI
-	m_ImGuiAlbedoDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(0)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(0), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(1)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(1), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(2)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(2), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(3)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(3), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	m_ImGuiAlbedoDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Albedo)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Albedo), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Normal)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Normal), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::RoughnessMetallness)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::RoughnessMetallness), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Emissive)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Emissive), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(m_TonemappedImage->GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(m_PathTracingImage->GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -851,11 +684,11 @@ void SceneRenderer::RecreateDescriptorSets()
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiEmissiveDescriptor);
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiViewportDescriptorTonemapped);
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiViewportDescriptorPathTracing);
-	
-	m_ImGuiAlbedoDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(0)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(0), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(1)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(1), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(2)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(2), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetColorImageNoVk(3)->GetSamplerHandle(), m_GBufferFramebuffer->GetColorImageView(3), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	m_ImGuiAlbedoDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Albedo)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Albedo), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Normal)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Normal), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::RoughnessMetallness)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::RoughnessMetallness), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Emissive)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Emissive), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(m_TonemappedImage->GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(m_PathTracingImage->GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -954,6 +787,7 @@ void SceneRenderer::CreateRayTracingPipeline()
 			info.Height = m_ViewportSize.height;
 			info.PushConstants = m_PushContantGBuffer.GetRangePtr();
 			info.ColorAttachmentCount = 4;
+			info.RenderPass = m_GBufferFramebuffer->GetRenderPass();
 			info.debugName = "GBuffer Pipeline";
 
 			// Descriptor set layouts for the pipeline
@@ -964,7 +798,7 @@ void SceneRenderer::CreateRayTracingPipeline()
 			};
 			info.DescriptorSetLayouts = layouts;
 
-			m_GBufferPass.CreatePipeline(info);
+			m_GBufferPipeline.Init(info);
 		}
 	}
 }
@@ -1020,7 +854,6 @@ void SceneRenderer::CreateFramebuffers()
 		m_DenoisedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL);
 	}
 
-	// TODO use this gbuffer to speed up path tracing and maybe do something with the formats?
 	// GBuffer
 	{
 		std::vector<Vulture::FramebufferAttachment> attachments
@@ -1036,8 +869,8 @@ void SceneRenderer::CreateFramebuffers()
 		info.AttachmentsFormats = &attachments;
 		info.DepthFormat = Vulture::Swapchain::FindDepthFormat();
 		info.Extent = m_ViewportSize;
-		info.RenderPass = m_GBufferPass.GetRenderPass();
 		info.CustomBits = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		info.RenderPassInfo = &Vulture::Framebuffer::RenderPassCreateInfo();
 		m_GBufferFramebuffer = std::make_shared<Vulture::Framebuffer>(info);
 	}
 
@@ -1297,9 +1130,9 @@ void SceneRenderer::ImGuiPass()
 
 			ImGui::Text("");
 
-			ImGui::SliderInt("Max Depth",			&m_DrawInfo.RayDepth, 0, 20);
+			ImGui::SliderInt("Max Depth",			&m_DrawInfo.RayDepth, 1, 20);
 			ImGui::SliderInt("Samples Per Pixel",	&m_DrawInfo.TotalSamplesPerPixel, 1, 50'000);
-			ImGui::SliderInt("Samples Per Frame",	&m_DrawInfo.SamplesPerFrame, 0, 40);
+			ImGui::SliderInt("Samples Per Frame",	&m_DrawInfo.SamplesPerFrame, 1, 40);
 
 			ImGui::Checkbox("Auto Focal Length",	&m_AutoDoF);
 			ImGui::SliderFloat("Focal Length",		&m_DrawInfo.FocalLength, 1.0f, 100.0f);

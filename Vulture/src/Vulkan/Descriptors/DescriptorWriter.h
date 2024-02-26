@@ -20,8 +20,8 @@ namespace Vulture
 		void WriteAs(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR* asInfo);
 		void WriteImage(uint32_t binding, VkDescriptorImageInfo* imageInfo);
 
-		bool Build(VkDescriptorSet& set);
-		void Overwrite(VkDescriptorSet& set);
+		bool Build(VkDescriptorSet* set);
+		void Overwrite(VkDescriptorSet* set);
 
 	private:
 		DescriptorSetLayout* m_SetLayout;

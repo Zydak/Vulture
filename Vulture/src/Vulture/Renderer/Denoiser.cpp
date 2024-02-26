@@ -312,7 +312,6 @@ namespace Vulture
         m_PixelBufferOut.BufferVk.Init(BufferInfo);
         CreateBufferHandles(m_PixelBufferOut);
 
-
         // Computing the amount of memory needed to do the denoiser
         VL_CORE_RETURN_ASSERT(optixDenoiserComputeMemoryResources(m_Denoiser, m_ImageSize.width, m_ImageSize.height, &m_DenoiserSizes), 0, "Computing Sizes Failed");
 

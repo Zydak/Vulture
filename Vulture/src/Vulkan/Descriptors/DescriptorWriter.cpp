@@ -4,32 +4,62 @@
 namespace Vulture
 {
 
+	/**
+	 * @brief Initializes the DescriptorWriter with the provided descriptor set layout and descriptor pool.
+	 *
+	 * @param setLayout - Pointer to the DescriptorSetLayout object representing the descriptor set layout.
+	 * @param pool - Pointer to the DescriptorPool object representing the descriptor pool.
+	 */
 	void DescriptorWriter::Init(DescriptorSetLayout* setLayout, DescriptorPool* pool)
 	{
+		// Check if the DescriptorWriter has already been initialized.
 		if (m_Initialized)
-			Destroy();
+			Destroy(); // If already initialized, destroy the existing state.
 
+		// Store the provided descriptor set layout and descriptor pool.
 		m_SetLayout = setLayout;
 		m_Pool = pool;
 
+		// Mark the DescriptorWriter as initialized.
 		m_Initialized = true;
 	}
 
+	/**
+	 * @brief Destroys the DescriptorWriter.
+	 */
 	void DescriptorWriter::Destroy()
 	{
+		// Clear the writes vector.
 		m_Writes.clear();
+
+		// Reset the descriptor pool pointer to nullptr.
 		m_Pool = nullptr;
+
+		// Reset the descriptor set layout pointer to nullptr.
 		m_SetLayout = nullptr;
+
+		// Mark the DescriptorWriter as uninitialized.
 		m_Initialized = false;
 	}
 
+	/**
+	 * @brief Constructor for DescriptorWriter.
+	 * 
+	 * @param setLayout - Pointer to the DescriptorSetLayout object representing the descriptor set layout.
+	 * @param pool - Pointer to the DescriptorPool object representing the descriptor pool.
+	 */
 	DescriptorWriter::DescriptorWriter(DescriptorSetLayout* setLayout, DescriptorPool* pool)
 	{
+		// Initialize the DescriptorWriter with the provided descriptor set layout and descriptor pool.
 		Init(setLayout, pool);
 	}
 
+	/**
+	 * @brief Destructor for DescriptorWriter.
+	 */
 	DescriptorWriter::~DescriptorWriter()
 	{
+		// If the DescriptorWriter is initialized, destroy it.
 		if (m_Initialized)
 			Destroy();
 	}
@@ -37,17 +67,23 @@ namespace Vulture
 	/*
 	 * @brief Writes buffer descriptor information to a specified binding in a Vulkan descriptor set.
 	 *
-	 * @param binding - The binding index to which the buffer descriptor information is to be written.
+	 * @param binding - Binding index to which the buffer descriptor information is to be written.
 	 * @param bufferInfo - Pointer to the VkDescriptorBufferInfo structure containing buffer-specific details.
 	 *
 	 * @note The 'bufferInfo' parameter must remain valid until the DescriptorWriter::Build function is called.
 	 */
 	void DescriptorWriter::WriteBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo)
 	{
-		VL_CORE_ASSERT(m_SetLayout->m_Bindings.size() >= binding, "Layout does not contain specified binding : {0}", binding);
+		// Check if the DescriptorWriter has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorWriter Not Initialized!");
 
+		// Check if the specified binding exists in the descriptor set layout.
+		VL_CORE_ASSERT(m_SetLayout->m_Bindings.size() > binding, "Layout does not contain specified binding: {0}", binding);
+
+		// Retrieve the binding description from the descriptor set layout.
 		auto& bindingDescription = m_SetLayout->m_Bindings[binding];
 
+		// Prepare the write descriptor set structure.
 		VkWriteDescriptorSet write{};
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.descriptorType = bindingDescription.Type;
@@ -55,16 +91,30 @@ namespace Vulture
 		write.pBufferInfo = bufferInfo;
 		write.descriptorCount = bindingDescription.DescriptorsCount;
 
+		// Push the write descriptor set structure to the writes vector.
 		m_Writes.push_back(write);
 	}
 
-	// TODO description
+	/**
+	 * @brief Writes acceleration structure descriptor information to the DescriptorWriter.
+	 *
+	 * @param binding - Binding index for which the acceleration structure descriptor information is written.
+	 * @param asInfo - Pointer to a VkWriteDescriptorSetAccelerationStructureKHR structure containing acceleration structure descriptor information.
+	 *
+	 * @note The 'asInfo' parameter must remain valid until the DescriptorWriter::Build function is called.
+	 */
 	void DescriptorWriter::WriteAs(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR* asInfo)
 	{
-		VL_CORE_ASSERT(m_SetLayout->m_Bindings.size() >= binding, "Layout does not contain specified binding : {0}", binding);
+		// Check if the DescriptorWriter has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorWriter Not Initialized!");
 
+		// Check if the specified binding exists in the descriptor set layout.
+		VL_CORE_ASSERT(m_SetLayout->m_Bindings.size() > binding, "Layout does not contain specified binding: {0}", binding);
+
+		// Retrieve the binding description from the descriptor set layout.
 		auto& bindingDescription = m_SetLayout->m_Bindings[binding];
 
+		// Prepare the write descriptor set structure.
 		VkWriteDescriptorSet write{};
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.descriptorType = bindingDescription.Type;
@@ -72,6 +122,7 @@ namespace Vulture
 		write.descriptorCount = bindingDescription.DescriptorsCount;
 		write.pNext = asInfo;
 
+		// Push the write descriptor set structure to the writes vector.
 		m_Writes.push_back(write);
 	}
 
@@ -85,10 +136,16 @@ namespace Vulture
 	 */
 	void DescriptorWriter::WriteImage(uint32_t binding, VkDescriptorImageInfo* imageInfo)
 	{
-		VL_CORE_ASSERT(m_SetLayout->m_Bindings.size() >= binding, "Layout does not contain specified binding : {0}", binding);
+		// Check if the DescriptorWriter has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorWriter Not Initialized!");
 
+		// Check if the specified binding exists in the descriptor set layout.
+		VL_CORE_ASSERT(m_SetLayout->m_Bindings.size() > binding, "Layout does not contain specified binding: {0}", binding);
+
+		// Retrieve the binding description from the descriptor set layout.
 		auto& bindingDescription = m_SetLayout->m_Bindings[binding];
 
+		// Prepare the write descriptor set structure.
 		VkWriteDescriptorSet write{};
 		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write.descriptorType = bindingDescription.Type;
@@ -96,25 +153,32 @@ namespace Vulture
 		write.pImageInfo = imageInfo;
 		write.descriptorCount = bindingDescription.DescriptorsCount;
 
+		// Push the write descriptor set structure to the writes vector.
 		m_Writes.push_back(write);
 	}
 
 	/*
-	 * @brief Builds a Vulkan descriptor set using the populated descriptor writes(WriteBuffer(), WriteImage()).
+	 * @brief Builds a Vulkan descriptor set using the populated descriptor writes (WriteBuffer(), WriteImage(), etc.).
 	 *
-	 * @param set - Reference to the Vulkan descriptor set that will be built (output parameter).
+	 * @param set - Pointer to the Vulkan descriptor set that will be built.
 	 *
 	 * @return True if the descriptor set is successfully built, false otherwise.
 	 */
-	bool DescriptorWriter::Build(VkDescriptorSet& set)
+	bool DescriptorWriter::Build(VkDescriptorSet* set)
 	{
-		// TODO:
-		// build a new pool whenever an old pool fills up?
+		// Check if the DescriptorWriter has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorWriter Not Initialized!");
+
+		// Attempt to allocate a descriptor set from the descriptor pool using the descriptor set layout.
 		VL_CORE_RETURN_ASSERT(m_Pool->AllocateDescriptorSets(m_SetLayout->GetDescriptorSetLayoutHandle(), set),
 			true,
 			"Failed to build descriptor. Pool is probably empty."
 		);
+
+		// Overwrite the allocated descriptor set with the accumulated write operations.
 		Overwrite(set);
+
+		// Return true indicating successful descriptor set allocation and write operations.
 		return true;
 	}
 
@@ -123,10 +187,21 @@ namespace Vulture
 	 *
 	 * @param set - Reference to the Vulkan descriptor set to be overwritten.
 	 */
-	void DescriptorWriter::Overwrite(VkDescriptorSet& set)
+	void DescriptorWriter::Overwrite(VkDescriptorSet* set)
 	{
-		for (auto& write : m_Writes) { write.dstSet = set; }
-		vkUpdateDescriptorSets(Device::GetDevice(), (uint32_t)m_Writes.size(), m_Writes.data(), 0, nullptr);
+		// Check if the DescriptorWriter has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorWriter Not Initialized!");
+
+		// Assign the provided descriptor set to each write operation in the writes vector.
+		for (auto& write : m_Writes)
+		{
+			write.dstSet = *set;
+		}
+
+		// Update the descriptor sets with the accumulated write operations.
+		vkUpdateDescriptorSets(Device::GetDevice(), static_cast<uint32_t>(m_Writes.size()), m_Writes.data(), 0, nullptr);
+
+		// Clear the writes vector.
 		m_Writes.clear();
 	}
 

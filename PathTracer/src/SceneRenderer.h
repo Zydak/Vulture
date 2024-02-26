@@ -72,9 +72,12 @@ private:
 		Albedo,
 		Normal,
 		RoughnessMetallness,
+		Emissive,
+		Depth,
 		Count
 	};
 	Vulture::Ref<Vulture::Framebuffer> m_GBufferFramebuffer;
+	Vulture::Pipeline m_GBufferPipeline;
 
 	Vulture::Ref<Vulture::Image> m_Skybox;
 
@@ -97,8 +100,6 @@ private:
 	Vulture::PushConstant<PushConstantGBuffer> m_PushContantGBuffer;
 	Vulture::PushConstant<PushConstantRay> m_PushContantRayTrace;
 
-	Vulture::RenderPass m_HDRPass;
-	Vulture::RenderPass m_GBufferPass;
 	Vulture::Scene* m_CurrentSceneRendered;
 
 	VkFence m_DenoiseFence;
@@ -148,10 +149,10 @@ private:
 		float DOFStrength		 = 0.0f;
 		float FocalLength		 = 8.0f;
 		int TotalSamplesPerPixel = 15000;
-		int RayDepth = 20;
-		int SamplesPerFrame = 15;
-		float EnvAzimuth = 0.0f;
-		float EnvAltitude = 0.0f;
+		int RayDepth			 = 20;
+		int SamplesPerFrame		 = 15;
+		float EnvAzimuth		 = 0.0f;
+		float EnvAltitude		 = 0.0f;
 
 		Vulture::Tonemap::TonemapInfo TonemapInfo{};
 		Vulture::Bloom::BloomInfo BloomInfo{};

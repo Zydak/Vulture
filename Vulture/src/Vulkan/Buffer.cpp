@@ -48,8 +48,8 @@ namespace Vulture
 	/**
 	 * Returns the minimum instance size required to be compatible with devices minOffsetAlignment
 	 *
-	 * @param instanceSize The size of an instance
-	 * @param minOffsetAlignment The minimum required alignment in bytes
+	 * @param instanceSize - Size of an instance
+	 * @param minOffsetAlignment - Minimum required alignment in bytes
 	 */
 	VkDeviceSize Buffer::GetAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment)
 	{
@@ -57,24 +57,38 @@ namespace Vulture
 		return instanceSize;
 	}
 
+	/**
+	 * @brief Initializes the buffer with the specified creation information.
+	 * 
+	 * @param createInfo - creation information for the buffer.
+	 */
 	void Buffer::Init(const Buffer::CreateInfo& createInfo)
 	{
+		// Check if the buffer has already been initialized.
 		if (m_Initialized)
-			Destroy();
+			Destroy(); // If already initialized, destroy the existing buffer.
 
-		VL_CORE_ASSERT(createInfo, "Incorectly Initialized Buffer::CreateInfo! Values: InstanceCount: {0}, InstanceSize: {1}, UsageFlags: {2}, MemoryPropertyFlags: {3}", createInfo.InstanceCount, createInfo.InstanceSize, createInfo.UsageFlags, createInfo.MemoryPropertyFlags);
+		m_Allocation = new VmaAllocation();
+
+		// Assert the validity of the provided creation information.
+		VL_CORE_ASSERT(createInfo, "Incorrectly Initialized Buffer::CreateInfo! Values: InstanceCount: {0}, InstanceSize: {1}, UsageFlags: {2}, MemoryPropertyFlags: {3}", createInfo.InstanceCount, createInfo.InstanceSize, createInfo.UsageFlags, createInfo.MemoryPropertyFlags);
+
+		// Mark the buffer as initialized.
 		m_Initialized = true;
+
+		// Store the creation information.
 		m_InstanceCount = createInfo.InstanceCount;
 		m_UsageFlags = createInfo.UsageFlags;
 		m_MemoryPropertyFlags = createInfo.MemoryPropertyFlags;
 		m_InstanceSize = createInfo.InstanceSize;
-		m_Allocation = new VmaAllocation();
 		m_NoPool = createInfo.NoPool;
 		m_MinOffsetAlignment = createInfo.MinOffsetAlignment;
 
+		// Calculate alignment size and total buffer size.
 		m_AlignmentSize = GetAlignment(m_InstanceSize, createInfo.MinOffsetAlignment);
 		m_BufferSize = m_AlignmentSize * m_InstanceCount;
 
+		// Prepare the buffer creation information.
 		VkBufferCreateInfo bufferInfo{};
 		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 		bufferInfo.size = m_BufferSize;
@@ -85,70 +99,111 @@ namespace Vulture
 		// The buffer will only be used from the graphics queue, so we can stick to exclusive access.
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
+		// Create the Vulkan buffer and allocate memory for it.
 		Device::CreateBuffer(bufferInfo, m_BufferHandle, *m_Allocation, m_MemoryPropertyFlags, m_NoPool);
 	}
 
+	/**
+	 * @brief Destroys the Vulkan buffer associated with the Buffer object,
+	 * unmaps any mapped memory, deallocates the buffer memory, and marks the buffer as uninitialized.
+	 *
+	 * @note: It is the responsibility of the caller to ensure that the buffer is not in use before calling this function.
+	 */
 	void Buffer::Destroy()
 	{
+		// Check if the buffer is initialized.
 		VL_CORE_ASSERT(m_Initialized, "Can't destroy buffer that is not initialized!");
+
+		// Unmap the buffer memory if it was mapped.
 		Unmap();
+
+		// Destroy the Vulkan buffer and deallocate the buffer memory.
 		vmaDestroyBuffer(Device::GetAllocator(), m_BufferHandle, *m_Allocation);
+
+		// Deallocate the allocation object.
 		delete m_Allocation;
+
+		// Mark the buffer as uninitialized.
 		m_Initialized = false;
 	}
 
+	/**
+	 * @brief Copies data from the source buffer to the destination buffer.
+	 *
+	 * @param srcBuffer - Source buffer from which data will be copied.
+	 * @param dstBuffer - Destination buffer to which data will be copied.
+	 * @param size - Size in bytes of the data to be copied.
+	 * @param queue - Vulkan queue where the command buffer will be submitted.
+	 * @param cmd (Optional) - Command buffer to use for the copy operation. If not provided, a temporary command buffer will be created.
+	 * @param pool (Optional) - Command pool from which to allocate the command buffer if one is not provided.
+	 */
 	void Buffer::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkQueue queue, VkCommandBuffer cmd, VkCommandPool pool)
 	{
-		bool hasCmd = cmd;
-		if (hasCmd == 0)
+		bool hasCmd = cmd != VK_NULL_HANDLE; // Check if a command buffer is provided.
+
+		// If no command buffer is provided, begin a temporary single time command buffer.
+		if (!hasCmd)
 		{
 			Device::BeginSingleTimeCommands(cmd, pool);
 		}
 
+		// Define the region to copy.
 		VkBufferCopy copyRegion{};
-		copyRegion.srcOffset = 0;    // Optional
-		copyRegion.dstOffset = 0;    // Optional
+		copyRegion.srcOffset = 0;   // Optional
+		copyRegion.dstOffset = 0;   // Optional
 		copyRegion.size = size;
+
+		// Copy data from the source buffer to the destination buffer.
 		vkCmdCopyBuffer(cmd, srcBuffer, dstBuffer, 1, &copyRegion);
 
-		if (hasCmd == 0)
+		// If no command buffer is provided, end the temporary single time command buffer and submit it.
+		if (!hasCmd)
 			Device::EndSingleTimeCommands(cmd, queue, pool);
 	}
 
+	/**
+	 * @brief Retrieves memory allocation information for the buffer.
+	 *
+	 * @return - VmaAllocationInfo structure containing memory allocation information.
+	 */
 	VmaAllocationInfo Buffer::GetMemoryInfo() const
 	{
+		// Check if the Buffer has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "Buffer Not Initialized!");
+
+		// Retrieve memory allocation information from VMA.
 		VmaAllocationInfo info{};
 		vmaGetAllocationInfo(Device::GetAllocator(), *m_Allocation, &info);
+
+		// Return the memory allocation information.
 		return info;
 	}
 
+	/**
+	 * @brief Retrieves the device address of the buffer.
+	 *
+	 * @return The device address of the buffer.
+	 */
 	VkDeviceAddress Buffer::GetDeviceAddress() const
 	{
+		// Check if the Buffer has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "Buffer Not Initialized!");
+
+		// Prepare the buffer device address info.
 		VkBufferDeviceAddressInfo info = {};
 		info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 		info.buffer = m_BufferHandle;
 
+		// Retrieve the device address of the buffer.
 		return vkGetBufferDeviceAddress(Device::GetDevice(), &info);
 	}
 
 	Buffer& Buffer::operator=(const Buffer& other)
 	{
-		// Recreate Buffer
-		Buffer::CreateInfo info{};
-		info.InstanceCount = other.GetInstanceCount();
-		info.InstanceSize = other.GetAlignmentSize();
-		info.MemoryPropertyFlags = other.GetMemoryPropertyFlags();
-		info.MinOffsetAlignment = other.GetMinAlignment();
-		info.NoPool = other.GetNoPool();
-		info.UsageFlags = other.GetUsageFlags();
-
 		if (other)
 		{
-			VL_CORE_WARN("Running Buffer copy costructor!");
-			if (m_Initialized)
-				this->Destroy();
-
-			this->Init(info);
+			VL_CORE_ASSERT(false, R"(Can't Use Assignment Operator On Initialized Buffer!
+				This function exists only to be able to put Buffer into structures like maps, it should never be used!)");
 		}
 
 		return *this;
@@ -156,32 +211,30 @@ namespace Vulture
 
 	Buffer::Buffer(const Buffer& other)
 	{
-		// Recreate Buffer
-		Buffer::CreateInfo info{};
-		info.InstanceCount = other.GetInstanceCount();
-		info.InstanceSize = other.GetAlignmentSize();
-		info.MemoryPropertyFlags = other.GetMemoryPropertyFlags();
-		info.MinOffsetAlignment = other.GetMinAlignment();
-		info.NoPool = other.GetNoPool();
-		info.UsageFlags = other.GetUsageFlags();
-
 		if (other)
 		{
-			VL_CORE_WARN("Running Buffer copy costructor!");
-			if (m_Initialized)
-				this->Destroy();
-
-			this->Init(info);
+			VL_CORE_ASSERT(false, R"(Can't Use Copy Constructor On Initialized Buffer!
+				This function exists only to be able to put Buffer into structures like maps, it should never be used!)");
 		}
 	}
 
+	/**
+	 * @brief Constructor for the Buffer class.
+	 * 
+	 * @param createInfo - Creation information for the buffer.
+	 */
 	Buffer::Buffer(const Buffer::CreateInfo& createInfo)
 	{
+		// Initialize the Buffer with the provided creation information.
 		Init(createInfo);
 	}
 
+	/**
+	 * @brief Destructor for the Buffer class.
+	 */
 	Buffer::~Buffer()
 	{
+		// If the Buffer is initialized, destroy it.
 		if (m_Initialized)
 			Destroy();
 	}
@@ -189,20 +242,33 @@ namespace Vulture
 	/**
 	 * Map a memory range of this buffer. If successful, mapped points to the specified buffer range.
 	 *
-	 * @param size (Optional) Size of the memory range to map. Pass VK_WHOLE_SIZE to map the complete
+	 * @param size (Optional) - Size of the memory range to map. Pass VK_WHOLE_SIZE to map the complete
 	 * buffer range.
-	 * @param offset (Optional) Byte offset from beginning
+	 * @param offset (Optional) - Byte offset from beginning
 	 */
 	VkResult Buffer::Map(VkDeviceSize size, VkDeviceSize offset)
 	{
-		return vmaMapMemory(Device::GetAllocator(), *m_Allocation, &m_Mapped);
+		// Check if the Buffer has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "Buffer Not Initialized!");
+
+		// Check if the buffer is not device local, as device local buffers cannot be mapped.
+		VL_CORE_ASSERT(!(m_MemoryPropertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT), "Can't map device local buffer!");
+
+		// Map the memory range of the buffer into CPU accessible memory.
+		VkResult result = vmaMapMemory(Device::GetAllocator(), *m_Allocation, &m_Mapped);
+
+		return result;
 	}
 
 	/**
-	 * Unmap a mapped memory range
+	 * @brief Unmaps a previously mapped memory range of the buffer.
 	 */
 	void Buffer::Unmap()
 	{
+		// Check if the Buffer has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "Buffer Not Initialized!");
+
+		// If the buffer is mapped, unmap the memory range.
 		if (m_Mapped)
 		{
 			vmaUnmapMemory(Device::GetAllocator(), *m_Allocation);
@@ -214,56 +280,75 @@ namespace Vulture
 	 * Copies the specified data to the mapped buffer. Default value writes whole buffer range
 	 *
 	 * @param data Pointer to the data to copy
-	 * @param size (Optional) Size of the data to copy. Pass VK_WHOLE_SIZE to flush the complete buffer
+	 * @param size (Optional) - Size of the data to copy. Pass VK_WHOLE_SIZE to flush the complete buffer
 	 * range.
-	 * @param offset (Optional) Byte offset from beginning of mapped region
+	 * @param offset (Optional) - Byte offset from beginning of mapped region.
+	 * @param cmdBuffer (Optional) - Vulkan Command Buffer.
 	 *
 	 */
-	void Buffer::WriteToBuffer(void* data, VkDeviceSize size, VkDeviceSize offset)
+	void Buffer::WriteToBuffer(void* data, VkDeviceSize size, VkDeviceSize offset, VkCommandBuffer cmdBuffer)
 	{
-		VL_CORE_ASSERT((size == VK_WHOLE_SIZE || size <= m_BufferSize), "Data size is larger than buffer size, either resize the buffer or create a larger one");
-		VL_CORE_ASSERT(data != nullptr, "invalid data");
+		// Check if the Buffer has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "Buffer Not Initialized!");
 
+		// Check if the data size is valid.
+		VL_CORE_ASSERT((size == VK_WHOLE_SIZE || size <= m_BufferSize), "Data size is larger than buffer size, either resize the buffer or create a larger one");
+
+		// Check if the data pointer is valid.
+		VL_CORE_ASSERT(data != nullptr, "Invalid data pointer");
+
+		// If no command buffer is provided, begin a temporary single time command buffer.
+		VkCommandBuffer cmd;
+		if (cmdBuffer == VK_NULL_HANDLE)
+			Device::BeginSingleTimeCommands(cmd, Device::GetGraphicsCommandPool());
+		else
+			cmd = cmdBuffer;
+
+		// If the buffer is device local, use a staging buffer to transfer the data.
 		if (m_MemoryPropertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 		{
+			// Create a staging buffer.
 			Buffer::CreateInfo info{};
 			info.InstanceCount = 1;
-			info.InstanceSize = size == VK_WHOLE_SIZE ? m_BufferSize : size;
+			info.InstanceSize = (size == VK_WHOLE_SIZE) ? m_BufferSize : size;
 			info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 			info.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
 			Buffer stagingBuffer(info);
+
+			// Map the staging buffer.
 			stagingBuffer.Map();
-			stagingBuffer.WriteToBuffer(data, size, offset);
+
+			// Write data to the staging buffer.
+			stagingBuffer.WriteToBuffer(data, size, offset, cmd);
+
+			// Unmap the staging buffer.
 			stagingBuffer.Unmap();
 
-			Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_BufferHandle, size, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
+			// Copy data from the staging buffer to the device local buffer.
+			Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_BufferHandle, size, Device::GetGraphicsQueue(), cmd, Device::GetGraphicsCommandPool());
 		}
-		else
+		else // If the buffer is not device local, write directly to the buffer.
 		{
+			// Check if the buffer is mapped.
 			VL_CORE_ASSERT(m_Mapped, "Cannot copy to unmapped buffer");
-			if (size == VK_WHOLE_SIZE) { memcpy(m_Mapped, data, m_BufferSize); }
-			else
+
+			// Calculate the memory offset within the mapped buffer.
+			char* memOffset = reinterpret_cast<char*>(m_Mapped) + offset;
+
+			// Copy data to the buffer.
+			if (size == VK_WHOLE_SIZE) 
 			{
-				char* memOffset = (char*)m_Mapped;
-				memOffset += offset;
+				memcpy(m_Mapped, data, m_BufferSize);
+			}
+			else 
+			{
 				memcpy(memOffset, data, size);
 			}
 		}
-	}
 
-	/**
-	 * Copies the specified data to the buffer.
-	 *
-	 * @param data - Pointer to the data to copy
-	 * @param size - Size of the data to copy. Pass VK_WHOLE_SIZE to flush the complete buffer
-	 * range.
-	 * @param offset - Byte offset from beginning of mapped region
-	 *
-	 */
-	void Buffer::WriteToBuffer(VkCommandBuffer cmdBuffer, void* data, VkDeviceSize size, VkDeviceSize offset)
-	{
-		vkCmdUpdateBuffer(cmdBuffer, m_BufferHandle, offset, size, data);
+		// If no command buffer was provided, end the temporary single time command buffer and submit it.
+		if (cmdBuffer == VK_NULL_HANDLE)
+			Device::EndSingleTimeCommands(cmd, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 	}
 
 	/**
@@ -282,6 +367,9 @@ namespace Vulture
 	 */
 	VkResult Buffer::Flush(VkDeviceSize size, VkDeviceSize offset)
 	{
+		// Check if the Buffer has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "Buffer Not Initialized!");
+
 		return vmaFlushAllocation(Device::GetAllocator(), *m_Allocation, offset, size);;
 	}
 
@@ -298,6 +386,9 @@ namespace Vulture
 	 */
 	VkResult Buffer::Invalidate(VkDeviceSize size, VkDeviceSize offset)
 	{
+		// Check if the Buffer has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "Buffer Not Initialized!");
+
 		return vmaInvalidateAllocation(Device::GetAllocator(), *m_Allocation, offset, size);
 	}
 

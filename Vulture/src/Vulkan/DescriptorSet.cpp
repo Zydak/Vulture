@@ -5,68 +5,144 @@
 
 namespace Vulture
 {
-
+	/**
+	 * @brief Initializes the descriptor set with the provided pool and bindings.
+	 * 
+	 * @param pool - Pointer to the descriptor pool to allocate the descriptor set from.
+	 * @param bindings - Descriptor bindings specifying the layout of the descriptor set.
+	 */
 	void DescriptorSet::Init(DescriptorPool* pool, const std::vector<DescriptorSetLayout::Binding>& bindings)
 	{
+		// Check if the descriptor set has already been initialized.
 		if (m_Initialized)
 			Destroy();
 
+		// Set the descriptor pool.
 		m_Pool = pool;
 
+		// Initialize the descriptor set layout with the provided bindings.
 		m_DescriptorSetLayout.Init(bindings);
+
+		m_Initialized = true;
 	}
 
+	/**
+	 * @brief Destroys the descriptor set.
+	 */
 	void DescriptorSet::Destroy()
 	{
+		// Destroy the descriptor set layout.
 		m_DescriptorSetLayout.Destroy();
+
+		// Clear the bindings write information.
 		m_BindingsWriteInfo.clear();
+
+		// Reset the descriptor pool pointer.
 		m_Pool = nullptr;
+
+		// Clear the buffer bindings.
 		m_Buffers.clear();
 
+		// Mark the descriptor set as uninitialized.
 		m_Initialized = false;
 	}
 
+	/**
+	 * @brief Constructor for the DescriptorSet class.
+	 *
+	 * @param pool - Pointer to the descriptor pool to allocate the descriptor set from.
+	 * @param bindings - Descriptor bindings specifying the layout of the descriptor set.
+	 */
 	DescriptorSet::DescriptorSet(DescriptorPool* pool, const std::vector<DescriptorSetLayout::Binding>& bindings)
 	{
+		// Initialize the descriptor set with the provided pool and bindings.
 		Init(pool, bindings);
 	}
 
+	/**
+	 * @brief Destructor for the DescriptorSet class.
+	 */
 	DescriptorSet::~DescriptorSet()
 	{
+		// If the descriptor set is initialized, destroy it.
 		if (m_Initialized)
 			Destroy();
 	}
 
 	/**
-	 * @brief Adds a descriptor for an image sampler to the descriptor set.
-	 *
-	 * @param binding - The binding point for the image sampler.
-	 * @param sampler - The Vulkan sampler to be used.
-	 * @param imageView - The Vulkan image view to be used.
-	 * @param imageLayout - The layout of the image.
-	 * @param stage - The shader stage where the sampler will be used.
-	 * @param count - number of descriptors in binding.
-	 * @param type - The descriptor type for the binding.
+	 * @brief Adds an image sampler to the descriptor set binding.
+	 * 
+	 * @param binding - Binding number to which the image sampler will be added.
+	 * @param sampler - VkSampler handle for the image sampler.
+	 * @param imageView - VkImageView handle for the image view.
+	 * @param imageLayout - Layout of the image in the descriptor.
 	 */
 	void DescriptorSet::AddImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout)
 	{
+		// Check if the DescriptorSet has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
+
+		// Check if the binding number is valid.
 		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() >= binding, "There is no such binding: {0}");
 
+		// Check if the binding type in the descriptor set layout matches VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER or VK_DESCRIPTOR_TYPE_STORAGE_IMAGE.
+		VL_CORE_ASSERT(
+			m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ||
+			m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+			"Wrong Binding Type! Type inside layout is: {}", m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type
+		);
+
+		// Check if the number of descriptors exceeds the specified count for the binding in the descriptor set layout.
+		VL_CORE_ASSERT(
+			m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].DescriptorsCount > m_BindingsWriteInfo[binding].m_ImageInfo.size(),
+			"Too many descriptors! Descriptor Count specified in layout: {0}",
+			m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].DescriptorsCount
+		);
+
+		// Create a descriptor image info structure.
 		VkDescriptorImageInfo imageDescriptor{};
 		imageDescriptor.sampler = sampler;
 		imageDescriptor.imageView = imageView;
 		imageDescriptor.imageLayout = imageLayout;
 
+		// Add the image sampler to the bindings write information for the specified binding.
 		m_BindingsWriteInfo[binding].m_ImageInfo.push_back(imageDescriptor);
+
+		// Set the binding type to image.
 		m_BindingsWriteInfo[binding].m_Type = BindingType::Image;
 	}
 
-	// TODO description
+	/**
+	 * @brief Adds an acceleration structure to the specified descriptor set binding.
+	 *
+	 * @param binding - Binding number to which the acceleration structure will be added.
+	 * @param asInfo - VkWriteDescriptorSetAccelerationStructureKHR structure containing acceleration structure info.
+	 */
 	void DescriptorSet::AddAccelerationStructure(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR asInfo)
 	{
+		// Check if the descriptor set has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
+
+		// Check if the binding number is valid.
 		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() >= binding, "There is no such binding: {0}");
 
+		// Check if the binding type in the descriptor set layout matches VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR.
+		VL_CORE_ASSERT(
+			m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type == VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+			"Wrong Binding Type! Type inside layout is: {}", m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type
+		);
+
+		// Check if the number of descriptors exceeds the specified count for the binding in the descriptor set layout.
+		VL_CORE_ASSERT(
+			m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].DescriptorsCount > m_BindingsWriteInfo[binding].m_AccelInfo.size(),
+			"Too many descriptors! Descriptor Count specified in layout: {0}",
+			m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].DescriptorsCount
+		);
+
+		// Add the acceleration structure to the bindings write information for the specified binding.
 		m_BindingsWriteInfo[binding].m_AccelInfo.push_back(asInfo);
+
+		// Set the binding type to acceleration structure.
 		m_BindingsWriteInfo[binding].m_Type = BindingType::AS;
 	}
 
@@ -76,124 +152,204 @@ namespace Vulture
 	 * @param binding - The binding point for the uniform buffer.
 	 * @param bufferSize - The size of the uniform buffer.
 	 * @param stage - The shader stage where the uniform buffer will be used.
+	 * @param deviceLocal - Flag indicating whether the buffer should be device-local or host-visible.
 	 */
-	void DescriptorSet::AddUniformBuffer(uint32_t binding, uint32_t bufferSize)
+	void DescriptorSet::AddUniformBuffer(uint32_t binding, uint32_t bufferSize, bool deviceLocal)
 	{
+		// Check if the descriptor set has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
+
+		// Check if the binding number is valid.
 		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() >= binding, "There is no such binding: {0}");
 
+		// Check if the binding type in the descriptor set layout matches VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER.
+		VL_CORE_ASSERT(
+			m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+			"Wrong Binding Type! Type inside layout is: {}", m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type
+		);
+
+		// Check if the number of descriptors exceeds the specified count for the binding in the descriptor set layout.
+		VL_CORE_ASSERT(
+			m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].DescriptorsCount > m_BindingsWriteInfo[binding].m_BufferInfo.size(),
+			"Too many descriptors! Descriptor Count specified in layout: {0}",
+			m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].DescriptorsCount
+		);
+
+		// Determine buffer usage flags based on deviceLocal flag.
 		VkBufferUsageFlags bufferUsageFlags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+		if (deviceLocal) 
+		{
+			bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		}
+
+		// Create a new uniform buffer and initialize it.
 		m_Buffers[binding].push_back(Vulture::Buffer());
-		Buffer::CreateInfo info{};
-		info.InstanceCount = 1;
-		info.InstanceSize = bufferSize;
-		info.UsageFlags = bufferUsageFlags;
-		info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT; // TODO ability to create device local buffers?
-		m_Buffers[binding][m_Buffers[binding].size()-1].Init(info);
-		m_Buffers[binding][m_Buffers[binding].size()-1].Map();
-
-		m_BindingsWriteInfo[binding].m_BufferInfo.push_back(m_Buffers[binding][m_Buffers[binding].size()-1].DescriptorInfo());
-		m_BindingsWriteInfo[binding].m_Type = BindingType::Buffer;
-	}
-
-	/*
-	 * @brief Adds a descriptor for a storage buffer to the descriptor set.
-	 *
-	 * @param binding - The binding point for the storage buffer.
-	 * @param bufferSize - The size of the storage buffer.
-	 * @param stage - The shader stage where the storage buffer will be used.
-	 * @param resizable - A flag indicating whether the storage buffer is resizable.
-	 */
-	void DescriptorSet::AddStorageBuffer(uint32_t binding, uint32_t bufferSize, bool resizable, bool deviceLocal, bool replace)
-	{
-		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() >= binding, "There is no such binding: {0}");
-
-		VkBufferUsageFlags bufferUsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		if (resizable) { bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; }
-		if (deviceLocal) { bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT; }
-		if (!replace)
-			m_Buffers[binding].push_back(Vulture::Buffer());
 		Buffer::CreateInfo info{};
 		info.InstanceCount = 1;
 		info.InstanceSize = bufferSize;
 		info.UsageFlags = bufferUsageFlags;
 		info.MemoryPropertyFlags = deviceLocal ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 		m_Buffers[binding][m_Buffers[binding].size() - 1].Init(info);
-		
-		if (!deviceLocal)
-			m_Buffers[binding][m_Buffers[binding].size() - 1].Map();
+		m_Buffers[binding][m_Buffers[binding].size() - 1].Map();
 
+		// Add the buffer descriptor info to the bindings write information for the specified binding.
 		m_BindingsWriteInfo[binding].m_BufferInfo.push_back(m_Buffers[binding][m_Buffers[binding].size() - 1].DescriptorInfo());
+
+		// Set the binding type to buffer.
 		m_BindingsWriteInfo[binding].m_Type = BindingType::Buffer;
 	}
 
 	/**
-	 * @brief Builds the descriptor set by creating a descriptor set layout and writing descriptor bindings based on 
-	 * the specified bindings. It iterates over the bindings, and for each binding, it uses a descriptor writer to write the 
-	 * corresponding descriptor information to the descriptor set.
+	 * @brief Adds a storage buffer to the descriptor set binding.
+	 *
+	 * @param binding - Binding number to which the storage buffer will be added.
+	 * @param bufferSize - Size of the storage buffer.
+	 * @param resizable - Flag indicating whether the buffer should be resizable.
+	 * @param deviceLocal - Flag indicating whether the buffer should be device-local or host-visible.
+	 */
+	void DescriptorSet::AddStorageBuffer(uint32_t binding, uint32_t bufferSize, bool resizable, bool deviceLocal)
+	{
+		// Check if the descriptor set has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
+
+		// Check if the binding number is valid.
+		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() >= binding, "There is no such binding: {0}");
+
+		// Check if the binding type in the descriptor set layout matches VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.
+		VL_CORE_ASSERT(
+			m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			"Wrong Binding Type! Type inside layout is: {}", m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type
+		);
+
+		// Determine buffer usage flags based on resizable and deviceLocal flags.
+		VkBufferUsageFlags bufferUsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		if (resizable)
+		{
+			bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		}
+		if (deviceLocal && !resizable) 
+		{
+			bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		}
+
+		// Initialize the buffer.
+		Buffer::CreateInfo info{};
+		info.InstanceCount = 1;
+		info.InstanceSize = bufferSize;
+		info.UsageFlags = bufferUsageFlags;
+		info.MemoryPropertyFlags = deviceLocal ? VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT : VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+		
+		m_Buffers[binding].push_back(Vulture::Buffer());
+		m_Buffers[binding][m_Buffers[binding].size() - 1].Init(info);
+
+		// Map the buffer if it's not device-local.
+		if (!deviceLocal) 
+		{
+			m_Buffers[binding][m_Buffers[binding].size() - 1].Map();
+		}
+
+		// Add the buffer descriptor info to the bindings write information for the specified binding.
+		m_BindingsWriteInfo[binding].m_BufferInfo.push_back(m_Buffers[binding][m_Buffers[binding].size() - 1].DescriptorInfo());
+
+		// Set the binding type to buffer.
+		m_BindingsWriteInfo[binding].m_Type = BindingType::Buffer;
+	}
+
+	/**
+	 * @brief Builds the descriptor set.
 	 */
 	void DescriptorSet::Build()
 	{
+		// Check if the descriptor set has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
+
+		// Create a descriptor writer using the descriptor set layout and the descriptor pool.
 		DescriptorWriter writer(&m_DescriptorSetLayout, m_Pool);
+
+		// Iterate over each binding and write data to the descriptor set.
 		for (auto& binding : m_BindingsWriteInfo)
 		{
+			// Determine the type of binding and call the corresponding write function.
 			switch (binding.second.m_Type)
 			{
-			case BindingType::Image: 
-			{
-				writer.WriteImage(binding.first, binding.second.m_ImageInfo.data());
-			} break;
+				case BindingType::Image:
+				{
+					writer.WriteImage(binding.first, binding.second.m_ImageInfo.data());
+				}
+				break;
 
-			case BindingType::Buffer: 
-			{
-				writer.WriteBuffer(binding.first, binding.second.m_BufferInfo.data());
-			} break;
+				case BindingType::Buffer:
+				{
+					writer.WriteBuffer(binding.first, binding.second.m_BufferInfo.data());
+				}
+				break;
 
-			case BindingType::AS:
-			{
-				writer.WriteAs(binding.first, binding.second.m_AccelInfo.data());
-			} break;
+				case BindingType::AS:
+				{
+					writer.WriteAs(binding.first, binding.second.m_AccelInfo.data());
+				}
+				break;
 
-			default: VL_CORE_ASSERT(false, "Unknown binding type: {0}", binding.second.m_Type); break;
+				default:
+					// This case should not happen. If it does, it indicates an unknown binding type.
+					VL_CORE_ASSERT(false, "Unknown binding type: {0}", binding.second.m_Type);
+					break;
 			}
 		}
 
-		writer.Build(m_DescriptorSetHandle);
+		// Build the descriptor set using the descriptor writer and store the handle.
+		writer.Build(&m_DescriptorSetHandle);
+
+		// Clear the bindings write information after building the descriptor set.
 		m_BindingsWriteInfo.clear();
 	}
 
 	/**
-	 * @brief Resizes a buffer on corresponding binding in the descriptor set. It checks the validity of the specified binding and performs 
-	 * the necessary operations to resize the buffer.
+	 * @brief Resize the storage buffer associated with a binding in the descriptor set.
 	 *
-	 * @param binding - The binding index of the buffer to be resized.
-	 * @param newSize - The new size of the buffer.
-	 * @param queue - The Vulkan queue to execute commands on.
-	 * @param pool - The Vulkan command pool to allocate command buffers from.
+	 * @param binding - Binding index inside descriptor set.
+	 * @param newSize - New size of the storage buffer.
+	 * @param commandBuffer (Optional) - Vulkan cmd buffer that copy command will be recorded onto.
+	 * @param buffer (Optional) - If there are multiple buffers in single binding, index of the buffer within the binding must be specified.
 	 */
-	void DescriptorSet::Resize(uint32_t binding, uint32_t newSize, VkQueue queue, VkCommandPool pool, uint32_t buffer)
+	void DescriptorSet::Resize(uint32_t binding, uint32_t newSize, VkCommandBuffer commandBuffer, uint32_t buffer)
 	{
-		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() >= binding, "There is no such binding: {0}");
-		VL_CORE_ASSERT(m_Buffers[binding][buffer].GetUsageFlags() & VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "Resizable flag has to be set!");
-		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, "Can't resize an image!");
-		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, "Binding has to be storage buffer!");
+		// Check if the descriptor set has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
 
+		// Check if the specified binding exists.
+		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() >= binding, "There is no such binding: {0}");
+
+		// Check if the buffer is resizable and the binding is not an image or uniform buffer.
+		VL_CORE_ASSERT(m_Buffers[binding][buffer].GetUsageFlags() & VK_BUFFER_USAGE_TRANSFER_SRC_BIT, "Resizable flag has to be set!");
+		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, "Only storage buffers can be resized");
+		
+		// Create a copy of the old buffer.
 		Vulture::Buffer oldBuffer = m_Buffers[binding][buffer];
+
+		// Copy data from the old buffer to the new buffer.
 		Vulture::Buffer::CopyBuffer(m_Buffers[binding][buffer].GetBuffer(), oldBuffer.GetBuffer(), oldBuffer.GetBufferSize(), Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
-		m_Buffers[binding][buffer] = Vulture::Buffer();
+
+		// Initialize a new buffer with the new size and properties.
 		Vulture::Buffer::CreateInfo info{};
 		info.InstanceCount = 1;
 		info.InstanceSize = newSize;
 		info.UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT; // TODO ability to create device local buffers?
+		info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+		if (oldBuffer.GetMemoryPropertyFlags() & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+			info.MemoryPropertyFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		m_Buffers[binding][buffer].Init(info);
 		m_Buffers[binding][buffer].Map();
 		m_BindingsWriteInfo[binding].m_BufferInfo[buffer] = m_Buffers[binding][buffer].DescriptorInfo();
 
+		// Create a descriptor writer and update the descriptor set.
 		DescriptorWriter writer(&m_DescriptorSetLayout, m_Pool);
 		writer.WriteBuffer(binding, m_BindingsWriteInfo[binding].m_BufferInfo.data());
-		
-		writer.Build(m_DescriptorSetHandle);
-		Buffer::CopyBuffer(oldBuffer.GetBuffer(), m_Buffers[binding][buffer].GetBuffer(), oldBuffer.GetBufferSize(), queue, 0, pool);
+		writer.Build(&m_DescriptorSetHandle);
+
+		// Copy data from the old buffer to the new buffer.
+		// TODO: add ability to use command buffer inside CopyBuffer
+		Buffer::CopyBuffer(oldBuffer.GetBuffer(), m_Buffers[binding][buffer].GetBuffer(), oldBuffer.GetBufferSize(), Device::GetGraphicsQueue(), commandBuffer, Device::GetGraphicsCommandPool());
 	}
 
 	/*
@@ -201,32 +357,45 @@ namespace Vulture
 	 * and image layout. It utilizes a descriptor writer to perform the update and then overwrites 
 	 * the descriptor set to reflect the changes.
 	 *
-	 * @param binding - The binding index of the image sampler to be updated.
-	 * @param imageView - The Vulkan image view to be associated with the image sampler.
-	 * @param sampler - The Vulkan sampler to be associated with the image sampler.
-	 * @param layout - The Vulkan image layout to be associated with the image sampler.
+	 * @param binding - Binding index of the image sampler to be updated.
+	 * @param imageView - Vulkan image view to be associated with the image sampler.
+	 * @param sampler - Vulkan sampler to be associated with the image sampler.
+	 * @param layout - Vulkan image layout to be associated with the image sampler.
 	 */
 	void DescriptorSet::UpdateImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout layout)
 	{
+		// Check if the descriptor set has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
+
+		// Create a descriptor writer.
 		DescriptorWriter writer(&m_DescriptorSetLayout, m_Pool);
-		VkDescriptorImageInfo ImageInfo;
-		ImageInfo.imageLayout = layout;
-		ImageInfo.imageView = imageView;
-		ImageInfo.sampler = sampler;
-		writer.WriteImage(binding, &ImageInfo);
-		writer.Overwrite(m_DescriptorSetHandle);
+
+		// Create a descriptor image info structure.
+		VkDescriptorImageInfo imageInfo;
+		imageInfo.imageLayout = layout;
+		imageInfo.imageView = imageView;
+		imageInfo.sampler = sampler;
+
+		// Write the image descriptor to the specified binding.
+		writer.WriteImage(binding, &imageInfo);
+
+		// Update the descriptor set with the new descriptor.
+		writer.Overwrite(&m_DescriptorSetHandle);
 	}
 
 	/*
 	 * @brief Binds the descriptor set to a Vulkan command buffer.
 	 *
-	 * @param set - The index of the descriptor set to bind to.
-	 * @param layout - The Vulkan pipeline layout to use for the binding.
-	 * @param bindPoint - The Vulkan pipeline bind point (e.g., VK_PIPELINE_BIND_POINT_GRAPHICS or VK_PIPELINE_BIND_POINT_COMPUTE).
-	 * @param cmdBuffer - The Vulkan command buffer to which the descriptor set is bound.
+	 * @param set - Index of the descriptor set to bind to.
+	 * @param layout - Vulkan pipeline layout to use for the binding.
+	 * @param bindPoint - Vulkan pipeline bind point (e.g., VK_PIPELINE_BIND_POINT_GRAPHICS or VK_PIPELINE_BIND_POINT_COMPUTE).
+	 * @param cmdBuffer - Vulkan command buffer to which the descriptor set is bound.
 	 */
 	void DescriptorSet::Bind(const uint32_t& set, const VkPipelineLayout& layout, const VkPipelineBindPoint& bindPoint, const VkCommandBuffer& cmdBuffer)
 	{
+		// Check if the DescriptorSet has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
+
 		vkCmdBindDescriptorSets(
 			cmdBuffer,
 			bindPoint,

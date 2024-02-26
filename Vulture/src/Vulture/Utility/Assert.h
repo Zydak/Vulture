@@ -30,7 +30,7 @@
 #if defined(WIN)
 #define VL_CORE_RETURN_ASSERT(function, value, ...)\
 {\
-		int val = function;\
+		auto val = function;\
 		if(val != value) {\
 			VL_CORE_ERROR("Expected: {}, Actual: {}", value, val);\
 			VL_CORE_ERROR(__VA_ARGS__);\

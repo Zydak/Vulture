@@ -581,8 +581,11 @@ namespace Vulture
 	 * @param cmdBuffer - Optional command buffer for the transition (useful for custom command buffer recording).
 	 * @param subresourceRange - Optional subresource range for the transition.
 	 */
-	void Image::TransitionImageLayout(const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, const VkImageSubresourceRange& subresourceRange)
+	void Image::TransitionImageLayout(const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkImageSubresourceRange subresourceRange)
 	{
+		if (m_Type == ImageType::Cubemap)
+			subresourceRange.layerCount = 6;
+
 		VkCommandBuffer commandBuffer;
 
 		if (!cmdBuffer)
@@ -714,7 +717,7 @@ namespace Vulture
 	}
 
 	/*
-	 * @briefCopies data from one image to another using Vulkan commands.
+	 * @brief Copies data from one image to another using Vulkan commands.
 	 *
 	 * @param image - The source image containing the data to copy.
 	 * @param width - The width of the image region to copy.

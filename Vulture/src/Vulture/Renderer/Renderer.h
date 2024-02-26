@@ -8,7 +8,6 @@
 #include "Vulkan/PushConstant.h"
 #include "Vulkan/SBT.h"
 #include "Mesh.h"
-#include "RenderPass.h"
 
 #include <vulkan/vulkan.h>
 

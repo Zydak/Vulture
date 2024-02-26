@@ -90,7 +90,6 @@ namespace Vulture
 			VkPipelineColorBlendStateCreateInfo ColorBlendInfo;
 			VkPipelineDepthStencilStateCreateInfo DepthStencilInfo;
 			VkPipelineLayout PipelineLayout = 0;
-			VkRenderPass RenderPass = 0;
 			uint32_t Subpass = 0;
 			bool DepthClamp = false;
 		};

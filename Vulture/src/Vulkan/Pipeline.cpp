@@ -28,7 +28,6 @@ namespace Vulture
 
 		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
 		PipelineConfigInfo configInfo{};
-		configInfo.RenderPass = info.RenderPass;
 		configInfo.DepthClamp = info.DepthClamp;
 		CreatePipelineConfigInfo(configInfo, info.Width, info.Height, info.Topology, info.CullMode, info.DepthTestEnable, info.BlendingEnable, info.ColorAttachmentCount);
 
@@ -79,7 +78,7 @@ namespace Vulture
 		graphicsPipelineInfo.pDepthStencilState = &configInfo.DepthStencilInfo;
 
 		graphicsPipelineInfo.layout = m_PipelineLayout;
-		graphicsPipelineInfo.renderPass = configInfo.RenderPass;
+		graphicsPipelineInfo.renderPass = info.RenderPass;
 		graphicsPipelineInfo.subpass = configInfo.Subpass;
 
 		graphicsPipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
