@@ -10,6 +10,7 @@ public:
 	~Sandbox();
 
 	void OnUpdate(double deltaTime) override;
+	void Destroy() override;
 	void InitScripts();
 	void UpdateScripts(double deltaTime);
 	void DestroyScripts();

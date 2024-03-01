@@ -70,7 +70,7 @@ void main()
         prd.Depth = 0;
 
         // Applying small jitter for anti aliasing
-        vec2 antiAliasingJitter = RandomPointInCircle(prd.Seed) * 0.25f / outputImageSize.x;
+        vec2 antiAliasingJitter = (RandomPointInCircle(prd.Seed) * 0.25f / outputImageSize.x) * pcRay.AliasingJitter;
         direction.xyz += camRight * antiAliasingJitter.x + camUp * antiAliasingJitter.y;
 
         vec3 focalPoint = origin.xyz + normalize(direction.xyz) * pcRay.FocalLenght;

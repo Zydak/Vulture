@@ -97,22 +97,9 @@ namespace Vulture
 		m_TextMeshes[frameIndex]->HasIndexBuffer() = true;
 		if (!vertices.empty())
 		{
-			// Not sure which way is faster :/
-
 			// Update Device local memory using vkCmdUpdateBuffer
 			m_TextMeshes[frameIndex]->GetVertexBuffer()->WriteToBuffer(vertices.data(), vertices.size() * sizeof(Mesh::Vertex), 0, cmdBuffer);
 			m_TextMeshes[frameIndex]->GetIndexBuffer()->WriteToBuffer(indices.data(), indices.size() * sizeof(uint32_t), 0, cmdBuffer);
-
-			// Map and memcopy data to host visible memory
-			// m_TextMeshes[frameIndex]->GetVertexBuffer()->Map();
-			// m_TextMeshes[frameIndex]->GetVertexBuffer()->WriteToBuffer(vertices.data(), vertices.size() * sizeof(Mesh::Vertex), 0);
-			// m_TextMeshes[frameIndex]->GetVertexBuffer()->Flush();
-			// m_TextMeshes[frameIndex]->GetVertexBuffer()->Unmap();
-
-			// m_TextMeshes[frameIndex]->GetIndexBuffer()->Map();
-			// m_TextMeshes[frameIndex]->GetIndexBuffer()->WriteToBuffer(indices.data(), indices.size() * sizeof(uint32_t), 0);
-			// m_TextMeshes[frameIndex]->GetIndexBuffer()->Flush();
-			// m_TextMeshes[frameIndex]->GetIndexBuffer()->Unmap();
 		}
 		m_TextMeshes[frameIndex]->GetVertexCount() = (uint32_t)vertices.size();
 		m_TextMeshes[frameIndex]->GetIndexCount() = (uint32_t)indices.size();

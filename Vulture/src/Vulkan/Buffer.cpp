@@ -134,10 +134,12 @@ namespace Vulture
 	 * @param dstBuffer - Destination buffer to which data will be copied.
 	 * @param size - Size in bytes of the data to be copied.
 	 * @param queue - Vulkan queue where the command buffer will be submitted.
+	 * @param srcOffset - Offset in bytes in src buffer.
+	 * @param dstOffset - Offset in bytes in dst buffer.
 	 * @param cmd (Optional) - Command buffer to use for the copy operation. If not provided, a temporary command buffer will be created.
 	 * @param pool (Optional) - Command pool from which to allocate the command buffer if one is not provided.
 	 */
-	void Buffer::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkQueue queue, VkCommandBuffer cmd, VkCommandPool pool)
+	void Buffer::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset, VkDeviceSize dstOffset, VkQueue queue, VkCommandBuffer cmd, VkCommandPool pool)
 	{
 		bool hasCmd = cmd != VK_NULL_HANDLE; // Check if a command buffer is provided.
 
@@ -149,8 +151,8 @@ namespace Vulture
 
 		// Define the region to copy.
 		VkBufferCopy copyRegion{};
-		copyRegion.srcOffset = 0;   // Optional
-		copyRegion.dstOffset = 0;   // Optional
+		copyRegion.srcOffset = srcOffset;   // Optional
+		copyRegion.dstOffset = dstOffset;   // Optional
 		copyRegion.size = size;
 
 		// Copy data from the source buffer to the destination buffer.
@@ -310,7 +312,7 @@ namespace Vulture
 			// Create a staging buffer.
 			Buffer::CreateInfo info{};
 			info.InstanceCount = 1;
-			info.InstanceSize = (size == VK_WHOLE_SIZE) ? m_BufferSize : size;
+			info.InstanceSize = size == VK_WHOLE_SIZE ? m_BufferSize : size;
 			info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 			info.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 			Buffer stagingBuffer(info);
@@ -319,13 +321,13 @@ namespace Vulture
 			stagingBuffer.Map();
 
 			// Write data to the staging buffer.
-			stagingBuffer.WriteToBuffer(data, size, offset, cmd);
+			stagingBuffer.WriteToBuffer(data, size, 0, cmd);
 
 			// Unmap the staging buffer.
 			stagingBuffer.Unmap();
 
 			// Copy data from the staging buffer to the device local buffer.
-			Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_BufferHandle, size, Device::GetGraphicsQueue(), cmd, Device::GetGraphicsCommandPool());
+			Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_BufferHandle, size, 0, offset, Device::GetGraphicsQueue(), cmd, Device::GetGraphicsCommandPool());
 		}
 		else // If the buffer is not device local, write directly to the buffer.
 		{

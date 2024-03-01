@@ -26,7 +26,7 @@ namespace Vulture
 		const std::vector<msdf_atlas::GlyphGeometry>& GetGlyphs() const { return m_Glyphs; }
 		const msdf_atlas::FontGeometry& GetGeometry() const { return m_FontGeometry; }
 		inline std::string GetFontName() const { return m_FontName; }
-		inline const DescriptorSet* GetUniform() const { return &m_DescriptorSet; }
+		inline DescriptorSet* GetUniform() { return &m_DescriptorSet; }
 
 	private:
 		std::string m_FontName;

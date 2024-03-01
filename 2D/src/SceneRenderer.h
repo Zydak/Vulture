@@ -52,23 +52,23 @@ private:
 	void ImGuiPass();
 	void GeometryPass();
 
-	Timer m_Timer;
+	Vulture::Timer m_Timer;
 	Vulture::Scene* m_CurrentSceneRendered;
 	uint32_t m_StaticObjectsCount = 0;
 
-	Vulture::RenderPass m_HDRPass;
 	Vulture::Pipeline m_FontPipeline;
-	std::vector<Vulture::Scope<Vulture::Framebuffer>> m_HDRFramebuffer;
+	Vulture::Pipeline m_HDRPipeline;
+	std::vector<Vulture::Ref<Vulture::Framebuffer>> m_HDRFramebuffer;
 
 	std::vector<std::vector<StorageBufferCacheEntry>> m_StorageBufferTransforms;
 	std::vector<std::vector<StorageBufferCacheEntry>> m_TextStorageBufferTransforms;
 
-	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_ObjectsUbos;
-	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_MainUbos;
-	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_TextUbos;
-	Vulture::Ref<Vulture::DescriptorSet> m_StaticObjectsUbos;
+	std::vector<Vulture::DescriptorSet> m_ObjectsUbos;
+	std::vector<Vulture::DescriptorSet> m_MainUbos;
+	std::vector<Vulture::DescriptorSet> m_TextUbos;
+	Vulture::DescriptorSet m_StaticObjectsUbos;
 
-	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_HDRDescriptorSet;
-	std::shared_ptr<Vulture::DescriptorSetLayout> m_AtlasSetLayout;
-	std::shared_ptr<Vulture::DescriptorSetLayout> m_FontAtlasSetLayout;
+	std::vector<Vulture::DescriptorSet> m_HDRDescriptorSet;
+	Vulture::DescriptorSetLayout m_AtlasSetLayout;
+	Vulture::DescriptorSetLayout m_FontAtlasSetLayout;
 };

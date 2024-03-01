@@ -13,10 +13,10 @@ layout(set = 2, binding = 1) uniform AtlasInfo
 
 void main()
 {
-	vec2 atlasOffset = (inTexCoords / textureSize(uTextureAtlas, 0)) * atlasInfo.TilingSize.x;
-	atlasOffset += (inTextureAtlasOffset / textureSize(uTextureAtlas, 0));
+	ivec2 atlasOffset = ivec2(inTexCoords * atlasInfo.TilingSize.x);
+	ivec2 atlasOffsetInt = atlasOffset + ivec2(inTextureAtlasOffset);
 
-	vec4 color = texture(uTextureAtlas, atlasOffset);
+	vec4 color = texelFetch(uTextureAtlas, atlasOffsetInt, 0);
 	if (color.a == 0)
 		discard;
 	outFragColor = color;

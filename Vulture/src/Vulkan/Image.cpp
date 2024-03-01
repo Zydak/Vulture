@@ -42,7 +42,6 @@ namespace Vulture
 		{
 			CreateImageView(createInfo.Format, createInfo.Aspect, createInfo.LayerCount, VK_IMAGE_VIEW_TYPE_2D);
 		}
-		CreateImageSampler(createInfo.SamplerInfo);
 
 		if (createInfo.DebugName != "")
 		{
@@ -152,7 +151,6 @@ namespace Vulture
 		);
 
 		CreateImageView(info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
-		CreateImageSampler(samplerInfo);
 
 		Device::SetObjectName(VK_OBJECT_TYPE_IMAGE, (uint64_t)m_ImageHandle, filepath.c_str());
 
@@ -188,7 +186,6 @@ namespace Vulture
 		{
 			CreateImageView(createInfo.Format, createInfo.Aspect, createInfo.LayerCount, VK_IMAGE_VIEW_TYPE_2D);
 		}
-		CreateImageSampler(createInfo.SamplerInfo);
 
 		uint32_t size = createInfo.Width * createInfo.Height * sizeof(float);
 
@@ -230,7 +227,6 @@ namespace Vulture
 		m_CDFInverseX.reset();
 		m_CDFInverseY.reset();
 		m_ImportanceSmplAccel.reset();
-		m_Sampler.Destroy();
 		vkDestroyImageView(Device::GetDevice(), m_ImageView, nullptr);
 		vmaDestroyImage(Device::GetAllocator(), m_ImageHandle, *m_Allocation);
 		delete m_Allocation;
@@ -355,16 +351,6 @@ namespace Vulture
 		Device::CreateImage(imageCreateInfo, m_ImageHandle, *m_Allocation, createInfo.Properties);
 	}
 
-	/*
-	 * @brief Creates a sampler for the image using the specified sampler information.
-	 *
-	 * @param samplerInfo - The sampler information for the image.
-	 */
-	void Image::CreateImageSampler(SamplerInfo samplerInfo)
-	{
-		m_Sampler.Init(samplerInfo);
-	}
-
 	void Image::CreateHDRImage(const std::string& filepath, EnvMethod method, SamplerInfo samplerInfo)
 	{
 		m_Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -410,7 +396,7 @@ namespace Vulture
 			m_ImportanceSmplAccel = std::make_shared<Buffer>();
 			m_ImportanceSmplAccel->Init(bufferInfo);
 
-			Buffer::CopyBuffer(stagingBuf.GetBuffer(), m_ImportanceSmplAccel->GetBuffer(), stagingBuf.GetBufferSize(), Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
+			Buffer::CopyBuffer(stagingBuf.GetBuffer(), m_ImportanceSmplAccel->GetBuffer(), stagingBuf.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 		}
 
 		//m_MipLevels = uint32_t(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
@@ -467,7 +453,6 @@ namespace Vulture
 		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		CreateImageView(info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
-		CreateImageSampler(samplerInfo);
 
 		if (method == EnvMethod::InverseTransformSampling)
 		{
@@ -644,6 +629,11 @@ namespace Vulture
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
 		barrier.image = m_ImageHandle;
+
+		if (m_Aspect == VK_IMAGE_ASPECT_COLOR_BIT)
+			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		else if (m_Aspect == VK_IMAGE_ASPECT_DEPTH_BIT)
+			subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 		barrier.subresourceRange = subresourceRange;
 		barrier.srcAccessMask = srcAccess;
 		barrier.dstAccessMask = dstAccess;

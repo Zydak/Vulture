@@ -328,7 +328,7 @@ namespace Vulture
 		Vulture::Buffer oldBuffer = m_Buffers[binding][buffer];
 
 		// Copy data from the old buffer to the new buffer.
-		Vulture::Buffer::CopyBuffer(m_Buffers[binding][buffer].GetBuffer(), oldBuffer.GetBuffer(), oldBuffer.GetBufferSize(), Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
+		Vulture::Buffer::CopyBuffer(m_Buffers[binding][buffer].GetBuffer(), oldBuffer.GetBuffer(), oldBuffer.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 
 		// Initialize a new buffer with the new size and properties.
 		Vulture::Buffer::CreateInfo info{};
@@ -348,8 +348,7 @@ namespace Vulture
 		writer.Build(&m_DescriptorSetHandle);
 
 		// Copy data from the old buffer to the new buffer.
-		// TODO: add ability to use command buffer inside CopyBuffer
-		Buffer::CopyBuffer(oldBuffer.GetBuffer(), m_Buffers[binding][buffer].GetBuffer(), oldBuffer.GetBufferSize(), Device::GetGraphicsQueue(), commandBuffer, Device::GetGraphicsCommandPool());
+		Buffer::CopyBuffer(oldBuffer.GetBuffer(), m_Buffers[binding][buffer].GetBuffer(), oldBuffer.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), commandBuffer, Device::GetGraphicsCommandPool());
 	}
 
 	/*

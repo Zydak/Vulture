@@ -34,7 +34,7 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 		UpdateTextBuffers();
 		GeometryPass();
 
-		Vulture::Renderer::FramebufferCopyPassImGui(m_HDRDescriptorSet[Vulture::Renderer::GetCurrentFrameIndex()]);
+		Vulture::Renderer::FramebufferCopyPassImGui(&m_HDRDescriptorSet[Vulture::Renderer::GetCurrentFrameIndex()]);
 
 		if (!Vulture::Renderer::EndFrame())
 			RecreateResources();
@@ -85,7 +85,7 @@ void SceneRenderer::UpdateStorageBuffer()
 
 			// Add the entry to the storage buffer
 			m_StorageBufferTransforms[Vulture::Renderer::GetCurrentFrameIndex()].push_back({transformComponent.transform, entity});
-			m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&entry, sizeof(StorageBufferEntry), i * sizeof(StorageBufferEntry));
+			m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()].GetBuffer(0)->WriteToBuffer(&entry, sizeof(StorageBufferEntry), i * sizeof(StorageBufferEntry));
 		}
 		else
 		{
@@ -97,7 +97,7 @@ void SceneRenderer::UpdateStorageBuffer()
 				m_StorageBufferTransforms[Vulture::Renderer::GetCurrentFrameIndex()][i].Transform = transformComponent.transform;
 				entry.AtlasOffset = glm::vec4(sprite.AtlasOffsets, 1.0f, 1.0f);
 
-				m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&entry, sizeof(StorageBufferEntry), i * sizeof(StorageBufferEntry));
+				m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()].GetBuffer(0)->WriteToBuffer(&entry, sizeof(StorageBufferEntry), i * sizeof(StorageBufferEntry));
 			}
 		}
 		
@@ -106,7 +106,7 @@ void SceneRenderer::UpdateStorageBuffer()
 
 	// Write the storage buffer data to the UBO buffer and flush it
 	//m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(m_StorageBuffer.data(), m_StorageBuffer.size() * sizeof(StorageBufferEntry), 0);
-	m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
+	m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()].GetBuffer(0)->Flush();
 
 	// get camera matrix of the main camera
 	auto cameraView = m_CurrentSceneRendered->GetRegistry().view<Vulture::CameraComponent>();
@@ -122,8 +122,8 @@ void SceneRenderer::UpdateStorageBuffer()
 	}
 
 	// Write the camera matrix data to the UBO buffer and flush it
-	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&mainUbo, sizeof(MainUbo), 0);
-	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
+	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()].GetBuffer(0)->WriteToBuffer(&mainUbo, sizeof(MainUbo), 0);
+	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()].GetBuffer(0)->Flush();
 }
 
 void SceneRenderer::UpdateTextStorageBuffers()
@@ -142,13 +142,13 @@ void SceneRenderer::UpdateTextStorageBuffers()
 		entry = transformComponent.transform.GetMat4();
 
 		// Add the entry to the storage buffer
-		m_TextUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&entry, sizeof(glm::mat4), i * sizeof(glm::mat4));
+		m_TextUbos[Vulture::Renderer::GetCurrentFrameIndex()].GetBuffer(0)->WriteToBuffer(&entry, sizeof(glm::mat4), i * sizeof(glm::mat4));
 
 		i++;
 	}
 
 	// Write the storage buffer data to the UBO buffer and flush it
-	m_TextUbos[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
+	m_TextUbos[Vulture::Renderer::GetCurrentFrameIndex()].GetBuffer(0)->Flush();
 }
 
 void SceneRenderer::UpdateTextBuffers()
@@ -210,9 +210,10 @@ void SceneRenderer::UpdateTextBuffers()
 void SceneRenderer::UpdateStaticStorageBuffer(Vulture::Scene& scene)
 {
 	m_StaticObjectsCount = 0;
-	m_StaticObjectsUbos = std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool());
-	m_StaticObjectsUbos->AddStorageBuffer(0, sizeof(StorageBufferEntry) * 1000, VK_SHADER_STAGE_VERTEX_BIT, true);
-	m_StaticObjectsUbos->Build();
+	Vulture::DescriptorSetLayout::Binding bin1{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT };
+	m_StaticObjectsUbos.Init(&Vulture::Renderer::GetDescriptorPool(), { bin1 });
+	m_StaticObjectsUbos.AddStorageBuffer(0, sizeof(StorageBufferEntry) * 1000, true);
+	m_StaticObjectsUbos.Build();
 
 	// Retrieve entities with TransformComponent and SpriteComponent from the current scene
 	auto view = scene.GetRegistry().view<Vulture::StaticTransformComponent, Vulture::SpriteComponent>();
@@ -238,8 +239,8 @@ void SceneRenderer::UpdateStaticStorageBuffer(Vulture::Scene& scene)
 	}
 
 	// Write the storage buffer data to the UBO buffer and flush it
-	m_StaticObjectsUbos->GetBuffer(0)->WriteToBuffer(staticStorageBuffer.data(), staticStorageBuffer.size() * sizeof(StorageBufferEntry), 0);
-	m_StaticObjectsUbos->GetBuffer(0)->Flush();
+	m_StaticObjectsUbos.GetBuffer(0)->WriteToBuffer(staticStorageBuffer.data(), staticStorageBuffer.size() * sizeof(StorageBufferEntry), 0);
+	m_StaticObjectsUbos.GetBuffer(0)->Flush();
 }
 
 void SceneRenderer::DestroySprite(entt::entity entity, Vulture::Scene& scene)
@@ -261,27 +262,29 @@ void SceneRenderer::GeometryPass()
 	clearVal.depthStencil = { 1.0f, 1 };
 	clearColors.push_back(clearVal);
 	// Begin the render pass
-	m_HDRPass.SetRenderTarget(&(*m_HDRFramebuffer[Vulture::Renderer::GetCurrentFrameIndex()]));
-	m_HDRPass.BeginRenderPass(clearColors);
+	//m_HDRPass.SetRenderTarget(&(*m_HDRFramebuffer[Vulture::Renderer::GetCurrentFrameIndex()]));
+	//m_HDRPass.BeginRenderPass(clearColors);
+	m_HDRFramebuffer[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(Vulture::Renderer::GetCurrentCommandBuffer(), clearColors);
+	m_HDRPipeline.Bind(Vulture::Renderer::GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS);
 
 	// Bind UBOs and descriptor sets
-	m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
+	m_ObjectsUbos[Vulture::Renderer::GetCurrentFrameIndex()].Bind(
 		0,
-		m_HDRPass.GetPipeline().GetPipelineLayout(),
+		m_HDRPipeline.GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		Vulture::Renderer::GetCurrentCommandBuffer()
 	);
 
-	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
+	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()].Bind(
 		1,
-		m_HDRPass.GetPipeline().GetPipelineLayout(),
+		m_HDRPipeline.GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		Vulture::Renderer::GetCurrentCommandBuffer()
 	);
 
 	m_CurrentSceneRendered->GetAtlas()->GetAtlasDescriptorSet()->Bind(
 		2,
-		m_HDRPass.GetPipeline().GetPipelineLayout(),
+		m_HDRPipeline.GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		Vulture::Renderer::GetCurrentCommandBuffer()
 	);
@@ -293,9 +296,9 @@ void SceneRenderer::GeometryPass()
 	if (m_StaticObjectsCount)
 	{
 		// Draw static objects
-		m_StaticObjectsUbos->Bind(
+		m_StaticObjectsUbos.Bind(
 			0,
-			m_HDRPass.GetPipeline().GetPipelineLayout(),
+			m_HDRPipeline.GetPipelineLayout(),
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
 			Vulture::Renderer::GetCurrentCommandBuffer()
 		);
@@ -306,14 +309,14 @@ void SceneRenderer::GeometryPass()
 
 	// Text
 	m_FontPipeline.Bind(Vulture::Renderer::GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS);
-	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
+	m_MainUbos[Vulture::Renderer::GetCurrentFrameIndex()].Bind(
 		0,
 		m_FontPipeline.GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		Vulture::Renderer::GetCurrentCommandBuffer()
 	);
 
-	m_TextUbos[Vulture::Renderer::GetCurrentFrameIndex()]->Bind(
+	m_TextUbos[Vulture::Renderer::GetCurrentFrameIndex()].Bind(
 		1,
 		m_FontPipeline.GetPipelineLayout(),
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -349,150 +352,156 @@ void SceneRenderer::GeometryPass()
 	}
 
 	// End the render pass
-	m_HDRPass.EndRenderPass();
+	m_HDRFramebuffer[Vulture::Renderer::GetCurrentFrameIndex()]->Unbind(Vulture::Renderer::GetCurrentCommandBuffer());
 }
 
 void SceneRenderer::CreateRenderPasses()
 {
-	VkAttachmentDescription colorAttachment = {};
-	colorAttachment.format = VK_FORMAT_R16G16B16A16_UNORM;
-	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-	VkAttachmentReference colorAttachmentRef = {};
-	colorAttachmentRef.attachment = 0;
-	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkAttachmentDescription depthAttachment{};
-	depthAttachment.format = Vulture::Swapchain::FindDepthFormat();
-	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	VkAttachmentReference depthAttachmentRef{};
-	depthAttachmentRef.attachment = 1;
-	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpass = {};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &colorAttachmentRef;
-	subpass.pDepthStencilAttachment = &depthAttachmentRef;
-
-	VkSubpassDependency dependency1 = {};
-	dependency1.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency1.dstSubpass = 0;
-	dependency1.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-	dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-	dependency1.srcAccessMask = 0;
-	dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-	VkSubpassDependency dependency2 = {};
-	dependency2.srcSubpass = 0;
-	dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
-	dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-	std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
-
-	std::vector<VkAttachmentDescription> attachments = { colorAttachment, depthAttachment };
-	VkRenderPassCreateInfo renderPassInfo = {};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = (uint32_t)attachments.size();
-	renderPassInfo.pAttachments = attachments.data();
-	renderPassInfo.subpassCount = 1;
-	renderPassInfo.pSubpasses = &subpass;
-	renderPassInfo.dependencyCount = (uint32_t)dependencies.size();
-	renderPassInfo.pDependencies = dependencies.data();
-
-	m_HDRPass.CreateRenderPass(renderPassInfo);
+	//VkAttachmentDescription colorAttachment = {};
+	//colorAttachment.format = VK_FORMAT_R16G16B16A16_UNORM;
+	//colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	//colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	//colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	//colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	//colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	//colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	//colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	//
+	//VkAttachmentReference colorAttachmentRef = {};
+	//colorAttachmentRef.attachment = 0;
+	//colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	//
+	//VkAttachmentDescription depthAttachment{};
+	//depthAttachment.format = Vulture::Swapchain::FindDepthFormat();
+	//depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	//depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	//depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	//depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	//depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	//depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	//depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	//
+	//VkAttachmentReference depthAttachmentRef{};
+	//depthAttachmentRef.attachment = 1;
+	//depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	//
+	//VkSubpassDescription subpass = {};
+	//subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	//subpass.colorAttachmentCount = 1;
+	//subpass.pColorAttachments = &colorAttachmentRef;
+	//subpass.pDepthStencilAttachment = &depthAttachmentRef;
+	//
+	//VkSubpassDependency dependency1 = {};
+	//dependency1.srcSubpass = VK_SUBPASS_EXTERNAL;
+	//dependency1.dstSubpass = 0;
+	//dependency1.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+	//dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	//dependency1.srcAccessMask = 0;
+	//dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	//
+	//VkSubpassDependency dependency2 = {};
+	//dependency2.srcSubpass = 0;
+	//dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
+	//dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	//dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	//dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//
+	//std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
+	//
+	//std::vector<VkAttachmentDescription> attachments = { colorAttachment, depthAttachment };
+	//VkRenderPassCreateInfo renderPassInfo = {};
+	//renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	//renderPassInfo.attachmentCount = (uint32_t)attachments.size();
+	//renderPassInfo.pAttachments = attachments.data();
+	//renderPassInfo.subpassCount = 1;
+	//renderPassInfo.pSubpasses = &subpass;
+	//renderPassInfo.dependencyCount = (uint32_t)dependencies.size();
+	//renderPassInfo.pDependencies = dependencies.data();
+	//
+	//m_HDRPass.CreateRenderPass(renderPassInfo);
 }
 
 void SceneRenderer::CreateDescriptorSets()
 {
 	// Create and initialize uniform buffers
+	m_ObjectsUbos.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
-		m_ObjectsUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
-		m_ObjectsUbos[i]->AddStorageBuffer(0, sizeof(StorageBufferEntry) * 200, VK_SHADER_STAGE_VERTEX_BIT, false);
-		m_ObjectsUbos[i]->Build();
+		Vulture::DescriptorSetLayout::Binding bin1{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT };
+		m_ObjectsUbos[i].Init(&Vulture::Renderer::GetDescriptorPool(), { bin1 });
+		m_ObjectsUbos[i].AddStorageBuffer(0, sizeof(StorageBufferEntry) * 200, false);
+		m_ObjectsUbos[i].Build();
 
 		// Resize test
 		// TODO: automatic resize when needed
 		//m_ObjectsUbos[i]->Resize(0, sizeof(StorageBufferEntry) * 200, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetGraphicsCommandPool());
 	}
 
+	m_TextUbos.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
-		m_TextUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
-		m_TextUbos[i]->AddStorageBuffer(0, sizeof(glm::mat4) * 100, VK_SHADER_STAGE_VERTEX_BIT, true);
-		m_TextUbos[i]->Build();
+		Vulture::DescriptorSetLayout::Binding bin1{ 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT };
+		m_TextUbos[i].Init(&Vulture::Renderer::GetDescriptorPool(), { bin1 });
+		m_TextUbos[i].AddStorageBuffer(0, sizeof(glm::mat4) * 100, true);
+		m_TextUbos[i].Build();
 
 		// Resize test	
 		// TODO: automatic resize when needed
 		//m_TextUbos[i]->Resize(0, sizeof(glm::mat4) * 100, Vulture::Device::GetGraphicsQueue(), Vulture::Device::GetGraphicsCommandPool());
 	}
 
+	m_MainUbos.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
-		m_MainUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
-		m_MainUbos[i]->AddUniformBuffer(0, sizeof(MainUbo), VK_SHADER_STAGE_VERTEX_BIT);
-		m_MainUbos[i]->Build();
+		Vulture::DescriptorSetLayout::Binding bin1{ 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT };
+		m_MainUbos[i].Init(&Vulture::Renderer::GetDescriptorPool(), { bin1 });
+		m_MainUbos[i].AddUniformBuffer(0, sizeof(MainUbo));
+		m_MainUbos[i].Build();
 	}
 
+	m_HDRDescriptorSet.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_HDRDescriptorSet.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
-		m_HDRDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSamplerHandle().GetSamplerHandle(), m_HDRFramebuffer[i]->GetColorImageView(0),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_FRAGMENT_BIT
-		);
-		m_HDRDescriptorSet[i]->Build();
+		Vulture::DescriptorSetLayout::Binding bin1{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+		m_HDRDescriptorSet[i].Init(&Vulture::Renderer::GetDescriptorPool(), { bin1 });
+		m_HDRDescriptorSet[i].AddImageSampler(0, m_HDRFramebuffer[i]->GetImageNoVk(0)->GetSamplerHandle(), m_HDRFramebuffer[i]->GetImageView(0), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		m_HDRDescriptorSet[i].Build();
 	}
 
 	// Create descriptor set layout for atlas
-	auto atlasLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
-	atlasLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-	atlasLayoutBuilder.AddBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-	m_AtlasSetLayout = std::make_shared<Vulture::DescriptorSetLayout>(atlasLayoutBuilder);
+	Vulture::DescriptorSetLayout::Binding bin1{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+	Vulture::DescriptorSetLayout::Binding bin2{ 1, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT };
+	m_AtlasSetLayout.Init({ bin1, bin2 });
 
-	auto fontAtlasLayoutBuilder = Vulture::DescriptorSetLayout::Builder();
-	fontAtlasLayoutBuilder.AddBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
-	m_FontAtlasSetLayout = std::make_shared<Vulture::DescriptorSetLayout>(fontAtlasLayoutBuilder);
+	Vulture::DescriptorSetLayout::Binding bin3{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+	m_FontAtlasSetLayout.Init({ bin3 });
 }
 
 void SceneRenderer::RecreateDescriptorSets()
 {
 	m_MainUbos.clear();
 	m_HDRDescriptorSet.clear();
+	m_MainUbos.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		// Create and initialize uniform buffers
-		m_MainUbos.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
-		m_MainUbos[i]->AddUniformBuffer(0, sizeof(MainUbo), VK_SHADER_STAGE_VERTEX_BIT);
-		m_MainUbos[i]->Build();
+		Vulture::DescriptorSetLayout::Binding bin1{ 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT };
+		m_MainUbos[i].Init(&Vulture::Renderer::GetDescriptorPool(), { bin1 });
+		m_MainUbos[i].AddUniformBuffer(0, sizeof(MainUbo));
+		m_MainUbos[i].Build();
 	}
 
+	m_HDRDescriptorSet.resize(MAX_FRAMES_IN_FLIGHT);
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_HDRDescriptorSet.push_back(std::make_shared<Vulture::DescriptorSet>(Vulture::Renderer::GetDescriptorPool()));
-		m_HDRDescriptorSet[i]->AddImageSampler(0, Vulture::Renderer::GetSamplerHandle().GetSamplerHandle(), m_HDRFramebuffer[i]->GetColorImageView(0),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_SHADER_STAGE_FRAGMENT_BIT
-		);
-		m_HDRDescriptorSet[i]->Build();
+		Vulture::DescriptorSetLayout::Binding bin1{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+		m_HDRDescriptorSet[i].Init(&Vulture::Renderer::GetDescriptorPool(), { bin1 });
+		m_HDRDescriptorSet[i].AddImageSampler(0, m_HDRFramebuffer[i]->GetImageNoVk(0)->GetSamplerHandle(), m_HDRFramebuffer[i]->GetImageView(0), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		m_HDRDescriptorSet[i].Build();
 	}
 }
 
@@ -502,11 +511,13 @@ void SceneRenderer::CreatePipelines()
 
 	{
 		// Configure pipeline creation parameters
-		Vulture::PipelineCreateInfo info{};
+		Vulture::Pipeline::GraphicsCreateInfo info{};
 		info.AttributeDesc = Vulture::Mesh::Vertex::GetAttributeDescriptions();
 		info.BindingDesc = Vulture::Mesh::Vertex::GetBindingDescriptions();
-		info.ShaderFilepaths.push_back("src/shaders/spv/Geometry.vert.spv");
-		info.ShaderFilepaths.push_back("src/shaders/spv/Geometry.frag.spv");
+		Vulture::Shader shader1({ "src/shaders/Geometry.vert", VK_SHADER_STAGE_VERTEX_BIT });
+		Vulture::Shader shader2({ "src/shaders/Geometry.frag", VK_SHADER_STAGE_FRAGMENT_BIT });
+		info.Shaders.push_back(&shader1);
+		info.Shaders.push_back(&shader2);
 		info.BlendingEnable = true;
 		info.DepthTestEnable = true;
 		info.CullMode = VK_CULL_MODE_FRONT_BIT;
@@ -514,22 +525,21 @@ void SceneRenderer::CreatePipelines()
 		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
 		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
 		info.PushConstants = nullptr;
+		info.RenderPass = m_HDRFramebuffer[0]->GetRenderPass();
 
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts
 		{
-			m_ObjectsUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
-			m_MainUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
-			m_AtlasSetLayout->GetDescriptorSetLayoutHandle()
+			m_ObjectsUbos[0].GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
+			m_MainUbos[0].GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
+			m_AtlasSetLayout.GetDescriptorSetLayoutHandle()
 		};
 		info.DescriptorSetLayouts = layouts;
 
-		m_HDRPass.CreatePipeline(info);
+		m_HDRPipeline.Init(info);
 	}
 
-
 	// Font Pipeline
-
 	{
 		VkPushConstantRange range{};
 		range.offset = 0;
@@ -537,11 +547,13 @@ void SceneRenderer::CreatePipelines()
 		range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
 		// Configure pipeline creation parameters
-		Vulture::PipelineCreateInfo info{};
+		Vulture::Pipeline::GraphicsCreateInfo info{};
 		info.AttributeDesc = Vulture::Mesh::Vertex::GetAttributeDescriptions();
 		info.BindingDesc = Vulture::Mesh::Vertex::GetBindingDescriptions();
-		info.ShaderFilepaths.push_back("src/shaders/spv/Font.vert.spv");
-		info.ShaderFilepaths.push_back("src/shaders/spv/Font.frag.spv");
+		Vulture::Shader shader1({ "src/shaders/Font.vert", VK_SHADER_STAGE_VERTEX_BIT });
+		Vulture::Shader shader2({ "src/shaders/Font.frag", VK_SHADER_STAGE_FRAGMENT_BIT });
+		info.Shaders.push_back(&shader1);
+		info.Shaders.push_back(&shader2);
 		info.BlendingEnable = true;
 		info.DepthTestEnable = true;
 		info.CullMode = VK_CULL_MODE_BACK_BIT;
@@ -549,28 +561,34 @@ void SceneRenderer::CreatePipelines()
 		info.Width = Vulture::Renderer::GetSwapchain().GetWidth();
 		info.Height = Vulture::Renderer::GetSwapchain().GetHeight();
 		info.PushConstants = &range;
-		info.RenderPass = m_HDRPass.GetRenderPass();
+		info.RenderPass = m_HDRFramebuffer[0]->GetRenderPass();
 
 		// Descriptor set layouts for the pipeline
 		std::vector<VkDescriptorSetLayout> layouts
 		{
-			m_MainUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
-			m_TextUbos[0]->GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
-			m_FontAtlasSetLayout->GetDescriptorSetLayoutHandle()
+			m_MainUbos[0].GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
+			m_TextUbos[0].GetDescriptorSetLayout()->GetDescriptorSetLayoutHandle(),
+			m_FontAtlasSetLayout.GetDescriptorSetLayoutHandle()
 		};
 		info.DescriptorSetLayouts = layouts;
 
-		m_FontPipeline.CreatePipeline(info);
+		m_FontPipeline.Init(info);
 	}
 }
 
 void SceneRenderer::CreateFramebuffers()
 {
 	m_HDRFramebuffer.clear();
+	Vulture::Framebuffer::CreateInfo info{};
 	std::vector<Vulture::FramebufferAttachment> attachments{ Vulture::FramebufferAttachment::ColorRGBA16, Vulture::FramebufferAttachment::Depth };
+	info.AttachmentsFormats = &attachments;
+	info.DepthFormat = Vulture::Swapchain::FindDepthFormat();
+	info.Extent = Vulture::Renderer::GetSwapchain().GetSwapchainExtent();
+	Vulture::Framebuffer::RenderPassCreateInfo rPassInfo{};
+	info.RenderPassInfo = &rPassInfo;
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_HDRFramebuffer.push_back(std::make_unique<Vulture::Framebuffer>(attachments, m_HDRPass.GetRenderPass(), Vulture::Renderer::GetSwapchain().GetSwapchainExtent(), Vulture::Swapchain::FindDepthFormat()));
+		m_HDRFramebuffer.push_back(std::make_shared<Vulture::Framebuffer>(info));
 	}
 }
 

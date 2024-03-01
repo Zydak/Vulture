@@ -25,6 +25,7 @@ namespace Vulture
 			float Exposure = 0.5f;
 			float Brightness = 0.5f;
 			float Vignette = 0.0f;
+			int LinearSpace = false;
 		};
 
 		void Init(const CreateInfo& info);

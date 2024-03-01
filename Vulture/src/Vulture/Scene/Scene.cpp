@@ -3,7 +3,6 @@
 #include "Entity.h"
 #include "Components.h"
 
-
 #include "../Renderer/AccelerationStructure.h"
 
 namespace Vulture
@@ -80,6 +79,13 @@ namespace Vulture
 		entity.AddComponent<StaticTransformComponent>(transform);
 		glm::vec2 offset = m_Atlas->GetTextureOffset(tileOffset);
 		entity.AddComponent<SpriteComponent>(offset);
+	}
+
+	Vulture::Entity Scene::CreateSkybox(const std::string& filepath)
+	{
+		Entity e = CreateEntity();
+		e.AddComponent<SkyboxComponent>(filepath);
+		return e;
 	}
 
 	Vulture::Entity Scene::CreateModel(std::string filepath, Transform transform)

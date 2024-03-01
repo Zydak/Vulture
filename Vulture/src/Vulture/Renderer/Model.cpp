@@ -83,8 +83,22 @@ namespace Vulture
 		for (unsigned int i = 0; i < node->mNumMeshes; i++)
 		{
 			glm::mat4 transform = *(glm::mat4*)(&node->mTransformation);
+			aiNode* currNode = node;
+			while (true)
+			{
+				if (currNode->mParent)
+				{
+					currNode = currNode->mParent;
+					transform *= *(glm::mat4*)(&currNode->mTransformation);
+				}
+				else
+				{
+					break;
+				}
+			}
 			//transform = glm::transpose(transform);
 			aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+			m_MeshesNames.push_back(node->mName.C_Str());
 			m_Meshes.push_back(std::make_shared<Mesh>());
 			m_Meshes[index]->Init(mesh, scene, transform);
 			m_VertexCount += m_Meshes[index]->GetVertexCount();
@@ -94,38 +108,43 @@ namespace Vulture
 
 			m_Materials.push_back(Material());
 			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-			aiColor3D emissiveColor(0.0f, 0.0f, 0.0f);
+			aiColor4D emissiveColor(0.0f, 0.0f, 0.0f, 0.0f);
 			aiColor4D albedoColor(0.0f, 0.0f, 0.0f, 1.0f);
 			float roughness = 1.0f;
 			float metallic = 0.0f;
 
 			material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor);
+			material->Get(AI_MATKEY_EMISSIVE_INTENSITY, emissiveColor.a);
 			material->Get(AI_MATKEY_COLOR_DIFFUSE, albedoColor);
 			material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
 			material->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
+			material->Get(AI_MATKEY_REFRACTI, m_Materials[index].Ior);
+			material->Get(AI_MATKEY_ANISOTROPY_FACTOR, m_Materials[index].Anisotropic);
+			material->Get(AI_MATKEY_CLEARCOAT_FACTOR, m_Materials[index].Clearcoat);
+			material->Get(AI_MATKEY_CLEARCOAT_ROUGHNESS_FACTOR, m_Materials[index].ClearcoatRoughness);
 
-			if (roughness < 0.1f)
-			{
-				roughness = 0.01f;
-				m_Materials[index].Ior = 1.7f;
-				m_Materials[index].SpecTrans = 1.0f;
-				metallic = 0.0f;
-			}
-			else
-			{
-				//roughness = 1.0f;
-				//metallic = 0.0f;
-			}
+			//if (roughness < 0.1f)
+			//{
+			//	roughness = 0.01f;
+			//	m_Materials[index].Ior = 1.7f;
+			//	m_Materials[index].SpecTrans = 1.0f;
+			//	metallic = 0.0f;
+			//}
+			//else
+			//{
+			//	//roughness = 1.0f;
+			//	//metallic = 0.0f;
+			//}
 			//albedoColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 			//metallic = 0.0f;
 			//roughness = 0.2f;
 			//m_Materials[index].Ior = 1.5f;
 			//m_Materials[index].SpecTrans = 1.0f;
 
-			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_BASE_COLOR); i++)
+			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_DIFFUSE); i++)
 			{
 				aiString str;
-				material->GetTexture(aiTextureType_BASE_COLOR, i, &str);
+				material->GetTexture(aiTextureType_DIFFUSE, i, &str);
 				m_AlbedoTextures.push_back(AssetManager::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
@@ -165,7 +184,7 @@ namespace Vulture
 			info.SamplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR };
 
 			// Create Empty Texture if none are found
-			if (material->GetTextureCount(aiTextureType_BASE_COLOR) == 0)
+			if (material->GetTextureCount(aiTextureType_DIFFUSE) == 0)
 			{
 				m_AlbedoTextures.push_back(AssetManager::CreateTexture(glm::vec4(1.0f), info));
 			}
@@ -173,11 +192,11 @@ namespace Vulture
 			{
 				m_NormalTextures.push_back(AssetManager::CreateTexture(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f), info));
 			}
+			info.Format = VK_FORMAT_R8_UNORM;
 			if (material->GetTextureCount(aiTextureType_METALNESS) == 0)
 			{
-				m_MetallnessTextures.push_back(AssetManager::CreateTexture(glm::vec4(0.0f), info));
+				m_MetallnessTextures.push_back(AssetManager::CreateTexture(glm::vec4(1.0f), info));
 			}
-			info.Format = VK_FORMAT_R8_UNORM;
 			if (material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS) == 0)
 			{
 				m_RoughnessTextures.push_back(AssetManager::CreateTexture(glm::vec4(1.0f), info));
@@ -186,7 +205,7 @@ namespace Vulture
 			m_Materials[index].Color = glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, albedoColor.a);
 			m_Materials[index].Metallic = metallic;
 			m_Materials[index].Roughness = roughness;
-			m_Materials[index].Emissive = glm::vec4(emissiveColor.r, emissiveColor.g, emissiveColor.b, 1.0f);
+			m_Materials[index].Emissive = glm::vec4(emissiveColor.r, emissiveColor.g, emissiveColor.b, emissiveColor.a);
 
 			CreateTextureSet(index);
 
@@ -213,25 +232,25 @@ namespace Vulture
 
 		m_TextureSets[index]->AddImageSampler(
 			0,
-			m_AlbedoTextures[index]->GetSamplerHandle(),
+			Vulture::Renderer::GetSamplerHandle(),
 			m_AlbedoTextures[index]->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 		m_TextureSets[index]->AddImageSampler(
 			1,
-			m_NormalTextures[index]->GetSamplerHandle(),
+			Vulture::Renderer::GetSamplerHandle(),
 			m_NormalTextures[index]->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 		m_TextureSets[index]->AddImageSampler(
 			2,
-			m_RoughnessTextures[index]->GetSamplerHandle(),
+			Vulture::Renderer::GetSamplerHandle(),
 			m_RoughnessTextures[index]->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 		m_TextureSets[index]->AddImageSampler(
 			3,
-			m_MetallnessTextures[index]->GetSamplerHandle(),
+			Vulture::Renderer::GetSamplerHandle(),
 			m_MetallnessTextures[index]->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);

@@ -99,8 +99,10 @@ namespace Vulture
 
 	void AssetManager::Cleanup()
 	{
-		for (auto& image : s_Textures)
+		int i = 0;
+		for (auto image : s_Textures)
 		{
+			i++;
 			if (image.second.use_count() == 1)
 			{
 				AssetManager::Resource res;
@@ -112,7 +114,7 @@ namespace Vulture
 			}
 		}
 
-		for (auto& model : s_Models)
+		for (auto model : s_Models)
 		{
 			if (model.second.use_count() == 1)
 			{

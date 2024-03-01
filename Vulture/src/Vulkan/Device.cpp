@@ -10,6 +10,7 @@
 #include <vulkan/vk_platform.h>
 #include <Dxgi1_2.h>
 
+#include "Defines.h"
 
 namespace Vulture
 {
@@ -23,14 +24,6 @@ namespace Vulture
 		{VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME, false}
 	};
 
-	// These message IDs will be ignored by layers
-	std::vector<int32_t> Device::s_LayersIgnoreList =
-	{
-		-602362517, // Small allocation, imgui constantly throws that
-		-1277938581, // Small allocation again
-		1413273847 // Memory priority
-	};
-
 	/*
 	   *  @brief Callback function for Vulkan to be called by validation layers when needed
 	*/
@@ -38,7 +31,7 @@ namespace Vulture
 		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 	{
 		int32_t currentID = pCallbackData->messageIdNumber;
-		for (int32_t id : Device::s_LayersIgnoreList)
+		for (int32_t id : s_LayersIgnoreList)
 		{
 			if (currentID == id)
 				return VK_FALSE;
@@ -690,7 +683,7 @@ namespace Vulture
 	void Device::SetObjectName(VkObjectType type, uint64_t handle, const char* name)
 	{
 		// Check if debug or release mode is enabled (not in distribution mode)
-#ifndef DIST
+#ifndef DISTRIBUTION
 
 		// Assert that the device has been initialized before setting the object name
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
@@ -719,7 +712,7 @@ namespace Vulture
 	void Device::BeginLabel(VkCommandBuffer cmd, const char* name, glm::vec4 color)
 	{
 		// Check if debug or release mode is enabled (not in distribution mode)
-#ifndef DIST
+#ifndef DISTRIBUTION
 
 		// Assert that the device has been initialized before beginning the label
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
@@ -741,7 +734,7 @@ namespace Vulture
 	void Device::EndLabel(VkCommandBuffer cmd)
 	{
 		// Check if debug or release mode is enabled (not in distribution mode)
-#ifndef DIST
+#ifndef DISTRIBUTION
 
 		// Assert that the device has been initialized before ending the label
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
@@ -764,7 +757,7 @@ namespace Vulture
 	void Device::InsertLabel(VkCommandBuffer cmd, const char* name, glm::vec4 color)
 	{
 		// Check if debug or release mode is enabled (not in distribution mode)
-#ifndef DIST
+#ifndef DISTRIBUTION
 
 		// Assert that the device has been initialized before inserting the label
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
@@ -955,39 +948,28 @@ namespace Vulture
 		// Check if required features are supported
 		if (s_RayTracingSupport)
 		{
-			if (!accelerationStructureFeatures.accelerationStructure)
-				VL_CORE_ASSERT(false, "acceleration structures not supported!");
+			VL_CORE_CHECK(accelerationStructureFeatures.accelerationStructure, "acceleration structures not supported!");
 
-			if (!rayTracingFeatures.rayTracingPipeline)
-				VL_CORE_ASSERT(false, "Ray Tracing Pipeline not supported!");
+			VL_CORE_CHECK(rayTracingFeatures.rayTracingPipeline, "Ray Tracing Pipeline not supported!");
 
-			if (!deviceAddressFeatures.bufferDeviceAddress)
-				VL_CORE_ASSERT(false, "Device address not supported!");
+			VL_CORE_CHECK(deviceAddressFeatures.bufferDeviceAddress, "Device address not supported!");
 
-			if (!scalarBlockLayoutFeatures.scalarBlockLayout)
-				VL_CORE_ASSERT(false, "Scalar block layout not supported!");
+			VL_CORE_CHECK(scalarBlockLayoutFeatures.scalarBlockLayout, "Scalar block layout not supported!");
 
-			if (!shaderClockFeatures.shaderDeviceClock)
-				VL_CORE_ASSERT(false, "Shader Clock not supported!");
+			VL_CORE_CHECK(shaderClockFeatures.shaderDeviceClock, "Shader Clock not supported!");
 
-			if (!hostQueryResetFeatures.hostQueryReset)
-				VL_CORE_ASSERT(false, "Host Query not supported!");
+			VL_CORE_CHECK(hostQueryResetFeatures.hostQueryReset, "Host Query not supported!");
 
-			if (!timelineSemaphoreFeatures.timelineSemaphore)
-				VL_CORE_ASSERT(false, "Timeline semaphore not supported!");
+			VL_CORE_CHECK(timelineSemaphoreFeatures.timelineSemaphore, "Timeline semaphore not supported!");
 
-			if (!synchronization2Features.synchronization2)
-				VL_CORE_ASSERT(false, "Synchronization2 not supported!");
+			VL_CORE_CHECK(synchronization2Features.synchronization2, "Synchronization2 not supported!");
 
-			if (!indexingFeatures.runtimeDescriptorArray)
-				VL_CORE_ASSERT(false, "Indexing not supported!");
+			VL_CORE_CHECK(indexingFeatures.runtimeDescriptorArray, "Indexing not supported!");
 
-			if (!rayQueryFeatures.rayQuery)
-				VL_CORE_ASSERT(false, "Ray query not supported!");
+			VL_CORE_CHECK(rayQueryFeatures.rayQuery, "Ray query not supported!");
 		}
 
-		if (!memoryPriorityFeatures.memoryPriority)
-			VL_CORE_ASSERT(false, "memory priority not supported!");
+		VL_CORE_CHECK(memoryPriorityFeatures.memoryPriority, "memory priority not supported!");
 
 		// Prepare extensions for the device
 		std::vector<const char*> extensions;

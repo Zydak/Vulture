@@ -334,7 +334,7 @@ namespace Vulture
 	 * 
 	 * @param descriptorWithImageSampler - descriptor set with single image sampler
 	 */
-	void Renderer::FramebufferCopyPassImGui(Ref<DescriptorSet> descriptorWithImageSampler)
+	void Renderer::FramebufferCopyPassImGui(DescriptorSet* descriptorWithImageSampler)
 	{
 		std::vector<VkClearValue> clearColors;
 		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
@@ -436,10 +436,10 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			s_EnvToCubemapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 			s_EnvToCubemapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			s_EnvToCubemapDescriptorSet->AddImageSampler(0, envMap->GetSamplerHandle(), envMap->GetImageView(),
+			s_EnvToCubemapDescriptorSet->AddImageSampler(0, GetSamplerHandle(), envMap->GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
-			s_EnvToCubemapDescriptorSet->AddImageSampler(1, cubemap->GetSamplerHandle(), cubemap->GetImageView(),
+			s_EnvToCubemapDescriptorSet->AddImageSampler(1, GetSamplerHandle(), cubemap->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
 			s_EnvToCubemapDescriptorSet->Build();
@@ -513,10 +513,10 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			grayScaleSet = Vulture::DescriptorSet();
 			grayScaleSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			grayScaleSet.AddImageSampler(0, grayScaleImage.GetSamplerHandle(), grayScaleImage.GetImageView(),
+			grayScaleSet.AddImageSampler(0, GetSamplerHandle(), grayScaleImage.GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
-			grayScaleSet.AddImageSampler(1, m_EnvMap.GetSamplerHandle(), m_EnvMap.GetImageView(),
+			grayScaleSet.AddImageSampler(1, GetSamplerHandle(), m_EnvMap.GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			grayScaleSet.Build();
@@ -529,10 +529,10 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			averageRowSet = Vulture::DescriptorSet();
 			averageRowSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			averageRowSet.AddImageSampler(0, averageRowImage.GetSamplerHandle(), averageRowImage.GetImageView(),
+			averageRowSet.AddImageSampler(0, GetSamplerHandle(), averageRowImage.GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
-			averageRowSet.AddImageSampler(1, grayScaleImage.GetSamplerHandle(), grayScaleImage.GetImageView(),
+			averageRowSet.AddImageSampler(1, GetSamplerHandle(), grayScaleImage.GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			averageRowSet.Build();
@@ -545,10 +545,10 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			averageSet = Vulture::DescriptorSet();
 			averageSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			averageSet.AddImageSampler(0, averageImage.GetSamplerHandle(), averageImage.GetImageView(),
+			averageSet.AddImageSampler(0, GetSamplerHandle(), averageImage.GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
-			averageSet.AddImageSampler(1, averageRowImage.GetSamplerHandle(), averageRowImage.GetImageView(),
+			averageSet.AddImageSampler(1, GetSamplerHandle(), averageRowImage.GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			averageSet.Build();
@@ -562,13 +562,13 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin2{ 2, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			jointPDFSet = Vulture::DescriptorSet();
 			jointPDFSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1, bin2 });
-			jointPDFSet.AddImageSampler(0, image->GetJointPDF()->GetSamplerHandle(), image->GetJointPDF()->GetImageView(),
+			jointPDFSet.AddImageSampler(0, GetSamplerHandle(), image->GetJointPDF()->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
-			jointPDFSet.AddImageSampler(1, averageImage.GetSamplerHandle(), averageImage.GetImageView(),
+			jointPDFSet.AddImageSampler(1, GetSamplerHandle(), averageImage.GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
-			jointPDFSet.AddImageSampler(2, grayScaleImage.GetSamplerHandle(), grayScaleImage.GetImageView(),
+			jointPDFSet.AddImageSampler(2, GetSamplerHandle(), grayScaleImage.GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			jointPDFSet.Build();
@@ -582,13 +582,13 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin2{ 2, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			marginalPDFSet = Vulture::DescriptorSet();
 			marginalPDFSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1, bin2 });
-			marginalPDFSet.AddImageSampler(0, marginalPDF.GetSamplerHandle(), marginalPDF.GetImageView(),
+			marginalPDFSet.AddImageSampler(0, GetSamplerHandle(), marginalPDF.GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
-			marginalPDFSet.AddImageSampler(1, averageImage.GetSamplerHandle(), averageImage.GetImageView(),
+			marginalPDFSet.AddImageSampler(1, GetSamplerHandle(), averageImage.GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
-			marginalPDFSet.AddImageSampler(2, averageRowImage.GetSamplerHandle(), averageRowImage.GetImageView(),
+			marginalPDFSet.AddImageSampler(2, GetSamplerHandle(), averageRowImage.GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 
@@ -603,13 +603,13 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin2{ 2, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			grayScalePDFSet = Vulture::DescriptorSet();
 			grayScalePDFSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1, bin2 });
-			grayScalePDFSet.AddImageSampler(0, conditionalPDF.GetSamplerHandle(), conditionalPDF.GetImageView(),
+			grayScalePDFSet.AddImageSampler(0, GetSamplerHandle(), conditionalPDF.GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
-			grayScalePDFSet.AddImageSampler(1, averageRowImage.GetSamplerHandle(), averageRowImage.GetImageView(),
+			grayScalePDFSet.AddImageSampler(1, GetSamplerHandle(), averageRowImage.GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
-			grayScalePDFSet.AddImageSampler(2, grayScaleImage.GetSamplerHandle(), grayScaleImage.GetImageView(),
+			grayScalePDFSet.AddImageSampler(2, GetSamplerHandle(), grayScaleImage.GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 
@@ -623,10 +623,10 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			marginalInvSet = Vulture::DescriptorSet();
 			marginalInvSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			marginalInvSet.AddImageSampler(0, image->GetCDFInverseY()->GetSamplerHandle(), image->GetCDFInverseY()->GetImageView(),
+			marginalInvSet.AddImageSampler(0, GetSamplerHandle(), image->GetCDFInverseY()->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
-			marginalInvSet.AddImageSampler(1, marginalPDF.GetSamplerHandle(), marginalPDF.GetImageView(),
+			marginalInvSet.AddImageSampler(1, GetSamplerHandle(), marginalPDF.GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			marginalInvSet.Build();
@@ -639,10 +639,10 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			conditionalInvSet = Vulture::DescriptorSet();
 			conditionalInvSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			conditionalInvSet.AddImageSampler(0, image->GetCDFInverseX()->GetSamplerHandle(), image->GetCDFInverseX()->GetImageView(),
+			conditionalInvSet.AddImageSampler(0, GetSamplerHandle(), image->GetCDFInverseX()->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
-			conditionalInvSet.AddImageSampler(1, conditionalPDF.GetSamplerHandle(), conditionalPDF.GetImageView(),
+			conditionalInvSet.AddImageSampler(1, GetSamplerHandle(), conditionalPDF.GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			conditionalInvSet.Build();

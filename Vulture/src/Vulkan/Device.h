@@ -90,7 +90,6 @@ namespace Vulture
 		}
 
 		static inline bool IsRayTracingSupported() { return s_RayTracingSupport; }
-		static std::vector<int32_t> s_LayersIgnoreList;
 	private:
 		Device() {} // make constructor private
 		static bool s_Initialized;
@@ -150,7 +149,7 @@ namespace Vulture
 		static VkPhysicalDeviceRayTracingPipelinePropertiesKHR s_RayTracingProperties;
 		static VkPhysicalDeviceAccelerationStructurePropertiesKHR s_AccelerationStructureProperties;
 
-#ifdef DIST
+#ifdef DISTRIBUTION
 		static const bool s_EnableValidationLayers = false;
 #else
 		static const bool s_EnableValidationLayers = true;

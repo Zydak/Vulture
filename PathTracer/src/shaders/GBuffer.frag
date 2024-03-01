@@ -48,10 +48,12 @@ void main()
 #ifdef USE_ALBEDO
     outAlbedo = dataIn.material.Albedo * texture(uAlbedoTexture, dataIn.TexCoord);
 #else
-    outAlbedo = vec4(1.0f);
+    outAlbedo = vec4(0.5f);
 #endif
 
-	vec2 roughnessMetallness = vec2(dataIn.material.Roughness, dataIn.material.Metallic);
+	float metallic = texture(uMetallnessTexture, dataIn.TexCoord).r;
+	float roughness = texture(uRoghnessTexture, dataIn.TexCoord).r;
+	vec2 roughnessMetallness = vec2(dataIn.material.Roughness * roughness, dataIn.material.Metallic * metallic);
 	outRoughnessMetallness = roughnessMetallness;
 	outEmissive = dataIn.material.Emissive;
 

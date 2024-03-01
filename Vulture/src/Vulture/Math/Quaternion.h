@@ -40,7 +40,7 @@ namespace Vulture
 		void UpdateVectors();
 
 		glm::quat m_Quat{1.0f, 0.0f, 0.0f, 0.0f};
-		glm::vec3 m_FrontVec{0.0f, 0.0f, -1.0f};
+		glm::vec3 m_FrontVec{0.0f, 0.0f, 1.0f};
 		glm::vec3 m_UpVec{0.0f, 1.0f, 0.0f};
 		glm::vec3 m_RightVec{1.0f, 0.0f, 0.0f};
 	};

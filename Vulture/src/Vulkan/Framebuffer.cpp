@@ -129,6 +129,14 @@ namespace Vulture
 		vkCmdEndRenderPass(cmd);
 	}
 
+	void Framebuffer::TransitionImageLayout(VkImageLayout newLayout, VkCommandBuffer cmd, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
+	{
+		for (int i = 0; i < m_Images.size(); i++)
+		{
+			m_Images[i].TransitionImageLayout(newLayout, cmd, srcAccess, dstAccess, srcStage, dstStage);
+		}
+	}
+
 	/*
 	 * @brief Initializes a Framebuffer object with color and depth attachments based on the specified
 	 * createInfo.AttachmentsFormats, renderPass, extent, depthFormat, layers, type, and customBits parameters. It creates
@@ -249,8 +257,17 @@ namespace Vulture
 			description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 			description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 			description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			description.finalLayout = useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			m_FinalLayouts.push_back(useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+			if (m_AttachmentFormats[i] == FramebufferAttachment::Depth)
+			{
+				description.finalLayout = useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+				m_FinalLayouts.push_back(useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+			}
+			else
+			{
+				description.finalLayout = useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				m_FinalLayouts.push_back(useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			}
 
 			descriptions.push_back(description);
 

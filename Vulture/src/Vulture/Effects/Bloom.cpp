@@ -122,19 +122,22 @@ namespace Vulture
 
 	void Bloom::Run(const BloomInfo& bloomInfo, VkCommandBuffer cmd, uint32_t imageIndex /*= 0*/)
 	{
-		VkImageLayout prevInputLayout = m_InputImages[imageIndex]->GetLayout();
-		m_InputImages[imageIndex]->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,cmd);
-		m_OutputImages[imageIndex]->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,cmd);
-		VkImageBlit region{};
-		region.dstOffsets[0] = { 0, 0, 0 };
-		region.dstOffsets[1] = { (int)m_OutputImages[imageIndex]->GetImageSize().width, (int)m_OutputImages[imageIndex]->GetImageSize().height, 1 };
-		region.srcOffsets[0] = { 0, 0, 0 };
-		region.srcOffsets[1] = { (int)m_InputImages[imageIndex]->GetImageSize().width, (int)m_InputImages[imageIndex]->GetImageSize().height, 1 };
-		region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-		region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-		vkCmdBlitImage(cmd, m_InputImages[imageIndex]->GetImage(), m_InputImages[imageIndex]->GetLayout(), m_OutputImages[imageIndex]->GetImage(), m_OutputImages[imageIndex]->GetLayout(), 1, &region, VK_FILTER_LINEAR);
-		m_OutputImages[imageIndex]->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,cmd);
-		m_InputImages[imageIndex]->TransitionImageLayout(prevInputLayout, cmd);
+		if (m_InputImages[imageIndex]->GetImage() != m_OutputImages[imageIndex]->GetImage())
+		{
+			VkImageLayout prevInputLayout = m_InputImages[imageIndex]->GetLayout();
+			m_InputImages[imageIndex]->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, cmd);
+			m_OutputImages[imageIndex]->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmd);
+			VkImageBlit region{};
+			region.dstOffsets[0] = { 0, 0, 0 };
+			region.dstOffsets[1] = { (int)m_OutputImages[imageIndex]->GetImageSize().width, (int)m_OutputImages[imageIndex]->GetImageSize().height, 1 };
+			region.srcOffsets[0] = { 0, 0, 0 };
+			region.srcOffsets[1] = { (int)m_InputImages[imageIndex]->GetImageSize().width, (int)m_InputImages[imageIndex]->GetImageSize().height, 1 };
+			region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+			region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+			vkCmdBlitImage(cmd, m_InputImages[imageIndex]->GetImage(), m_InputImages[imageIndex]->GetLayout(), m_OutputImages[imageIndex]->GetImage(), m_OutputImages[imageIndex]->GetLayout(), 1, &region, VK_FILTER_LINEAR);
+			m_OutputImages[imageIndex]->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd);
+			m_InputImages[imageIndex]->TransitionImageLayout(prevInputLayout, cmd);
+		}
 
 		if (bloomInfo.MipCount <= 0 || bloomInfo.MipCount > 10)
 		{
@@ -210,14 +213,14 @@ namespace Vulture
 		{
 			m_SeparateBrightValuesSet[i].UpdateImageSampler(
 				0,
-				m_OutputImages[i]->GetSamplerHandle(), // input image is copied to output at the start of bloom pass
+				Vulture::Renderer::GetSamplerHandle(), // input image is copied to output at the start of bloom pass
 				m_OutputImages[i]->GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 
 			m_AccumulateSet[i][info.MipsCount].AddImageSampler(
 				1,
-				m_OutputImages[i]->GetSamplerHandle(),
+				Vulture::Renderer::GetSamplerHandle(),
 				m_OutputImages[i]->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
@@ -247,7 +250,7 @@ namespace Vulture
 		//-----------------------------------------------
 
 		// Bloom Separate Bright Values
-		m_SeparateBrightValuesSet.resize(m_InputImages.size());
+		m_SeparateBrightValuesSet.resize(m_InputImages.size()); // TODO hell nah
 		for (uint32_t i = frameIndex; i < loopCount + frameIndex; i++)
 		{
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
@@ -256,13 +259,13 @@ namespace Vulture
 			m_SeparateBrightValuesSet[i].Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 			m_SeparateBrightValuesSet[i].AddImageSampler(
 				0,
-				m_OutputImages[i]->GetSamplerHandle(), // input image is copied to output at the start of bloom pass
+				Vulture::Renderer::GetSamplerHandle(), // input image is copied to output at the start of bloom pass
 				m_OutputImages[i]->GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			m_SeparateBrightValuesSet[i].AddImageSampler(
 				1,
-				m_BloomImages[i][0].GetSamplerHandle(),
+				Vulture::Renderer::GetSamplerHandle(),
 				m_BloomImages[i][0].GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
@@ -285,14 +288,14 @@ namespace Vulture
 				descIdx = (mipsCount)-j;
 				m_AccumulateSet[i][j].Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 
-				m_AccumulateSet[i][j].AddImageSampler(0, m_BloomImages[i][descIdx].GetSamplerHandle(), m_BloomImages[i][descIdx].GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-				m_AccumulateSet[i][j].AddImageSampler(1, m_BloomImages[i][descIdx - 1].GetSamplerHandle(), m_BloomImages[i][descIdx - 1].GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
+				m_AccumulateSet[i][j].AddImageSampler(0, Vulture::Renderer::GetSamplerHandle(), m_BloomImages[i][descIdx].GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+				m_AccumulateSet[i][j].AddImageSampler(1, Vulture::Renderer::GetSamplerHandle(), m_BloomImages[i][descIdx - 1].GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
 				m_AccumulateSet[i][j].Build();
 			}
 			m_AccumulateSet[i][j].Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 
-			m_AccumulateSet[i][j].AddImageSampler(0, m_BloomImages[i][descIdx].GetSamplerHandle(), m_BloomImages[i][descIdx].GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			m_AccumulateSet[i][j].AddImageSampler(1, m_OutputImages[i]->GetSamplerHandle(), m_OutputImages[i]->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
+			m_AccumulateSet[i][j].AddImageSampler(0, Vulture::Renderer::GetSamplerHandle(), m_BloomImages[i][descIdx].GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			m_AccumulateSet[i][j].AddImageSampler(1, Vulture::Renderer::GetSamplerHandle(), m_OutputImages[i]->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
 			m_AccumulateSet[i][j].Build();
 		}
 
@@ -308,10 +311,10 @@ namespace Vulture
 			for (int j = 0; j < m_DownSampleSet[i].size(); j++)
 			{
 				m_DownSampleSet[i][j].Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-				m_DownSampleSet[i][j].AddImageSampler(0, m_BloomImages[i][j].GetSamplerHandle(), m_BloomImages[i][j].GetImageView(),
+				m_DownSampleSet[i][j].AddImageSampler(0, Vulture::Renderer::GetSamplerHandle(), m_BloomImages[i][j].GetImageView(),
 					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
-				m_DownSampleSet[i][j].AddImageSampler(1, m_BloomImages[i][j + 1].GetSamplerHandle(), m_BloomImages[i][j + 1].GetImageView(),
+				m_DownSampleSet[i][j].AddImageSampler(1, Vulture::Renderer::GetSamplerHandle(), m_BloomImages[i][j + 1].GetImageView(),
 					VK_IMAGE_LAYOUT_GENERAL
 				);
 				m_DownSampleSet[i][j].Build();

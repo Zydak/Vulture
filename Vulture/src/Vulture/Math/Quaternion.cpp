@@ -16,7 +16,7 @@ namespace Vulture
 	void Quaternion::Reset()
 	{
 		m_Quat = { 1.0f, 0.0f, 0.0f, 0.0f };
-		m_FrontVec = { 0.0f, 0.0f, -1.0f };
+		m_FrontVec = { 0.0f, 0.0f, 1.0f };
 		m_UpVec = { 0.0f, 1.0f, 0.0f };
 		m_RightVec = { 1.0f, 0.0f, 0.0f };
 	}

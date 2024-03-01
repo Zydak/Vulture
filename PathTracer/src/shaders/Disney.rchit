@@ -24,7 +24,7 @@ layout(set = 0, binding = 2, scalar) buffer MeshAdressesUbo { MeshAdresses uMesh
 layout(set = 0, binding = 3, scalar) buffer MaterialsUbo { Material uMaterials[]; };
 layout(set = 0, binding = 4) uniform sampler2D uAlbedoTextures[];
 layout(set = 0, binding = 5) uniform sampler2D uNormalTextures[];
-layout(set = 0, binding = 6) uniform sampler2D uRoghnessTextures[];
+layout(set = 0, binding = 6) uniform sampler2D uRoughnessTextures[];
 layout(set = 0, binding = 7) uniform sampler2D uMetallnessTextures[];
 layout(set = 1, binding = 1) uniform sampler2D uEnvMap;
 
@@ -189,8 +189,13 @@ void main()
 #ifdef USE_ALBEDO
     material.Albedo *= texture(uAlbedoTextures[gl_InstanceCustomIndexEXT], texCoord);
 #else
-    material.Albedo = vec4(0.5f);
+    material.Albedo.xyz = vec3(0.5f);
 #endif
+    
+    material.Roughness *= texture(uRoughnessTextures[gl_InstanceCustomIndexEXT], texCoord).r;
+    material.Metallic *= texture(uMetallnessTextures[gl_InstanceCustomIndexEXT], texCoord).r;
+    material.Emissive.xyz *= material.Emissive.a;
+    material.SpecTrans = 1.0f - material.Albedo.a;
 
     // -------------------------------------------
     // Calculate Hit State

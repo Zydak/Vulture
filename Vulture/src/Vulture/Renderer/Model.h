@@ -12,18 +12,18 @@ namespace Vulture
 		float Metallic;
 		float Roughness;
 
-		float Sheen = 0.0f;
-		float SheenTint = 0.0f;
+		float Sheen = 1.0f;
+		float SheenTint = 1.0f;
 		float SpecularTint = 0.0f;
-		float Ior = 1.01f;
-		float Anisotropic = 0.0f;
+		float Ior = 1.5f;
+		float Anisotropic = 0.0f; // broken?
 		float SpecTrans = 0.0f;
 		float Clearcoat = 0.0f;
+		float ClearcoatRoughness = 0.0f;
 		float eta = 0.0f;
-		float Subsurface = 0.0f;
+		float Subsurface = 1.0f;
 		float ax = 0.0f;
 		float ay = 0.0f;
-		float ClearcoatRoughness = 0.0f;
 
 		uint32_t mediumType;
 		glm::vec4 mediumColor;
@@ -57,14 +57,21 @@ namespace Vulture
 		inline uint32_t GetVertexCount() const { return m_VertexCount; }
 		inline uint32_t GetIndexCount() const { return m_IndexCount; }
 		inline uint32_t GetMeshCount() const { return (uint32_t)m_Meshes.size(); }
+
 		inline Mesh& GetMesh(int index) const { return *m_Meshes[index]; }
 		inline Material GetMaterial(int index) const { return m_Materials[index]; }
+
 		inline const std::vector<Ref<Mesh>>& GetMeshes() const { return m_Meshes; };
+		inline const std::vector<Material>& GetMaterials() const { return m_Materials; };
+		inline const std::vector<std::string>& GetNames() const { return m_MeshesNames; };
 		inline const std::vector<Ref<Vulture::DescriptorSet>>& GetDescriptors() const { return m_TextureSets; };
+
+		inline std::vector<Material>& GetMaterials() { return m_Materials; };
 	private:
 		void ProcessNode(aiNode* node, const aiScene* scene, int& index);
 		void CreateTextureSet(uint32_t index);
 
+		std::vector<std::string> m_MeshesNames;
 		std::vector<Ref<Mesh>> m_Meshes;
 		std::vector<Material> m_Materials;
 		std::vector<Ref<Image>> m_AlbedoTextures;

@@ -16,6 +16,11 @@ Sandbox::~Sandbox()
 	DestroyScripts();
 }
 
+void Sandbox::Destroy()
+{
+
+}
+
 void Sandbox::OnUpdate(double deltaTime)
 {
 	if (Vulture::Input::IsKeyPressed(VL_KEY_ESCAPE))
@@ -50,7 +55,14 @@ void Sandbox::Init()
 	m_Scene.AddFont("assets/Pixel.ttf", "PixelFont");
 	{
 		auto& entity = m_Scene.CreateEntity();
-		entity.AddComponent<Vulture::TextComponent>(std::string("TEST"), m_Scene.GetFontAtlas("PixelFont"), glm::vec4(1.0f), 15, true);
+		Vulture::Text::CreateInfo info{};
+		info.Color = glm::vec4(1.0f);
+		info.FontAtlas = m_Scene.GetFontAtlas("PixelFont");
+		info.KerningOffset = 0;
+		info.MaxLettersCount = 15;
+		info.Resizable = true;
+		info.Text = std::string("TEST");
+		entity.AddComponent<Vulture::TextComponent>(info);
 		entity.AddComponent<Vulture::TransformComponent>(Vulture::Transform({ 3.0f, -10.0f, -8.0f }, glm::vec3(0.0f), glm::vec3(2.0f)));
 		auto& sc = entity.AddComponent<Vulture::ScriptComponent>();
 		sc.AddScript<TypingScript>();

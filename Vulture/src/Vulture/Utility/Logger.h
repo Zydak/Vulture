@@ -23,7 +23,7 @@ namespace Vulture
 }
 
 // Core log macros
-#ifdef DIST
+#ifdef DISTRIBUTION
 #define VL_CORE_ERROR(...)
 #define VL_CORE_WARN(...)
 #define VL_CORE_INFO(...)
@@ -34,9 +34,10 @@ namespace Vulture
 #define VL_CORE_INFO(...)	::Vulture::Logger::GetCoreLogger()->info(__VA_ARGS__)
 #define VL_CORE_TRACE(...)	::Vulture::Logger::GetCoreLogger()->trace(__VA_ARGS__)
 #endif
+#define VL_CORE_DIST_ERROR(...)	::Vulture::Logger::GetCoreLogger()->error(__VA_ARGS__)
 
 // Client log macros
-#ifdef DIST
+#ifdef DISTRIBUTION
 #define VL_ERROR(...)
 #define VL_WARN(...)
 #define VL_INFO(...)

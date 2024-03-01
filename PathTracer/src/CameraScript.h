@@ -79,23 +79,23 @@ public:
 			// Pitch
 			if (m_LastMousePosition.y != mousePosition.y)
 			{
-				cameraComponent.AddPitch((m_LastMousePosition.y - mousePosition.y) * m_RotationSpeed);
+				cameraComponent.AddPitch((m_LastMousePosition.y - mousePosition.y) * (m_RotationSpeed / 200.0f));
 			}
 
 			// Yaw
 			if (m_LastMousePosition.x != mousePosition.x)
 			{
-				cameraComponent.AddYaw(-(m_LastMousePosition.x - mousePosition.x) * m_RotationSpeed);
+				cameraComponent.AddYaw(-(m_LastMousePosition.x - mousePosition.x) * (m_RotationSpeed / 200.0f));
 			}
 
 			// Roll
 			if (Vulture::Input::IsKeyPressed(VL_KEY_Q))
 			{
-				cameraComponent.AddRoll(200.0f * (float)deltaTime * m_RotationSpeed);
+				cameraComponent.AddRoll((float)deltaTime * m_RotationSpeed);
 			}
 			if (Vulture::Input::IsKeyPressed(VL_KEY_E))
 			{
-				cameraComponent.AddRoll(-200.0f * (float)deltaTime * m_RotationSpeed);
+				cameraComponent.AddRoll(-(float)deltaTime * m_RotationSpeed);
 			}
 		}
 		m_LastMousePosition = mousePosition;
@@ -115,7 +115,7 @@ public:
 	}
 
 	float m_MovementSpeed = 5.0f;
-	float m_RotationSpeed = 0.1f;
+	float m_RotationSpeed = 15.0f;
 	bool m_CameraLocked = true;
 	bool m_Reset = false;
 	float m_ResetDuration = 1.0f;

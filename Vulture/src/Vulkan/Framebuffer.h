@@ -29,11 +29,11 @@ namespace Vulture
 
 		struct RenderPassCreateInfo
 		{
-			std::vector<VkSubpassDependency> Dependencies;
+			std::vector<VkSubpassDependency> Dependencies{};
 
-			std::vector<VkAttachmentLoadOp> LoadOP;
-			std::vector<VkAttachmentStoreOp> StoreOP;
-			std::vector<VkImageLayout> FinalLayouts;
+			std::vector<VkAttachmentLoadOp> LoadOP{};
+			std::vector<VkAttachmentStoreOp> StoreOP{};
+			std::vector<VkImageLayout> FinalLayouts{};
 		};
 
 		struct CreateInfo
@@ -60,6 +60,8 @@ namespace Vulture
 		void Unbind(VkCommandBuffer cmd);
 
 		inline VkRenderPass GetRenderPass() const { return m_RenderPass; }
+
+		void TransitionImageLayout(VkImageLayout newLayout, VkCommandBuffer cmd = 0, VkAccessFlags srcAccess = 0, VkAccessFlags dstAccess = 0, VkPipelineStageFlags srcStage = 0, VkPipelineStageFlags dstStage = 0);
 
 		Framebuffer() = default;
 		Framebuffer(const CreateInfo& createInfo);

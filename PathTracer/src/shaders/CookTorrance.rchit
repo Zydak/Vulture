@@ -155,7 +155,7 @@ void main()
 
     const vec3 pos      = v0.Position.xyz * barycentrics.x + v1.Position.xyz * barycentrics.y + v2.Position.xyz * barycentrics.z;
     const vec3 worldPos = vec3(gl_ObjectToWorldEXT * vec4(pos, 1.0));  // Transforming the position to world space
-    
+     
     // Computing the normal at hit position
     const vec3 nrm      = v0.Normal.xyz * barycentrics.x + v1.Normal.xyz * barycentrics.y + v2.Normal.xyz * barycentrics.z;
     vec3 worldNrm = normalize(vec3(nrm * gl_ObjectToWorldEXT));  // Transforming the normal to world space
@@ -195,6 +195,9 @@ void main()
 #else
     material.Albedo = vec4(0.5f);
 #endif
+
+    material.Emissive.xyz *= material.Emissive.a;
+    material.SpecTrans = 1.0f - material.Albedo.a;
     
     // -------------------------------------------
     // Hit

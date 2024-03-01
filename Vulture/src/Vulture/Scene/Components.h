@@ -116,6 +116,7 @@ namespace Vulture
 		glm::mat4 ViewMat{1.0f};
 		bool Main = false;
 		float Zoom = 1.0f;
+		float FOV = 45.0f;
 		float AspectRatio = 1.0f;
 
 		void Reset();

@@ -13,6 +13,7 @@ namespace Vulture
 	class Entity;
 	class AccelerationStructure;
 	class CameraComponent;
+	class SkyboxComponent;
 
 	class Scene
 	{
@@ -31,6 +32,8 @@ namespace Vulture
 
 		Entity CreateSprite(const Transform& transform, const glm::vec2& tileOffset);
 		void CreateStaticSprite(const Transform& transform, const glm::vec2& tileOffset);
+
+		Entity CreateSkybox(const std::string& filepath);
 
 		Entity CreateModel(std::string filepath, Transform transform);
 
@@ -65,9 +68,13 @@ namespace Vulture
 
 		inline uint32_t GetMeshCount() const { return m_MeshCount; }
 		inline uint32_t GetModelCount() const { return m_ModelCount; }
+		inline void ResetMeshCount() { m_MeshCount = 0; }
+		inline void ResetModelCount() { m_ModelCount = 0; }
 
 		inline uint32_t GetVertexCount() const { return m_VertexCount; }
 		inline uint32_t GetIndexCount() const { return m_IndexCount; }
+		inline void ResetVertexCount() { m_VertexCount = 0; }
+		inline void ResetIndexCount() { m_IndexCount = 0; }
 
 	private:
 		Ref<AccelerationStructure> m_AccelerationStructure = nullptr;

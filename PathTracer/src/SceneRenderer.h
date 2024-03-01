@@ -20,6 +20,7 @@ struct PushConstantRay
 
 	float FocalLength;
 	float DoFStrength;
+	float AliasingJitter;
 };
 
 struct PushConstantGBuffer
@@ -43,7 +44,7 @@ public:
 	void Render(Vulture::Scene& scene);
 
 	void CreateRayTracingDescriptorSets(Vulture::Scene& scene);
-	void SetSkybox(Vulture::SkyboxComponent& skybox);
+	void SetSkybox(Vulture::Entity& skyboxEntity);
 private:
 	void RecreateRayTracingDescriptorSets();
 	bool RayTrace(const glm::vec4& clearColor);
@@ -110,10 +111,21 @@ private:
 	Vulture::Bloom m_Bloom;
 	Vulture::Bloom m_DenoisedBloom;
 
-	std::string m_CurrentHitShaderPath = "src/shaders/Disney.rchit";
+	std::string m_CurrentHitShaderPath = "src/shaders/CookTorrance.rchit";
 	bool m_RecreateRtPipeline = false;
 
 	// ImGui Stuff / Interface
+	Vulture::Entity m_CurrentSkyboxEntity;
+	std::string m_SkyboxPath;
+	bool m_ChangeSkybox = false;
+
+	float m_ModelScale = 0.5f;
+	std::string m_ModelPath = "";
+	bool m_ModelChanged = false;
+	Vulture::Entity CurrentModelEntity;
+	std::vector<Vulture::Material>* m_CurrentMaterials;
+	std::vector<std::string> m_CurrentMeshesNames;
+
 	Vulture::Timer m_Timer;
 	Vulture::Timer m_TotalTimer;
 	uint32_t m_CurrentSamplesPerPixel = 0;
@@ -123,36 +135,38 @@ private:
 	VkDescriptorSet m_ImGuiAlbedoDescriptor;
 	VkDescriptorSet m_ImGuiRoughnessDescriptor;
 	VkDescriptorSet m_ImGuiEmissiveDescriptor;
-	VkExtent2D m_ImGuiViewportSize = { 1920, 1080 };
 	VkExtent2D m_ViewportSize = { 1920, 1080 };
+	VkExtent2D m_ViewportContentSize = { 1920, 1080 };
 	bool m_ImGuiViewportResized = false;
 	float m_Time = 0;
 
 	bool m_RunDenoising = false;
 	bool m_ShowDenoised = false;
-	bool m_Denoised = false;
+	bool m_Denoised		= false;
 
-	bool m_ToneMapped = false;
-	bool m_DrawGBuffer = true;
-
-	bool m_UseNormalMaps = false;
-	bool m_UseNormalMapsChanged = false;
-	bool m_UseAlbedo = true;
-	bool m_UseAlbedoChanged = false;
-	bool m_SampleEnvMap = false;
-	bool m_HasEnvMap = false;
-	bool m_SampleEnvMapChanged = false;
-	bool m_AutoDoF = false;
+	bool m_ToneMapped      = false;
+	bool m_DrawGBuffer     = true;
+	bool m_HasEnvMap	   = false;
+	bool m_RecompileShader = false;
 
 	struct DrawInfo
 	{
-		float DOFStrength		 = 0.0f;
-		float FocalLength		 = 8.0f;
-		int TotalSamplesPerPixel = 15000;
-		int RayDepth			 = 20;
-		int SamplesPerFrame		 = 15;
-		float EnvAzimuth		 = 0.0f;
-		float EnvAltitude		 = 0.0f;
+		float DOFStrength			= 0.0f;
+		float FocalLength			= 8.0f;
+		bool AutoDoF				= false;
+		float AliasingJitterStr		= 1.0f;
+		int TotalSamplesPerPixel	= 15000;
+		int RayDepth				= 20;
+		int SamplesPerFrame			= 15;
+		bool UseNormalMaps			= false;
+		bool UseAlbedo				= true;
+		bool UseGlossy				= true;
+		bool UseGlass				= true;
+		bool UseClearcoat			= true;
+
+		bool SampleEnvMap   = true;
+		float EnvAzimuth	= 0.0f;
+		float EnvAltitude	= 0.0f;
 
 		Vulture::Tonemap::TonemapInfo TonemapInfo{};
 		Vulture::Bloom::BloomInfo BloomInfo{};

@@ -108,7 +108,7 @@ namespace Vulture
 		}
 
 		// Copy the shader binding table to the device local buffer
-		Vulture::Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_RtSBTBuffer.GetBuffer(), sbtSize, Vulture::Device::GetGraphicsQueue(), 0, Vulture::Device::GetGraphicsCommandPool());
+		Vulture::Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_RtSBTBuffer.GetBuffer(), sbtSize, 0, 0, Vulture::Device::GetGraphicsQueue(), 0, Vulture::Device::GetGraphicsCommandPool());
 
 		stagingBuffer.Unmap();
 

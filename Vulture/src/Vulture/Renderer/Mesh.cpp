@@ -86,17 +86,17 @@ namespace Vulture
 				vec.y = mesh->mTextureCoords[0][i].y;
 				vertex.TexCoord = vec;
 
-				// tangent
-				vector.x = mesh->mTangents[i].x;
-				vector.y = mesh->mTangents[i].y;
-				vector.z = mesh->mTangents[i].z;
-				vertex.Tangent = glm::normalize(glm::vec3((glm::inverse(mat)) * glm::vec4(vector, 0.0f)));
-
-				// bitangent
-				vector.x = mesh->mBitangents[i].x;
-				vector.y = mesh->mBitangents[i].y;
-				vector.z = mesh->mBitangents[i].z;
-				vertex.Bitangent = glm::normalize(glm::vec3((glm::inverse(mat)) * glm::vec4(vector, 0.0f)));
+				//// tangent
+				//vector.x = mesh->mTangents[i].x;
+				//vector.y = mesh->mTangents[i].y;
+				//vector.z = mesh->mTangents[i].z;
+				//vertex.Tangent = glm::normalize(glm::vec3((glm::inverse(mat)) * glm::vec4(vector, 0.0f)));
+				//
+				//// bitangent
+				//vector.x = mesh->mBitangents[i].x;
+				//vector.y = mesh->mBitangents[i].y;
+				//vector.z = mesh->mBitangents[i].z;
+				//vertex.Bitangent = glm::normalize(glm::vec3((glm::inverse(mat)) * glm::vec4(vector, 0.0f)));
 			}
 			else
 				vertex.TexCoord = glm::vec2(0.0f, 0.0f);
@@ -163,7 +163,7 @@ namespace Vulture
 		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		m_VertexBuffer.Init(bufferInfo);
 
-		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_VertexBuffer.GetBuffer(), bufferSize, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
+		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_VertexBuffer.GetBuffer(), bufferSize, 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 	}
 
 	void Mesh::CreateIndexBuffer(const std::vector<uint32_t>& indices)
@@ -215,7 +215,7 @@ namespace Vulture
 		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		m_IndexBuffer.Init(bufferInfo);
 
-		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_IndexBuffer.GetBuffer(), bufferSize, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
+		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_IndexBuffer.GetBuffer(), bufferSize, 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 	}
 
 	/**

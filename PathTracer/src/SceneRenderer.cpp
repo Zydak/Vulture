@@ -38,7 +38,7 @@ SceneRenderer::SceneRenderer()
 	Vulture::Bloom::CreateInfo bloomInfo{};
 	bloomInfo.InputImages = { m_PathTracingImage };
 	bloomInfo.OutputImages = { m_BloomImage };
-	bloomInfo.MipsCount = 6;
+	bloomInfo.MipsCount = m_DrawInfo.BloomInfo.MipCount;
 	m_Bloom.Init(bloomInfo);
 
 	bloomInfo.InputImages = { m_DenoisedImage };
@@ -52,7 +52,7 @@ SceneRenderer::SceneRenderer()
 
 	m_Denoiser = std::make_shared<Vulture::Denoiser>();
 	m_Denoiser->Init();
-	m_Denoiser->AllocateBuffers(m_ViewportSize);
+	m_Denoiser->AllocateBuffers(m_ViewportContentSize);
 
 	VkFenceCreateInfo createInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
 	vkCreateFence(Vulture::Device::GetDevice(), &createInfo, nullptr, &m_DenoiseFence);
@@ -71,6 +71,12 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 {
 	m_CurrentSceneRendered = &scene;
 
+	auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::ModelComponent>();
+	for (auto entity : view)
+	{
+		CurrentModelEntity = { entity, m_CurrentSceneRendered };
+	}
+
 	if (m_DrawIntoAFile)
 		m_PresentedImage = m_PathTracingImage;
 	else
@@ -84,11 +90,9 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 		m_RecreateRtPipeline = false;
 	}
 
-	if (m_UseNormalMapsChanged || m_UseAlbedoChanged || m_SampleEnvMapChanged)
+	if (m_RecompileShader)
 	{
-		m_UseNormalMapsChanged = false;
-		m_UseAlbedoChanged = false;
-		m_SampleEnvMapChanged = false;
+		m_RecompileShader = false;
 		CreateRayTracingPipeline();
 		ResetFrame();
 	}
@@ -103,6 +107,42 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 			m_PresentedImage = m_PathTracingImage;
 			CreateHDRSet();
 		}
+	}
+
+	if (m_ChangeSkybox)
+	{
+		m_ChangeSkybox = false;
+		vkDeviceWaitIdle(Vulture::Device::GetDevice());
+
+		m_CurrentSceneRendered->DestroyEntity(m_CurrentSkyboxEntity);
+
+		m_CurrentSkyboxEntity = m_CurrentSceneRendered->CreateEntity();
+		auto& skyboxComponent = m_CurrentSkyboxEntity.AddComponent<Vulture::SkyboxComponent>(m_SkyboxPath);
+
+		SetSkybox(m_CurrentSkyboxEntity);
+	}
+
+	if (m_ModelChanged)
+	{
+		m_ModelChanged = false;
+		vkDeviceWaitIdle(Vulture::Device::GetDevice());
+
+		auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::ModelComponent>();
+		for (auto entity : view)
+		{
+			m_CurrentSceneRendered->GetRegistry().destroy(entity);
+		}
+		m_CurrentSceneRendered->ResetMeshCount();
+		m_CurrentSceneRendered->ResetModelCount();
+		m_CurrentSceneRendered->ResetVertexCount();
+		m_CurrentSceneRendered->ResetIndexCount();
+
+		CurrentModelEntity = m_CurrentSceneRendered->CreateModel(m_ModelPath, Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(m_ModelScale)));
+
+		m_CurrentSceneRendered->InitAccelerationStructure();
+		CreateRayTracingDescriptorSets(*m_CurrentSceneRendered);
+
+		ResetFrame();
 	}
 
 	if (m_DrawIntoAFile)
@@ -201,7 +241,7 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 
 void SceneRenderer::RecreateRayTracingDescriptorSets()
 {
-	m_RayTracingDescriptorSet->UpdateImageSampler(1, m_PathTracingImage->GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
+	m_RayTracingDescriptorSet->UpdateImageSampler(1, Vulture::Renderer::GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
 }
 
 // TODO descritpion
@@ -213,6 +253,7 @@ bool SceneRenderer::RayTrace(const glm::vec4& clearColor)
 	m_PushContantRayTrace.GetDataPtr()->maxDepth = m_DrawInfo.RayDepth;
 	m_PushContantRayTrace.GetDataPtr()->FocalLength = m_DrawInfo.FocalLength;
 	m_PushContantRayTrace.GetDataPtr()->DoFStrength = m_DrawInfo.DOFStrength;
+	m_PushContantRayTrace.GetDataPtr()->AliasingJitter = m_DrawInfo.AliasingJitterStr;
 	m_PushContantRayTrace.GetDataPtr()->SamplesPerFrame = m_DrawInfo.SamplesPerFrame;
 	m_PushContantRayTrace.GetDataPtr()->EnvAzimuth =  glm::radians(m_DrawInfo.EnvAzimuth);
 	m_PushContantRayTrace.GetDataPtr()->EnvAltitude = glm::radians(m_DrawInfo.EnvAltitude);
@@ -262,7 +303,7 @@ bool SceneRenderer::RayTrace(const glm::vec4& clearColor)
 
 	Vulture::Device::EndLabel(Vulture::Renderer::GetCurrentCommandBuffer());
 
-	if (m_AutoDoF)
+	if (m_DrawInfo.AutoDoF)
 	{
 		memcpy(&m_DrawInfo.FocalLength, m_RayTracingDescriptorSet->GetBuffer(8)->GetMappedMemory(), sizeof(float));
 	}
@@ -424,7 +465,7 @@ void SceneRenderer::RecreateResources()
 	Vulture::Bloom::CreateInfo bloomInfo{};
 	bloomInfo.InputImages = { m_PathTracingImage };
 	bloomInfo.OutputImages = { m_BloomImage };
-	bloomInfo.MipsCount = 6;
+	bloomInfo.MipsCount = m_DrawInfo.BloomInfo.MipCount;
 	m_Bloom.Init(bloomInfo);
 
 	bloomInfo.InputImages = { m_DenoisedImage };
@@ -435,19 +476,19 @@ void SceneRenderer::RecreateResources()
 
 	FixCameraAspectRatio();
 
-	m_Denoiser->AllocateBuffers(m_ViewportSize);
+	m_Denoiser->AllocateBuffers(m_ViewportContentSize);
 
 	RecreateDescriptorSets();
 }
 
 void SceneRenderer::FixCameraAspectRatio()
 {
-	float newAspectRatio = (float)m_ViewportSize.width / (float)m_ViewportSize.height;
+	float newAspectRatio = (float)m_ViewportContentSize.width / (float)m_ViewportContentSize.height;
 	auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::CameraComponent>();
 	for (auto entity : view)
 	{
 		auto& cameraCp = view.get<Vulture::CameraComponent>(entity);
-		cameraCp.SetPerspectiveMatrix(45.0f, newAspectRatio, 0.1f, 100.0f);
+		cameraCp.SetPerspectiveMatrix(cameraCp.FOV, newAspectRatio, 0.1f, 100.0f);
 	}
 }
 
@@ -475,7 +516,7 @@ void SceneRenderer::CreateDescriptorSets()
 
 		m_GlobalDescriptorSets[i]->AddImageSampler(
 			1,
-			Vulture::Renderer::GetEnv()->GetSamplerHandle(),
+			Vulture::Renderer::GetSamplerHandle(),
 			Vulture::Renderer::GetEnv()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
@@ -488,6 +529,7 @@ void SceneRenderer::CreateDescriptorSets()
 			Vulture::Renderer::GetEnv()->GetAccelBuffer()->GetBuffer(),
 			m_GlobalDescriptorSets[i]->GetBuffer(2)->GetBuffer(),
 			Vulture::Renderer::GetEnv()->GetAccelBuffer()->GetBufferSize(),
+			0, 0,
 			Vulture::Device::GetGraphicsQueue(),
 			0,
 			Vulture::Device::GetGraphicsCommandPool()
@@ -497,12 +539,12 @@ void SceneRenderer::CreateDescriptorSets()
 	
 #ifdef VL_IMGUI
 
-	m_ImGuiAlbedoDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Albedo)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Albedo), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Normal)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Normal), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::RoughnessMetallness)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::RoughnessMetallness), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Emissive)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Emissive), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(m_TonemappedImage->GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(m_PathTracingImage->GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiAlbedoDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Albedo), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Normal), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::RoughnessMetallness), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Emissive), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 #endif
 }
@@ -530,9 +572,9 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 		asInfo.pAccelerationStructures = &tlas;
 
 		m_RayTracingDescriptorSet->AddAccelerationStructure(0, asInfo);
-		m_RayTracingDescriptorSet->AddImageSampler(1, m_PathTracingImage->GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
-		m_RayTracingDescriptorSet->AddStorageBuffer(2, sizeof(MeshAdresses) * 200, false, true);
-		m_RayTracingDescriptorSet->AddStorageBuffer(3, sizeof(Vulture::Material) * 200, false, true);
+		m_RayTracingDescriptorSet->AddImageSampler(1, Vulture::Renderer::GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
+		m_RayTracingDescriptorSet->AddStorageBuffer(2, sizeof(MeshAdresses) * 50000, false, true);
+		m_RayTracingDescriptorSet->AddStorageBuffer(3, sizeof(Vulture::Material) * 50000, false, true);
 
 		auto view = scene.GetRegistry().view<Vulture::ModelComponent>();
 		for (auto& entity : view)
@@ -542,7 +584,7 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 			{
 				m_RayTracingDescriptorSet->AddImageSampler(
 					4,
-					modelComp.Model->GetAlbedoTexture(j)->GetSamplerHandle(),
+					Vulture::Renderer::GetSamplerHandle(),
 					modelComp.Model->GetAlbedoTexture(j)->GetImageView(),
 					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
@@ -551,7 +593,7 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 			{
 				m_RayTracingDescriptorSet->AddImageSampler(
 					5,
-					modelComp.Model->GetNormalTexture(j)->GetSamplerHandle(),
+					Vulture::Renderer::GetSamplerHandle(),
 					modelComp.Model->GetNormalTexture(j)->GetImageView(),
 					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
@@ -560,7 +602,7 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 			{
 				m_RayTracingDescriptorSet->AddImageSampler(
 					6,
-					modelComp.Model->GetRoughnessTexture(j)->GetSamplerHandle(),
+					Vulture::Renderer::GetSamplerHandle(),
 					modelComp.Model->GetRoughnessTexture(j)->GetImageView(),
 					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
@@ -569,7 +611,7 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 			{
 				m_RayTracingDescriptorSet->AddImageSampler(
 					7,
-					modelComp.Model->GetMetallnessTexture(j)->GetSamplerHandle(),
+					Vulture::Renderer::GetSamplerHandle(),
 					modelComp.Model->GetMetallnessTexture(j)->GetImageView(),
 					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				);
@@ -605,8 +647,7 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 			materialSizes += sizeof(Vulture::Material) * modelComp.Model->GetMeshCount();
 		}
 
-		if (!meshSizes)
-			VL_CORE_ASSERT(false, "No meshes found?");
+		VL_CORE_ASSERT(meshSizes, "No meshes found?");
 
 		m_RayTracingDescriptorSet->GetBuffer(2)->WriteToBuffer(meshAddresses.data(), meshSizes, 0);
 		m_RayTracingDescriptorSet->GetBuffer(3)->WriteToBuffer(materials.data(), materialSizes, 0);
@@ -619,8 +660,11 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 	CreateShaderBindingTable();
 }
 
-void SceneRenderer::SetSkybox(Vulture::SkyboxComponent& skybox)
+void SceneRenderer::SetSkybox(Vulture::Entity& skyboxEntity)
 {
+	m_CurrentSkyboxEntity = skyboxEntity;
+	Vulture::SkyboxComponent skybox = skyboxEntity.GetComponent<Vulture::SkyboxComponent>();
+
 	m_GlobalDescriptorSets.clear();
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
@@ -634,7 +678,7 @@ void SceneRenderer::SetSkybox(Vulture::SkyboxComponent& skybox)
 
 		m_GlobalDescriptorSets[i]->AddImageSampler(
 			1,
-			skybox.SkyboxImage->GetSamplerHandle(),
+			Vulture::Renderer::GetSamplerHandle(),
 			skybox.SkyboxImage->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
@@ -647,14 +691,14 @@ void SceneRenderer::SetSkybox(Vulture::SkyboxComponent& skybox)
 			skybox.SkyboxImage->GetAccelBuffer()->GetBuffer(),
 			m_GlobalDescriptorSets[i]->GetBuffer(2)->GetBuffer(),
 			skybox.SkyboxImage->GetAccelBuffer()->GetBufferSize(),
+			0, 0,
 			Vulture::Device::GetGraphicsQueue(),
 			0,
 			Vulture::Device::GetGraphicsCommandPool()
 		);
 	}
 
-	m_SampleEnvMap = true;
-	m_SampleEnvMapChanged = true;
+	m_RecompileShader = true;
 	m_HasEnvMap = true;
 }
 
@@ -669,7 +713,7 @@ void SceneRenderer::RecreateDescriptorSets()
 	{
 		m_RayTracingDescriptorSet->UpdateImageSampler(
 			1,
-			m_PathTracingImage->GetSamplerHandle(),
+			Vulture::Renderer::GetSamplerHandle(),
 			m_PathTracingImage->GetImageView(),
 			VK_IMAGE_LAYOUT_GENERAL
 		);
@@ -685,12 +729,12 @@ void SceneRenderer::RecreateDescriptorSets()
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiViewportDescriptorTonemapped);
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiViewportDescriptorPathTracing);
 
-	m_ImGuiAlbedoDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Albedo)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Albedo), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Normal)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Normal), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::RoughnessMetallness)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::RoughnessMetallness), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Emissive)->GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Emissive), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(m_TonemappedImage->GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(m_PathTracingImage->GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiAlbedoDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Albedo), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Normal), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::RoughnessMetallness), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Emissive), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 #endif
 }
@@ -717,12 +761,18 @@ void SceneRenderer::CreateRayTracingPipeline()
 		Vulture::Shader shader1({ "src/shaders/raytrace.rgen", VK_SHADER_STAGE_RAYGEN_BIT_KHR });
 
 		std::vector<std::string> macros;
-		if (m_UseAlbedo)
+		if (m_DrawInfo.UseAlbedo)
 			macros.push_back("USE_ALBEDO");
-		if (m_UseNormalMaps)
+		if (m_DrawInfo.UseNormalMaps)
 			macros.push_back("USE_NORMAL_MAPS");
-		if (m_SampleEnvMap)
+		if (m_DrawInfo.SampleEnvMap)
 			macros.push_back("SAMPLE_ENV_MAP");
+		if (m_DrawInfo.UseGlossy)
+			macros.push_back("USE_GLOSSY");
+		if (m_DrawInfo.UseGlass)
+			macros.push_back("USE_GLASS");
+		if (m_DrawInfo.UseClearcoat)
+			macros.push_back("USE_CLEARCOAT");
 
 		Vulture::Shader shader2({ m_CurrentHitShaderPath, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, macros });
 		
@@ -769,11 +819,11 @@ void SceneRenderer::CreateRayTracingPipeline()
 			Vulture::Shader shader1({ "src/shaders/GBuffer.vert", VK_SHADER_STAGE_VERTEX_BIT });
 
 			std::vector<std::string> macros;
-			if (m_UseAlbedo)
+			if (m_DrawInfo.UseAlbedo)
 				macros.push_back("USE_ALBEDO");
-			if (m_UseNormalMaps)
+			if (m_DrawInfo.UseNormalMaps)
 				macros.push_back("USE_NORMAL_MAPS");
-			if (m_SampleEnvMap)
+			if (m_DrawInfo.SampleEnvMap)
 				macros.push_back("SAMPLE_ENV_MAP");
 
 			Vulture::Shader shader2({ "src/shaders/GBuffer.frag", VK_SHADER_STAGE_FRAGMENT_BIT, macros });
@@ -783,8 +833,8 @@ void SceneRenderer::CreateRayTracingPipeline()
 			info.DepthTestEnable = true;
 			info.CullMode = VK_CULL_MODE_NONE;
 			info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-			info.Width = m_ViewportSize.width;
-			info.Height = m_ViewportSize.height;
+			info.Width = m_ViewportContentSize.width;
+			info.Height = m_ViewportContentSize.height;
 			info.PushConstants = m_PushContantGBuffer.GetRangePtr();
 			info.ColorAttachmentCount = 4;
 			info.RenderPass = m_GBufferFramebuffer->GetRenderPass();
@@ -822,8 +872,8 @@ void SceneRenderer::CreateFramebuffers()
 		Vulture::Image::CreateInfo info{};
 		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		info.Height = m_ViewportSize.height;
-		info.Width = m_ViewportSize.width;
+		info.Height = m_ViewportContentSize.height;
+		info.Width = m_ViewportContentSize.width;
 		info.LayerCount = 1;
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -838,8 +888,8 @@ void SceneRenderer::CreateFramebuffers()
 	// Denoised
 	{
 		Vulture::Image::CreateInfo info{};
-		info.Width = m_ViewportSize.width;
-		info.Height = m_ViewportSize.height;
+		info.Width = m_ViewportContentSize.width;
+		info.Height = m_ViewportContentSize.height;
 		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -868,17 +918,38 @@ void SceneRenderer::CreateFramebuffers()
 		Vulture::Framebuffer::CreateInfo info{};
 		info.AttachmentsFormats = &attachments;
 		info.DepthFormat = Vulture::Swapchain::FindDepthFormat();
-		info.Extent = m_ViewportSize;
+		info.Extent = m_ViewportContentSize;
 		info.CustomBits = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		info.RenderPassInfo = &Vulture::Framebuffer::RenderPassCreateInfo();
+		Vulture::Framebuffer::RenderPassCreateInfo rPassInfo{};
+		info.RenderPassInfo = &rPassInfo;
+
+		VkSubpassDependency dependency1 = {};
+		dependency1.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency1.dstSubpass = 0;
+		dependency1.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		dependency1.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		dependency1.srcAccessMask = 0;
+		dependency1.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+		VkSubpassDependency dependency2 = {};
+		dependency2.srcSubpass = 0;
+		dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
+		dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency2.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dependency2.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		std::vector<VkSubpassDependency> dependencies{ dependency1, dependency2 };
+		info.RenderPassInfo->Dependencies = dependencies;
+
 		m_GBufferFramebuffer = std::make_shared<Vulture::Framebuffer>(info);
 	}
 
 	// Tonemapped
 	{
 		Vulture::Image::CreateInfo info{};
-		info.Width = m_ViewportSize.width;
-		info.Height = m_ViewportSize.height;
+		info.Width = m_ViewportContentSize.width;
+		info.Height = m_ViewportContentSize.height;
 		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -896,8 +967,8 @@ void SceneRenderer::CreateFramebuffers()
 	// Bloom
 	{
 		Vulture::Image::CreateInfo info{};
-		info.Width = m_ViewportSize.width;
-		info.Height = m_ViewportSize.height;
+		info.Width = m_ViewportContentSize.width;
+		info.Height = m_ViewportContentSize.height;
 		info.Format = VK_FORMAT_R16G16B16A16_SFLOAT;
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT; // TODO: check all usages in general, especially here, the transfer one
@@ -947,7 +1018,7 @@ void SceneRenderer::CreateHDRSet()
 	m_ToneMappedImageSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
 	m_ToneMappedImageSet->AddImageSampler(
 		0,
-		m_TonemappedImage->GetSamplerHandle(),
+		Vulture::Renderer::GetSamplerHandle(),
 		m_TonemappedImage->GetImageView(),
 		VK_IMAGE_LAYOUT_GENERAL
 	);
@@ -957,7 +1028,7 @@ void SceneRenderer::CreateHDRSet()
 	m_DenoisedImageSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
 	m_DenoisedImageSet->AddImageSampler(
 		0,
-		m_DenoisedImage->GetSamplerHandle(),
+		Vulture::Renderer::GetSamplerHandle(),
 		m_DenoisedImage->GetImageView(),
 		VK_IMAGE_LAYOUT_GENERAL
 	);
@@ -990,6 +1061,7 @@ void SceneRenderer::ImGuiPass()
 	}
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::SetNextWindowSize({ (float)m_ViewportSize.width, (float)m_ViewportSize.height });
 	ImGui::Begin("Preview Viewport");
 
 	if (camScript && !m_DrawIntoAFile)
@@ -1000,27 +1072,29 @@ void SceneRenderer::ImGuiPass()
 			camScript->m_CameraLocked = true;
 	}
 
-	ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+	ImVec2 viewportContentSize = ImGui::GetContentRegionAvail();
 	if (m_DrawIntoAFile && m_DrawIntoAFileFinished && m_DrawFileInfo.Denoise)
-		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportSize);
+		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportContentSize);
 	if (m_DrawIntoAFile && m_DrawIntoAFileFinished && !m_DrawFileInfo.Denoise)
-		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportSize);
+		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportContentSize);
 	if (m_DrawIntoAFile)
-		ImGui::Image(m_ImGuiViewportDescriptorPathTracing, viewportSize);
+		ImGui::Image(m_ImGuiViewportDescriptorPathTracing, viewportContentSize);
 	else if (m_ShowTonemapped)
-		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportSize);
+		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportContentSize);
 	else
-		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportSize);
+		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportContentSize);
 
-	static VkExtent2D prevViewportSize = m_ImGuiViewportSize;
-	m_ImGuiViewportSize = { (unsigned int)viewportSize.x, (unsigned int)viewportSize.y };
-	if (m_ImGuiViewportSize.width != prevViewportSize.width || m_ImGuiViewportSize.height != prevViewportSize.height)
+	static VkExtent2D prevViewportSize = { 1920, 1080 };
+	VkExtent2D imGuiViewportContentSize = { (unsigned int)viewportContentSize.x, (unsigned int)viewportContentSize.y };
+	if (imGuiViewportContentSize.width != prevViewportSize.width || imGuiViewportContentSize.height != prevViewportSize.height)
 	{
 		m_ImGuiViewportResized = true;
-		prevViewportSize = m_ImGuiViewportSize;
+		prevViewportSize = imGuiViewportContentSize;
 	}
 	if (!m_DrawIntoAFile)
-		m_ViewportSize = m_ImGuiViewportSize;
+		m_ViewportContentSize = imGuiViewportContentSize;
+
+	m_ViewportSize = { (uint32_t)ImGui::GetWindowSize().x, (uint32_t)ImGui::GetWindowSize().y };
 
 	ImGui::End();
 	ImGui::PopStyleVar();
@@ -1045,6 +1119,129 @@ void SceneRenderer::ImGuiPass()
 
 		m_Timer.Reset();
 
+		if (ImGui::CollapsingHeader("Viewport"))
+		{
+			ImGui::Separator();
+			ImGui::Text("ImGui doesn't allow to change size in dockspace\nso you have to undock the window first");
+			ImGui::InputInt2("Viewport Size", (int*)&m_ViewportSize);
+			ImGui::Separator();
+		}
+
+		if (ImGui::CollapsingHeader("Scene"))
+		{
+			ImGui::InputFloat("Models Scale", &m_ModelScale);
+			ImGui::SeparatorText("Current Model");
+
+			std::vector<std::string> scenesString;
+			std::vector<const char*> scenes;
+
+			int i = 0;
+			for (const auto& entry : std::filesystem::directory_iterator("assets/"))
+			{
+				if (entry.is_regular_file())
+				{
+					if (entry.path().extension() == ".gltf" || entry.path().extension() == ".obj")
+					{
+						i++;
+					}
+				}
+			}
+
+			scenesString.reserve(i);
+			scenes.reserve(i);
+			i = 0;
+			for (const auto& entry : std::filesystem::directory_iterator("assets/"))
+			{
+				if (entry.is_regular_file())
+				{
+					if (entry.path().extension() == ".gltf" || entry.path().extension() == ".obj")
+					{
+						scenesString.push_back(entry.path().filename().string());
+						scenes.push_back(scenesString[i].c_str());
+						i++;
+					}
+				}
+			}
+
+			static int currentSceneItem = 0;
+			if (ImGui::ListBox("Current Scene", &currentSceneItem, scenes.data(), (int)scenes.size(), scenes.size() > 10 ? 10 : (int)scenes.size()))
+			{
+				m_ModelPath = "assets/" + scenesString[currentSceneItem];
+				m_ModelChanged = true;
+			}
+
+			ImGui::SeparatorText("Materials");
+
+			Vulture::ModelComponent comp = CurrentModelEntity.GetComponent<Vulture::ModelComponent>();
+			m_CurrentMaterials = &comp.Model->GetMaterials();
+			m_CurrentMeshesNames = comp.Model->GetNames();
+
+			std::vector<const char*> meshesNames(m_CurrentMeshesNames.size());
+			for (int i = 0; i < meshesNames.size(); i++)
+			{
+				meshesNames[i] = m_CurrentMeshesNames[i].c_str();
+			}
+
+			static int currentMaterialItem = 0;
+			ImGui::ListBox("Materials", &currentMaterialItem, meshesNames.data(), (int)meshesNames.size(), meshesNames.size() > 10 ? 10 : (int)meshesNames.size());
+
+			ImGui::SeparatorText("Material Values");
+
+			bool valuesChanged = false;
+			if (ImGui::ColorEdit4("Albedo", (float*)&(*m_CurrentMaterials)[currentMaterialItem].Color)) { valuesChanged = true; };
+			if (ImGui::ColorEdit3("Emissive", (float*)&(*m_CurrentMaterials)[currentMaterialItem].Emissive)) { valuesChanged = true; };
+			if (ImGui::SliderFloat("Emissive Strength", &(*m_CurrentMaterials)[currentMaterialItem].Emissive.a, 0.0f, 10.0f)) { valuesChanged = true; };
+			if (ImGui::SliderFloat("Roughness", &(*m_CurrentMaterials)[currentMaterialItem].Roughness, 0.0f, 1.0f)) { valuesChanged = true; };
+			if (ImGui::SliderFloat("Metallic", &(*m_CurrentMaterials)[currentMaterialItem].Metallic, 0.0f, 1.0f)) { valuesChanged = true; };
+			if (ImGui::SliderFloat("IOR", &(*m_CurrentMaterials)[currentMaterialItem].Ior, 1.001f, 2.0f)) { valuesChanged = true; };
+			if (ImGui::SliderFloat("Clearcoat", &(*m_CurrentMaterials)[currentMaterialItem].Clearcoat, 0.0f, 1.0f)) { valuesChanged = true; };
+			if (ImGui::SliderFloat("Clearcoat Roughness", &(*m_CurrentMaterials)[currentMaterialItem].ClearcoatRoughness, 0.0f, 1.0f)) { valuesChanged = true; };
+			if (ImGui::SliderFloat("SubSurface", &(*m_CurrentMaterials)[currentMaterialItem].Subsurface, 0.0f, 1.0f)) { valuesChanged = true; };
+			
+			static bool editAll = false;
+			ImGui::Checkbox("Edit All Values", &editAll);
+
+			if (editAll)
+			{
+				for (int i = 0; i < (*m_CurrentMaterials).size(); i++)
+				{
+					(*m_CurrentMaterials)[i].Color = (*m_CurrentMaterials)[currentMaterialItem].Color;
+					(*m_CurrentMaterials)[i].Roughness = (*m_CurrentMaterials)[currentMaterialItem].Roughness;
+					(*m_CurrentMaterials)[i].Metallic = (*m_CurrentMaterials)[currentMaterialItem].Metallic;
+					(*m_CurrentMaterials)[i].Clearcoat = (*m_CurrentMaterials)[currentMaterialItem].Clearcoat;
+					(*m_CurrentMaterials)[i].ClearcoatRoughness = (*m_CurrentMaterials)[currentMaterialItem].ClearcoatRoughness;
+					(*m_CurrentMaterials)[i].Ior = (*m_CurrentMaterials)[currentMaterialItem].Ior;
+				}
+
+				if (valuesChanged)
+				{
+					// Upload to GPU
+					m_RayTracingDescriptorSet->GetBuffer(3)->WriteToBuffer(
+						m_CurrentMaterials->data(),
+						sizeof(Vulture::Material) * (*m_CurrentMaterials).size(),
+						0
+					);
+
+					ResetFrame();
+				}
+			}
+			else
+			{
+				if (valuesChanged)
+				{
+					// Upload to GPU
+					m_RayTracingDescriptorSet->GetBuffer(3)->WriteToBuffer(
+						((uint8_t*)m_CurrentMaterials->data()) + (uint8_t)sizeof(Vulture::Material) * (uint8_t)currentMaterialItem,
+						sizeof(Vulture::Material),
+						sizeof(Vulture::Material) * currentMaterialItem
+					);
+
+					ResetFrame();
+				}
+			}
+			ImGui::Separator();
+		}
+
 		if (ImGui::CollapsingHeader("Camera"))
 		{
 			ImGui::Separator();
@@ -1056,7 +1253,30 @@ void SceneRenderer::ImGuiPass()
 					FixCameraAspectRatio();
 				}
 				ImGui::SliderFloat("Movement Speed", &camScript->m_MovementSpeed, 0.0f, 20.0f);
-				ImGui::SliderFloat("Rotation Speed", &camScript->m_RotationSpeed, 0.0f, 4.0f);
+				ImGui::SliderFloat("Rotation Speed", &camScript->m_RotationSpeed, 0.0f, 40.0f);
+
+				Vulture::CameraComponent* cp = &camScript->GetComponent<Vulture::CameraComponent>();
+				if (ImGui::SliderFloat("FOV", &cp->FOV, 10.0f, 45.0f))
+				{
+					ResetFrame();
+				}
+
+				float newAspectRatio = (float)m_ViewportContentSize.width / (float)m_ViewportContentSize.height;
+				cp->SetPerspectiveMatrix(cp->FOV, newAspectRatio, 0.1f, 1000.0f);
+
+				glm::vec3 position = cp->Translation;
+				glm::vec3 rotation = cp->Rotation.GetAngles();
+				bool changed = false;
+				if (ImGui::InputFloat3("Position", (float*)&position)) { changed = true; };
+				if (ImGui::InputFloat3("Rotation", (float*)&rotation)) { changed = true; };
+
+				if (changed)
+				{
+					cp->Translation = position;
+					cp->Rotation.SetAngles(rotation);
+
+					cp->UpdateViewMatrix();
+				}
 			}
 			ImGui::Separator();
 		}
@@ -1067,6 +1287,44 @@ void SceneRenderer::ImGuiPass()
 
 			if (ImGui::SliderFloat("Azimuth", &m_DrawInfo.EnvAzimuth, 0.0f, 360.0f)) { ResetFrame(); };
 			if (ImGui::SliderFloat("Altitude", &m_DrawInfo.EnvAltitude, 0.0f, 360.0f)) { ResetFrame(); };
+
+			std::vector<std::string> envMapsString;
+			std::vector<const char*> envMaps;
+
+			int i = 0;
+			for (const auto& entry : std::filesystem::directory_iterator("assets/"))
+			{
+				if (entry.is_regular_file()) 
+				{
+					if (entry.path().extension() == ".hdr") 
+					{
+						i++;
+					}
+				}
+			}
+
+			envMapsString.reserve(i);
+			envMaps.reserve(i);
+			i = 0;
+			for (const auto& entry : std::filesystem::directory_iterator("assets/"))
+			{
+				if (entry.is_regular_file())
+				{
+					if (entry.path().extension() == ".hdr")
+					{
+						envMapsString.push_back(entry.path().filename().string());
+						envMaps.push_back(envMapsString[i].c_str());
+						i++;
+					}
+				}
+			}
+
+			static int currentItem = 0;
+			if (ImGui::ListBox("Current Environment Map", &currentItem, envMaps.data(), (int)envMaps.size(), envMaps.size() > 10 ? 10 : (int)envMaps.size()))
+			{
+				m_SkyboxPath = "assets/" + envMapsString[currentItem];
+				m_ChangeSkybox = true;
+			}
 
 			ImGui::Separator();
 		}
@@ -1088,6 +1346,10 @@ void SceneRenderer::ImGuiPass()
 			ImGui::SliderFloat("Brightness",	&m_DrawInfo.TonemapInfo.Brightness, 0.0f, 3.0f);
 			ImGui::SliderFloat("Saturation",	&m_DrawInfo.TonemapInfo.Saturation, 0.0f, 3.0f);
 			ImGui::SliderFloat("Vignette",		&m_DrawInfo.TonemapInfo.Vignette, 0.0f, 1.0f);
+			if (ImGui::Checkbox("LinearSpace", (bool*)&m_DrawInfo.TonemapInfo.LinearSpace))
+			{
+				VL_CORE_WARN("{}", m_DrawInfo.TonemapInfo.LinearSpace);
+			}
 			ImGui::Separator();
 		}
 
@@ -1097,13 +1359,13 @@ void SceneRenderer::ImGuiPass()
 
 			static int currentItem = 0;
 			int prevItem = currentItem;
-			const char* items[] = { "Disney", "Cook-Torrance" };
+			const char* items[] = { "Cook-Torrance", "Disney" };
 			if (ImGui::ListBox("Current Model", &currentItem, items, IM_ARRAYSIZE(items), 2))
 			{
 				if (currentItem == 0)
-					m_CurrentHitShaderPath = "src/shaders/Disney.rchit";
-				else if (currentItem == 1)
 					m_CurrentHitShaderPath = "src/shaders/CookTorrance.rchit";
+				else if (currentItem == 1)
+					m_CurrentHitShaderPath = "src/shaders/Disney.rchit";
 
 				if (prevItem != currentItem)
 				{
@@ -1111,20 +1373,32 @@ void SceneRenderer::ImGuiPass()
 				}
 			}
 
-			if(ImGui::Checkbox("Use Normal Maps (Experimental)", &m_UseNormalMaps))
+			if(ImGui::Checkbox("Use Normal Maps (Experimental)", &m_DrawInfo.UseNormalMaps))
 			{
-				m_UseNormalMapsChanged = true;
+				m_RecompileShader = true;
 			}
-			if (ImGui::Checkbox("Use Albedo", &m_UseAlbedo))
+			if (ImGui::Checkbox("Use Albedo", &m_DrawInfo.UseAlbedo))
 			{
-				m_UseAlbedoChanged = true;
+				m_RecompileShader = true;
+			}
+			if (ImGui::Checkbox("Use Glossy Reflections", &m_DrawInfo.UseGlossy))
+			{
+				m_RecompileShader = true;
+			}
+			if (ImGui::Checkbox("Use Glass", &m_DrawInfo.UseGlass))
+			{
+				m_RecompileShader = true;
+			}
+			if (ImGui::Checkbox("Use Clearcoat", &m_DrawInfo.UseClearcoat))
+			{
+				m_RecompileShader = true;
 			}
 
 			if (m_HasEnvMap)
 			{
-				if (ImGui::Checkbox("Sample Environment Map", &m_SampleEnvMap))
+				if (ImGui::Checkbox("Sample Environment Map", &m_DrawInfo.SampleEnvMap))
 				{
-					m_SampleEnvMapChanged = true;
+					m_RecompileShader = true;
 				}
 			}
 
@@ -1134,9 +1408,10 @@ void SceneRenderer::ImGuiPass()
 			ImGui::SliderInt("Samples Per Pixel",	&m_DrawInfo.TotalSamplesPerPixel, 1, 50'000);
 			ImGui::SliderInt("Samples Per Frame",	&m_DrawInfo.SamplesPerFrame, 1, 40);
 
-			ImGui::Checkbox("Auto Focal Length",	&m_AutoDoF);
-			ImGui::SliderFloat("Focal Length",		&m_DrawInfo.FocalLength, 1.0f, 100.0f);
-			ImGui::SliderFloat("DoF Strength",		&m_DrawInfo.DOFStrength, 0.0f, 100.0f);
+			if(ImGui::SliderFloat("Aliasing Jitter Strength", &m_DrawInfo.AliasingJitterStr, 0.0f, 1.0f)) { ResetFrame(); };
+			if(ImGui::Checkbox("Auto Focal Length",		&m_DrawInfo.AutoDoF)) { ResetFrame(); };
+			if(ImGui::SliderFloat("Focal Length",		&m_DrawInfo.FocalLength, 1.0f, 100.0f)) { ResetFrame(); };
+			if(ImGui::SliderFloat("DoF Strength",		&m_DrawInfo.DOFStrength, 0.0f, 100.0f)) { ResetFrame(); };
 			ImGui::Separator();
 		}
 
@@ -1175,12 +1450,37 @@ void SceneRenderer::ImGuiPass()
 
 			if (ImGui::BeginPopup("FileRenderPopup"))
 			{
-				ImGui::SeparatorText("----------------------------------------------");
-
-
+				ImGui::SeparatorText("Window");
 				ImGui::InputInt2("Resolution",					m_DrawFileInfo.Resolution);
 				ImGui::Checkbox("Denoise", &m_DrawFileInfo.Denoise);
 
+				ImGui::SeparatorText("Camera");
+				{
+					Vulture::CameraComponent* cp = &camScript->GetComponent<Vulture::CameraComponent>();
+					if (ImGui::SliderFloat("FOV", &cp->FOV, 10.0f, 45.0f))
+					{
+						ResetFrame();
+					}
+
+					float newAspectRatio = (float)m_ViewportContentSize.width / (float)m_ViewportContentSize.height;
+					cp->SetPerspectiveMatrix(cp->FOV, newAspectRatio, 0.1f, 1000.0f);
+
+					glm::vec3 position = cp->Translation;
+					glm::vec3 rotation = cp->Rotation.GetAngles();
+					bool changed = false;
+					if (ImGui::InputFloat3("Position", (float*)&position)) { changed = true; };
+					if (ImGui::InputFloat3("Rotation", (float*)&rotation)) { changed = true; };
+
+					if (changed)
+					{
+						cp->Translation = position;
+						cp->Rotation.SetAngles(rotation);
+
+						cp->UpdateViewMatrix();
+					}
+				}
+
+				ImGui::SeparatorText("Path Tracing");
 				if (ImGui::Button("Copy Current Values"))
 				{
 					m_DrawFileInfo.DrawInfo = m_DrawInfo;
@@ -1189,8 +1489,9 @@ void SceneRenderer::ImGuiPass()
 				ImGui::SliderInt("Max Ray Depth",				&m_DrawFileInfo.DrawInfo.RayDepth, 1, 20);
 				ImGui::InputInt("Samples Per Frame",			&m_DrawFileInfo.DrawInfo.SamplesPerFrame);
 				ImGui::InputInt("Total Samples Per Pixel",		&m_DrawFileInfo.DrawInfo.TotalSamplesPerPixel);
-				ImGui::SliderFloat("Depth Of Field Strength",	&m_DrawFileInfo.DrawInfo.DOFStrength, 0.0f, 200.0f);
-				ImGui::SliderFloat("Focal Length",				&m_DrawFileInfo.DrawInfo.FocalLength, 5.0f, 20.0f);
+				ImGui::SliderFloat("Aliasing Jitter Strength",  &m_DrawFileInfo.DrawInfo.AliasingJitterStr, 0.0f, 1.0f);
+				ImGui::SliderFloat("Focal Length",				&m_DrawFileInfo.DrawInfo.FocalLength, 1.0f, 100.0f);
+				ImGui::SliderFloat("DoF Strength",				&m_DrawFileInfo.DrawInfo.DOFStrength, 0.0f, 100.0f);
 
 				ImGui::SeparatorText("Bloom");
 				ImGui::SliderFloat("Threshold",		&m_DrawFileInfo.DrawInfo.BloomInfo.Threshold, 0.0f, 3.0f);
@@ -1213,7 +1514,10 @@ void SceneRenderer::ImGuiPass()
 					
 					m_DrawInfo = m_DrawFileInfo.DrawInfo;
 
-					m_ViewportSize = { (unsigned int)m_DrawFileInfo.Resolution[0], (unsigned int)m_DrawFileInfo.Resolution[1] };
+					m_ViewportContentSize = { (unsigned int)m_DrawFileInfo.Resolution[0], (unsigned int)m_DrawFileInfo.Resolution[1] };
+				
+					m_ViewportContentSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
+					prevViewportSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
 				}
 				ImGui::EndPopup();
 			}
@@ -1259,6 +1563,8 @@ void SceneRenderer::ImGuiPass()
 				m_DrawFileInfo.DrawingFramebufferFinished = false;
 				m_DrawIntoAFile = false;
 				m_DrawIntoAFileChanged = true;
+				m_ViewportContentSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
+				prevViewportSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
 			}
 		}
 		else
@@ -1269,6 +1575,8 @@ void SceneRenderer::ImGuiPass()
 				m_DrawFileInfo.DrawingFramebufferFinished = false;
 				m_DrawIntoAFile = false;
 				m_DrawIntoAFileChanged = true;
+				m_ViewportContentSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
+				prevViewportSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
 			}
 		}
 	}

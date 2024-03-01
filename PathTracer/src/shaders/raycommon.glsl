@@ -39,6 +39,7 @@ struct PushConstantRay
 
     float FocalLenght;
     float DoFStrenght;
+    float AliasingJitter;
 };
 
 struct Vertex
@@ -73,11 +74,11 @@ struct Material
     float Anisotropic;
     float SpecTrans;
     float Clearcoat;
+    float ClearcoatRoughness;
     float eta;
     float Subsurface;
     float ax;
     float ay;
-    float ClearcoatRoughness;
 
     uint mediumType;
     vec4 mediumColor;

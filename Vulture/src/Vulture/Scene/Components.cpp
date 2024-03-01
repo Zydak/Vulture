@@ -112,6 +112,7 @@ namespace Vulture
 
 	void CameraComponent::SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far)
 	{
+		FOV = fov;
 		AspectRatio = aspectRatio;
 		ProjMat = glm::perspective(glm::radians(fov), aspectRatio, _near, _far);
 	}

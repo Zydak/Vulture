@@ -26,13 +26,13 @@ namespace Vulture
 			m_Descriptor[i].Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 			m_Descriptor[i].AddImageSampler(
 				0,
-				info.InputImages[i]->GetSamplerHandle(),
+				Vulture::Renderer::GetSamplerHandle(),
 				info.InputImages[i]->GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 			);
 			m_Descriptor[i].AddImageSampler(
 				1,
-				info.OutputImages[i]->GetSamplerHandle(),
+				Vulture::Renderer::GetSamplerHandle(),
 				info.OutputImages[i]->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL
 			);
@@ -109,11 +109,12 @@ namespace Vulture
 			cmd
 		);
 
-		m_Push.GetDataPtr()->Brightness = info.Brightness;
-		m_Push.GetDataPtr()->Contrast	= info.Contrast;
-		m_Push.GetDataPtr()->Exposure	= info.Exposure;
-		m_Push.GetDataPtr()->Vignette	= info.Vignette;
-		m_Push.GetDataPtr()->Saturation = info.Saturation;
+		m_Push.GetDataPtr()->Brightness  = info.Brightness;
+		m_Push.GetDataPtr()->Contrast    = info.Contrast;
+		m_Push.GetDataPtr()->Exposure    = info.Exposure;
+		m_Push.GetDataPtr()->Vignette    = info.Vignette;
+		m_Push.GetDataPtr()->Saturation  = info.Saturation;
+		m_Push.GetDataPtr()->LinearSpace = info.LinearSpace;
 
 		m_Push.Push(m_Pipeline.GetPipelineLayout(), cmd);
 

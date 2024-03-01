@@ -31,6 +31,7 @@ namespace Vulture
 		static inline Swapchain& GetSwapchain() { return *s_Swapchain; }
 		static inline DescriptorPool& GetDescriptorPool() { return *s_Pool; }
 		static inline Sampler& GetSampler() { return *s_RendererSampler; }
+		static inline VkSampler GetSamplerHandle() { return s_RendererSampler->GetSamplerHandle(); }
 		static inline uint32_t& GetCurrentFrameIndex() { return s_CurrentFrameIndex; }
 		static inline Mesh& GetQuadMesh() { return s_QuadMesh; }
 
@@ -47,7 +48,7 @@ namespace Vulture
 
 		static void SaveImageToFile(const std::string& filepath, Ref<Image> image);
 		static void ImGuiPass();
-		static void FramebufferCopyPassImGui(Ref<DescriptorSet> descriptorWithImageSampler);
+		static void FramebufferCopyPassImGui(DescriptorSet* descriptorWithImageSampler);
 		static void FramebufferCopyPassBlit(Ref<Image> image);
 		static void EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap);
 		static void SampleEnvMap(Image* image);

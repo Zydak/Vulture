@@ -349,7 +349,7 @@ namespace Vulture
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		BufferInfo.MinOffsetAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
 		instancesBuffer.Init(BufferInfo);
-		instancesBuffer.CopyBuffer(stagingBuffer.GetBuffer(), instancesBuffer.GetBuffer(), instancesBuffer.GetBufferSize(), Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
+		instancesBuffer.CopyBuffer(stagingBuffer.GetBuffer(), instancesBuffer.GetBuffer(), instancesBuffer.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 
 		VkCommandBuffer cmdBuf;
 		Device::BeginSingleTimeCommands(cmdBuf, Device::GetComputeCommandPool());

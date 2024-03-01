@@ -4,7 +4,7 @@
 // Core assert
 //
 
-#ifndef DIST
+#ifndef DISTRIBUTION
 
 #if defined(WIN)
 #define VL_CORE_ASSERT(condition, ...)\
@@ -18,14 +18,28 @@
 			VL_CORE_ERROR(__VA_ARGS__);\
 			__builtin_trap();\
 		}
-#endif 
+#endif
 
 #else
 #define VL_CORE_ASSERT(condition, ...)
 #endif
 
+#if defined(WIN)
+#define VL_CORE_CHECK(condition, ...)\
+		if(!(condition)) {\
+			VL_CORE_DIST_ERROR(__VA_ARGS__);\
+			__debugbreak();\
+		}
+#else
+#define VL_CORE_ASSERT(condition, ...)\
+		if(!(condition)) {\
+			VL_CORE_ERROR(__VA_ARGS__);\
+			__builtin_trap();\
+		}
+#endif 
+
 // return value assert
-#ifndef DIST
+#ifndef DISTRIBUTION
 
 #if defined(WIN)
 #define VL_CORE_RETURN_ASSERT(function, value, ...)\
@@ -53,7 +67,7 @@
 // Client assert
 //
 
-#ifndef DIST
+#ifndef DISTRIBUTION
 
 #if defined(WIN)
 #define VL_ASSERT(condition, ...)\
@@ -74,7 +88,7 @@
 #endif
 
 // return value assert
-#ifndef DIST
+#ifndef DISTRIBUTION
 
 #if defined(WIN)
 #define VL_RETURN_ASSERT(function, value, ...)\
