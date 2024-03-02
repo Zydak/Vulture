@@ -585,7 +585,7 @@
 			],
 			"extensions":{
 				"KHR_materials_emissive_strength":{
-					"emissiveStrength":10
+					"emissiveStrength":20
 				}
 			},
 			"name":"light softboxes",

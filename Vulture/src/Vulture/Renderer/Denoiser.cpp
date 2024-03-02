@@ -234,8 +234,6 @@ namespace Vulture
         imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,cmdBuf);
         
         vkCmdCopyBufferToImage(cmdBuf, m_PixelBufferOut.BufferVk.GetBuffer(), imgOut->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-        
-        imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,cmdBuf);
     }
 
     void Denoiser::DestroyBuffer()

@@ -28,10 +28,12 @@ struct GlobalUniforms
     mat4 ProjInverse;
 };
 
+#extension GL_EXT_shader_explicit_arithmetic_types_float64 : enable
+
 struct PushConstantRay
 {
     vec4 ClearColor;
-    int Frame;
+    int64_t Frame;
     int MaxDepth;
     int SamplesPerFrame;
     float EnvAzimuth;
@@ -205,21 +207,11 @@ float CalculateLuminance(vec3 rgb)
     return 0.212671f * rgb.r + 0.715160f * rgb.g + 0.072169f * rgb.b;
 }
 
-void CalculateTangents1(in vec3 N, out vec3 T, out vec3 B)
+void CalculateTangents(in vec3 N, out vec3 T, out vec3 B)
 {
     vec3 up = abs(N.z) < 0.9999999 ? vec3(0, 0, 1) : vec3(1, 0, 0);
     T = normalize(cross(up, N));
     B = cross(N, T);
-}
-
-void CalculateTangents2(in vec3 normal, out vec3 tangent, out vec3 bitangent)
-{
-    float sgn = normal.z > 0.0F ? 1.0F : -1.0F;
-    float a = -1.0F / (sgn + normal.z);
-    float b = normal.x * normal.y * a;
-
-    tangent = vec3(1.0f + sgn * normal.x * normal.x * a, sgn * b, -sgn * normal.x);
-    bitangent = vec3(b, sgn + normal.y * normal.y * a, -normal.y);
 }
 
 vec3 TangentToWorld(vec3 T, vec3 B, vec3 N, vec3 V)

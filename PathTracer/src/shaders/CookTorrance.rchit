@@ -46,11 +46,72 @@ struct HitState
     bool Valid;
 };
 
+vec3 SampleHenyeyGreenstein(vec3 incomingDir, float g, float rand1, float rand2) 
+{
+    float phi = 2.0 * M_PI * rand1;
+    float cosTheta;
+    if (abs(g) < 1e-3) 
+    {
+        cosTheta = 1.0 - 2.0 * rand2;
+    } else 
+    {
+        float sqrTerm = (1.0 - g * g) / (1.0 - g + 2.0 * g * rand2);
+        cosTheta = (1.0 + g * g - sqrTerm * sqrTerm) / (2.0 * g);
+    }
+    float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
+    vec3 tangent = normalize(cross(incomingDir, abs(incomingDir.x) > 0.1 ? vec3(0, 1, 0) : vec3(1, 0, 0)));
+    vec3 bitangent = cross(incomingDir, tangent);
+    vec3 scatteredDir = incomingDir * cosTheta + tangent * sinTheta * cos(phi) + bitangent * sinTheta * sin(phi);
+    return normalize(scatteredDir);
+}
+
+float SampleExponentialDistance(float extinctionCoefficient, float rand) 
+{
+    return -log(1.0 - rand) / extinctionCoefficient;
+}
+
+float CalculateOpticalDepth(float extinctionCoefficient, float distance) 
+{
+    return extinctionCoefficient * distance;
+}
+
+bool ShouldScatter(float opticalDepth, float rand) 
+{
+    return rand <= 1.0 - exp(-opticalDepth);
+}
+
 HitState ClosestHit(Material mat, Surface surface, vec3 worldPos)
 {
     HitState state;
     
     vec3 hitValue = mat.Emissive.xyz;
+    
+#ifdef USE_FOG
+    float distance = length(payload.RayOrigin - worldPos);
+    
+    float aFactor = 0.1f;
+    float sFactor = 0.000001f;
+    float tFactor = sFactor + aFactor;
+    float Tr = exp(-tFactor * distance);
+    float r0 = Rnd(payload.Seed);
+    float r1 = Rnd(payload.Seed);
+    float r2 = Rnd(payload.Seed);
+    float r3 = Rnd(payload.Seed);
+
+    float opticalDepth = CalculateOpticalDepth(aFactor, distance);
+
+    float scatterDist = SampleExponentialDistance(aFactor, r3);
+    if (scatterDist < distance)
+    {
+        state.RayOrigin = payload.RayOrigin + payload.RayDirection * scatterDist;
+        state.RayDir = SampleHenyeyGreenstein(payload.RayDirection, 0.0f, r1, r2);
+        state.HitValue = hitValue;
+        state.Weight = vec3(1.0f) * (1.0f - Tr);
+        
+        state.Valid = true;
+        return state;
+    }
+#endif
     
     BsdfSampleData sampleData;
     sampleData.View = -gl_WorldRayDirectionEXT;  // outgoing direction
@@ -171,7 +232,7 @@ void main()
     Surface surface;
     surface.Normal = worldNrm;
     surface.GeoNormal = worldNrm;
-    CalculateTangents1(worldNrm, surface.Tangent, surface.Bitangent);
+    CalculateTangents(worldNrm, surface.Tangent, surface.Bitangent);
 
 #ifdef USE_NORMAL_MAPS
     vec3 normalMapVal = texture(uNormalTextures[gl_InstanceCustomIndexEXT], texCoord).xyz;
@@ -180,7 +241,7 @@ void main()
     normalMapVal = TangentToWorld(surface.Tangent, surface.Bitangent, worldNrm, normalMapVal);
     surface.Normal = normalize(normalMapVal);
     
-    CalculateTangents1(worldNrm, surface.Tangent, surface.Bitangent);
+    CalculateTangents(worldNrm, surface.Tangent, surface.Bitangent);
 #endif
 
     // -------------------------------------------

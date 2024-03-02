@@ -181,8 +181,8 @@ vec3 EvaluateDisney(Material mat, vec3 V, Surface surface, vec3 L, out float pdf
 	pdf = 0.0;
 	vec3 f = vec3(0.0);
 
-	vec3 tangent, bitangent;
-	CalculateTangents2(surface.Normal, tangent, bitangent);
+	const vec3 tangent = surface.Tangent;
+	const vec3 bitangent = surface.Bitangent;
 
 	// Transform to tangent space to simplify calculations
 	V = WorldToTangent(tangent, bitangent, surface.GeoNormal, V);
@@ -302,8 +302,8 @@ vec3 SampleDisney(Material mat, vec3 V, Surface surface, out vec3 L, out float p
 {
 	pdf = 0.0;
 
-	vec3 tangent, bitangent;
-	CalculateTangents2(surface.Normal, tangent, bitangent);
+	const vec3 tangent = surface.Tangent;
+	const vec3 bitangent = surface.Bitangent;
 
 	float r1 = Rnd(payload.Seed);
 	float r2 = Rnd(payload.Seed);

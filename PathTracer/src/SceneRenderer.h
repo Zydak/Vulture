@@ -9,10 +9,17 @@ struct GlobalUbo
 	glm::mat4 ProjInverse;
 };
 
+struct StipplingPushContant
+{
+	int NoiseCenterPixelWeight;
+	int NoiseSampleRange;
+	float LuminanceBias;
+};
+
 struct PushConstantRay
 {
 	glm::vec4 ClearColor;
-	int frame;
+	int64_t frame;
 	int maxDepth;
 	int SamplesPerFrame;
 	float EnvAzimuth;
@@ -64,8 +71,6 @@ private:
 	void CreateFramebuffers();
 	void UpdateDescriptorSetsData();
 
-	void CreateHDRSet();
-
 	void ImGuiPass();
 
 	enum GBufferImage
@@ -84,17 +89,27 @@ private:
 
 	Vulture::Ref<Vulture::Image> m_DenoisedImage;
 	Vulture::Ref<Vulture::Image> m_PathTracingImage;
-	Vulture::Ref<Vulture::DescriptorSet> m_ToneMappedImageSet;
-	Vulture::Ref<Vulture::DescriptorSet> m_DenoisedImageSet;
 
 	Vulture::Ref<Vulture::DescriptorSet> m_RayTracingDescriptorSet; // there is only one set for ray tracing
 	std::vector<Vulture::Ref<Vulture::DescriptorSet>> m_GlobalDescriptorSets;
 	Vulture::Pipeline m_RtPipeline;
 	
-	bool m_ShowTonemapped = true;
 	Vulture::Ref<Vulture::Image> m_PresentedImage;
 	Vulture::Ref<Vulture::Image> m_TonemappedImage;
 	Vulture::Ref<Vulture::Image> m_BloomImage;
+	Vulture::Ref<Vulture::Image> m_InkEffectImage;
+
+	Vulture::Ref<Vulture::Image> m_BlueNoiseImage;
+	Vulture::Ref<Vulture::Image> m_PaperTexture;
+	Vulture::Ref<Vulture::Image> m_InkTexture;
+
+	enum class CurrentPostProcess
+	{
+		None, // Bloom And Tonemap
+		Ink, // Bloom And Tonemap With Ink Effect
+	};
+
+	CurrentPostProcess m_CurrentEffect = CurrentPostProcess::None;
 
 	Vulture::SBT m_SBT;
 
@@ -110,6 +125,9 @@ private:
 	Vulture::Tonemap m_DenoisedTonemapper;
 	Vulture::Bloom m_Bloom;
 	Vulture::Bloom m_DenoisedBloom;
+
+	StipplingPushContant m_InkPush = {2, 1, 0.0f};
+	Vulture::Effect<StipplingPushContant> m_InkEffect;
 
 	std::string m_CurrentHitShaderPath = "src/shaders/CookTorrance.rchit";
 	bool m_RecreateRtPipeline = false;
@@ -128,9 +146,10 @@ private:
 
 	Vulture::Timer m_Timer;
 	Vulture::Timer m_TotalTimer;
-	uint32_t m_CurrentSamplesPerPixel = 0;
+	uint64_t m_CurrentSamplesPerPixel = 0;
 	VkDescriptorSet m_ImGuiViewportDescriptorTonemapped;
 	VkDescriptorSet m_ImGuiViewportDescriptorPathTracing;
+	VkDescriptorSet m_ImGuiViewportDescriptorInk;
 	VkDescriptorSet m_ImGuiNormalDescriptor;
 	VkDescriptorSet m_ImGuiAlbedoDescriptor;
 	VkDescriptorSet m_ImGuiRoughnessDescriptor;
@@ -163,6 +182,8 @@ private:
 		bool UseGlossy				= true;
 		bool UseGlass				= true;
 		bool UseClearcoat			= true;
+		bool UseFog					= false;
+		bool UseFireflies			= true;
 
 		bool SampleEnvMap   = true;
 		float EnvAzimuth	= 0.0f;
@@ -180,10 +201,11 @@ private:
 	{
 		int Resolution[2] = { 1920, 1080 };
 
-		SceneRenderer::DrawInfo DrawInfo{};
+		bool RenderingFinished = false;
 
-		bool DrawingFramebufferFinished = false;
-		bool Denoise = true;
+		bool SaveToFile = false;
+		bool Denoised = false;
+		bool ShowDenoised = false;
 	};
 
 	DrawInfo m_DrawInfo{};

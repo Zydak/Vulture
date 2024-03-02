@@ -68,10 +68,10 @@ namespace Vulture
 		~Framebuffer();
 
 		inline VkFramebuffer GetFramebufferHandle() const { return m_FramebufferHandle; }
-		inline VkImageView GetImageView(int index) const { return m_Images[index].GetImageView(); }
-		inline VkImage GetImage(int index) const { return m_Images[index].GetImage(); }
-		inline const Image* GetImageNoVk(int index) const { return &m_Images[index]; }
-		inline Image* GetImageNoVk(int index) { return &m_Images[index]; }
+		inline VkImageView GetImageView(int index) const { return m_Images[index]->GetImageView(); }
+		inline VkImage GetImage(int index) const { return m_Images[index]->GetImage(); }
+		inline const Ref<Image> GetImageNoVk(int index) const { return m_Images[index]; }
+		inline Ref<Image> GetImageNoVk(int index) { return m_Images[index]; }
 		
 		inline uint32_t GetAttachmentCount() const { return (uint32_t)m_Images.size(); }
 		
@@ -92,7 +92,7 @@ namespace Vulture
 		std::vector<VkImageView> m_Views;
 		std::vector<FramebufferAttachment> m_AttachmentFormats;
 		VkFramebuffer m_FramebufferHandle = VK_NULL_HANDLE;
-		std::vector<Image> m_Images;
+		std::vector<Ref<Image>> m_Images;
 
 		VkFormat m_DepthFormat;
 

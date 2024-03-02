@@ -50,7 +50,7 @@ namespace Vulture
 			}
 		}
 
-		for (int i = 0; i < m_Images.size(); i++) m_Views.push_back(m_Images[i].GetImageView());
+		for (int i = 0; i < m_Images.size(); i++) m_Views.push_back(m_Images[i]->GetImageView());
 
 		if (createInfo.RenderPassInfo != nullptr)
 		{
@@ -120,7 +120,7 @@ namespace Vulture
 
 		for (int i = 0; i < m_Images.size(); i++)
 		{
-			m_Images[i].SetLayout(m_FinalLayouts[i]); // change layouts
+			m_Images[i]->SetLayout(m_FinalLayouts[i]); // change layouts
 		}
 	}
 
@@ -133,7 +133,7 @@ namespace Vulture
 	{
 		for (int i = 0; i < m_Images.size(); i++)
 		{
-			m_Images[i].TransitionImageLayout(newLayout, cmd, srcAccess, dstAccess, srcStage, dstStage);
+			m_Images[i]->TransitionImageLayout(newLayout, cmd, srcAccess, dstAccess, srcStage, dstStage);
 		}
 	}
 
@@ -183,7 +183,7 @@ namespace Vulture
 		imageInfo.LayerCount = 1;
 		imageInfo.Type = type;
 
-		m_Images.emplace_back(imageInfo);
+		m_Images.emplace_back(std::make_shared<Image>(imageInfo));
 	}
 
 	/**
@@ -209,7 +209,7 @@ namespace Vulture
 		imageInfo.LayerCount = 1;
 		imageInfo.Type = type;
 
-		m_Images.emplace_back(imageInfo);
+		m_Images.emplace_back(std::make_shared<Image>(imageInfo));
 	}
 
 	void Framebuffer::CreateRenderPass(RenderPassCreateInfo* renderPassCreateInfo)

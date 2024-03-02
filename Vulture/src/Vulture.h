@@ -25,3 +25,4 @@
 
 #include "Vulture/src/Vulture/Effects/Tonemap.h"
 #include "Vulture/src/Vulture/Effects/Bloom.h"
+#include "Vulture/src/Vulture/Effects/Effect.h"

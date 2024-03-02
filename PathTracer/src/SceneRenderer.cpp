@@ -30,6 +30,15 @@ SceneRenderer::SceneRenderer()
 
 	CreateFramebuffers();
 
+	m_BlueNoiseImage = std::make_shared<Vulture::Image>("assets/BlueNoise.png");
+	m_BlueNoiseImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	m_PaperTexture = std::make_shared<Vulture::Image>("assets/paper.png");
+	m_PaperTexture->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	m_InkTexture = std::make_shared<Vulture::Image>("assets/ink.png");
+	m_InkTexture->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 	Vulture::Tonemap::CreateInfo tonemapInfo{};
 	tonemapInfo.InputImages = { m_BloomImage };
 	tonemapInfo.OutputImages = { m_TonemappedImage };
@@ -44,6 +53,14 @@ SceneRenderer::SceneRenderer()
 	bloomInfo.InputImages = { m_DenoisedImage };
 	bloomInfo.OutputImages = { m_BloomImage };
 	m_DenoisedBloom.Init(bloomInfo);
+
+	Vulture::Effect<StipplingPushContant>::CreateInfo stipplingInfo{};
+	stipplingInfo.DebugName = "Stippling";
+	stipplingInfo.InputImages = { m_TonemappedImage };
+	stipplingInfo.OutputImages = { m_InkEffectImage };
+	stipplingInfo.AdditionalTextures = { m_BlueNoiseImage, m_PaperTexture, m_InkTexture, m_GBufferFramebuffer->GetImageNoVk(4) };
+	stipplingInfo.ShaderPath = "src/shaders/InkEffect.comp";
+	m_InkEffect.Init(stipplingInfo);
 
 	m_PresentedImage = m_PathTracingImage;
 
@@ -105,7 +122,6 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 		if (m_DrawIntoAFile)
 		{
 			m_PresentedImage = m_PathTracingImage;
-			CreateHDRSet();
 		}
 	}
 
@@ -149,32 +165,56 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 	{
 		if (Vulture::Renderer::BeginFrame())
 		{
-			static bool finished = false;
 			UpdateDescriptorSetsData();
 			bool rayTracingFinished = !RayTrace(glm::vec4(0.1f));
 			if (rayTracingFinished)
 			{
-				m_DrawFileInfo.DrawingFramebufferFinished = true;
-				
-				// tone map and denoise if finished
-				if (!m_ToneMapped)
+				if (m_CurrentEffect == CurrentPostProcess::None)
 				{
-					if (m_DrawFileInfo.Denoise)
-					{
-						Denoise();
-						m_PresentedImage = m_TonemappedImage;
-					}
-					m_DenoisedBloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
-					m_Tonemapper.Run(m_DrawInfo.TonemapInfo, Vulture::Renderer::GetCurrentCommandBuffer());
-
-					m_BloomImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, Vulture::Renderer::GetCurrentCommandBuffer());
-					m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
-
-					CreateHDRSet();
-					finished = true;
-					m_DrawIntoAFileFinished = true;
-					m_ToneMapped = true;
+					m_PresentedImage = m_TonemappedImage;
 				}
+				else if (m_CurrentEffect == CurrentPostProcess::Ink)
+				{
+					m_PresentedImage = m_InkEffectImage;
+				}
+				m_DrawFileInfo.RenderingFinished = true;
+				
+				if (!m_DrawFileInfo.Denoised)
+				{
+					Denoise();
+
+					m_DrawFileInfo.Denoised = true;
+				}
+
+				if (m_DrawFileInfo.ShowDenoised)
+					m_DenoisedBloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+				else
+					m_Bloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+
+				m_Tonemapper.Run(m_DrawInfo.TonemapInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+
+				if (m_CurrentEffect == CurrentPostProcess::None)
+				{
+					m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
+				}
+				else if (m_CurrentEffect == CurrentPostProcess::Ink)
+				{
+					if (m_GBufferFramebuffer->GetImageNoVk(4)->GetLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+					{
+						m_GBufferFramebuffer->GetImageNoVk(4)->TransitionImageLayout(
+							VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+							Vulture::Renderer::GetCurrentCommandBuffer(),
+							VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+							0,
+							VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+							0
+						);
+					}
+					m_InkEffect.Run(m_InkPush, Vulture::Renderer::GetCurrentCommandBuffer());
+					m_InkEffectImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
+				}
+
+				m_DrawIntoAFileFinished = true;
 			}
 			else
 			{
@@ -190,13 +230,13 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 
 			Vulture::Renderer::EndFrame();
 
-			if (finished)
+			if (m_DrawFileInfo.SaveToFile)
 			{
 				vkDeviceWaitIdle(Vulture::Device::GetDevice());
 				Vulture::Renderer::SaveImageToFile("", m_PresentedImage);
 
 				m_PresentedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-				finished = false;
+				m_DrawFileInfo.SaveToFile = false;
 			}
 		}
 	}
@@ -225,9 +265,26 @@ void SceneRenderer::Render(Vulture::Scene& scene)
 
 		m_Tonemapper.Run(m_DrawInfo.TonemapInfo, Vulture::Renderer::GetCurrentCommandBuffer());
 
-		m_BloomImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, Vulture::Renderer::GetCurrentCommandBuffer());
-		m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
-
+		if(m_CurrentEffect == CurrentPostProcess::None)
+		{
+			m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
+		}
+		else if (m_CurrentEffect == CurrentPostProcess::Ink)
+		{
+			if (m_GBufferFramebuffer->GetImageNoVk(4)->GetLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			{
+				m_GBufferFramebuffer->GetImageNoVk(4)->TransitionImageLayout(
+					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					Vulture::Renderer::GetCurrentCommandBuffer(),
+					VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+					0,
+					VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+					0
+				);
+			}
+			m_InkEffect.Run(m_InkPush, Vulture::Renderer::GetCurrentCommandBuffer());
+			m_InkEffectImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
+		}
 		Vulture::Renderer::ImGuiPass();
 		
 		if (!Vulture::Renderer::EndFrame())
@@ -373,8 +430,8 @@ void SceneRenderer::Denoise()
 	std::vector<Vulture::Image*> vec = 
 	{
 		&(*m_PathTracingImage), // Path Tracing Result
-		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Albedo))), // Albedo
-		const_cast<Vulture::Image*>((m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Normal))) // Normal
+		const_cast<Vulture::Image*>(&(*m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Albedo))), // Albedo
+		const_cast<Vulture::Image*>(&(*m_GBufferFramebuffer->GetImageNoVk(GBufferImage::Normal))) // Normal
 	};
 
 	vkEndCommandBuffer(cmd);
@@ -472,6 +529,14 @@ void SceneRenderer::RecreateResources()
 	bloomInfo.OutputImages = { m_BloomImage };
 	m_DenoisedBloom.Init(bloomInfo);
 
+	Vulture::Effect<StipplingPushContant>::CreateInfo stipplingInfo{};
+	stipplingInfo.DebugName = "Stippling";
+	stipplingInfo.InputImages = { m_TonemappedImage };
+	stipplingInfo.OutputImages = { m_InkEffectImage };
+	stipplingInfo.AdditionalTextures = { m_BlueNoiseImage, m_PaperTexture, m_InkTexture, m_GBufferFramebuffer->GetImageNoVk(4) };
+	stipplingInfo.ShaderPath = "src/shaders/InkEffect.comp";
+	m_InkEffect.Init(stipplingInfo);
+
 	CreatePipelines();
 
 	FixCameraAspectRatio();
@@ -488,7 +553,7 @@ void SceneRenderer::FixCameraAspectRatio()
 	for (auto entity : view)
 	{
 		auto& cameraCp = view.get<Vulture::CameraComponent>(entity);
-		cameraCp.SetPerspectiveMatrix(cameraCp.FOV, newAspectRatio, 0.1f, 100.0f);
+		cameraCp.SetPerspectiveMatrix(cameraCp.FOV, newAspectRatio, 0.1f, 1000.0f);
 	}
 }
 
@@ -500,8 +565,6 @@ void SceneRenderer::CreateRenderPasses()
 void SceneRenderer::CreateDescriptorSets()
 {
 	m_GlobalDescriptorSets.clear();
-
-	CreateHDRSet();
 
 	// Global Set
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -543,6 +606,7 @@ void SceneRenderer::CreateDescriptorSets()
 	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Normal), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::RoughnessMetallness), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Emissive), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiViewportDescriptorInk = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_InkEffectImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -706,9 +770,6 @@ void SceneRenderer::RecreateDescriptorSets()
 {
 	m_Denoised = false;
 	m_ShowDenoised = false;
-	{
-		CreateHDRSet();
-	}
 
 	{
 		m_RayTracingDescriptorSet->UpdateImageSampler(
@@ -726,6 +787,7 @@ void SceneRenderer::RecreateDescriptorSets()
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiNormalDescriptor);
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiRoughnessDescriptor);
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiEmissiveDescriptor);
+	ImGui_ImplVulkan_RemoveTexture(m_ImGuiViewportDescriptorInk);
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiViewportDescriptorTonemapped);
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiViewportDescriptorPathTracing);
 
@@ -733,6 +795,7 @@ void SceneRenderer::RecreateDescriptorSets()
 	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Normal), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::RoughnessMetallness), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Emissive), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	m_ImGuiViewportDescriptorInk = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_InkEffectImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -758,7 +821,6 @@ void SceneRenderer::CreateRayTracingPipeline()
 
 		Vulture::Pipeline::RayTracingCreateInfo info{};
 		info.PushConstants = m_PushContantRayTrace.GetRangePtr();
-		Vulture::Shader shader1({ "src/shaders/raytrace.rgen", VK_SHADER_STAGE_RAYGEN_BIT_KHR });
 
 		std::vector<std::string> macros;
 		if (m_DrawInfo.UseAlbedo)
@@ -773,10 +835,15 @@ void SceneRenderer::CreateRayTracingPipeline()
 			macros.push_back("USE_GLASS");
 		if (m_DrawInfo.UseClearcoat)
 			macros.push_back("USE_CLEARCOAT");
+		if (m_DrawInfo.UseFog)
+			macros.push_back("USE_FOG");
+		if (m_DrawInfo.UseFireflies)
+			macros.push_back("USE_FIREFLIES");
 
+		Vulture::Shader shader1({ "src/shaders/raytrace.rgen", VK_SHADER_STAGE_RAYGEN_BIT_KHR, macros });
 		Vulture::Shader shader2({ m_CurrentHitShaderPath, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, macros });
-		
-		Vulture::Shader shader3({ "src/shaders/raytrace.rmiss", VK_SHADER_STAGE_MISS_BIT_KHR });
+		Vulture::Shader shader3({ "src/shaders/raytrace.rmiss", VK_SHADER_STAGE_MISS_BIT_KHR, macros });
+
 		info.RayGenShaders.push_back(&shader1);
 		info.HitShaders.push_back(&shader2);
 		info.MissShaders.push_back(&shader3);
@@ -964,6 +1031,25 @@ void SceneRenderer::CreateFramebuffers()
 		m_TonemappedImage->Init(info);
 	}
 
+	// Stippling
+	{
+		Vulture::Image::CreateInfo info{};
+		info.Width = m_ViewportContentSize.width;
+		info.Height = m_ViewportContentSize.height;
+		info.Format = VK_FORMAT_R8G8B8A8_UNORM;
+		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
+		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		info.LayerCount = 1;
+		info.SamplerInfo = Vulture::SamplerInfo{};
+		info.Type = Vulture::Image::ImageType::Image2D;
+		info.DebugName = "Stippling Image";
+
+		m_InkEffectImage = std::make_shared<Vulture::Image>();
+		m_InkEffectImage->Init(info);
+	}
+
 	// Bloom
 	{
 		Vulture::Image::CreateInfo info{};
@@ -1010,31 +1096,6 @@ void SceneRenderer::UpdateDescriptorSetsData()
 	m_GlobalDescriptorSets[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
 }
 
-void SceneRenderer::CreateHDRSet()
-{
-	Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
-
-	m_ToneMappedImageSet = std::make_shared<Vulture::DescriptorSet>();
-	m_ToneMappedImageSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-	m_ToneMappedImageSet->AddImageSampler(
-		0,
-		Vulture::Renderer::GetSamplerHandle(),
-		m_TonemappedImage->GetImageView(),
-		VK_IMAGE_LAYOUT_GENERAL
-	);
-	m_ToneMappedImageSet->Build();
-
-	m_DenoisedImageSet = std::make_shared<Vulture::DescriptorSet>();
-	m_DenoisedImageSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin });
-	m_DenoisedImageSet->AddImageSampler(
-		0,
-		Vulture::Renderer::GetSamplerHandle(),
-		m_DenoisedImage->GetImageView(),
-		VK_IMAGE_LAYOUT_GENERAL
-	);
-	m_DenoisedImageSet->Build();
-}
-
 void SceneRenderer::ImGuiPass()
 {
 	Vulture::Entity cameraEntity;
@@ -1073,16 +1134,22 @@ void SceneRenderer::ImGuiPass()
 	}
 
 	ImVec2 viewportContentSize = ImGui::GetContentRegionAvail();
-	if (m_DrawIntoAFile && m_DrawIntoAFileFinished && m_DrawFileInfo.Denoise)
-		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportContentSize);
-	if (m_DrawIntoAFile && m_DrawIntoAFileFinished && !m_DrawFileInfo.Denoise)
-		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportContentSize);
-	if (m_DrawIntoAFile)
+	if (m_DrawIntoAFile && !m_DrawIntoAFileFinished)
 		ImGui::Image(m_ImGuiViewportDescriptorPathTracing, viewportContentSize);
-	else if (m_ShowTonemapped)
-		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportContentSize);
 	else
-		ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportContentSize);
+	{
+		switch (m_CurrentEffect)
+		{
+		case SceneRenderer::CurrentPostProcess::None:
+			ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportContentSize);
+			break;
+		case SceneRenderer::CurrentPostProcess::Ink:
+			ImGui::Image(m_ImGuiViewportDescriptorInk, viewportContentSize);
+			break;
+		default:
+			break;
+		}
+	}
 
 	static VkExtent2D prevViewportSize = { 1920, 1080 };
 	VkExtent2D imGuiViewportContentSize = { (unsigned int)viewportContentSize.x, (unsigned int)viewportContentSize.y };
@@ -1107,6 +1174,7 @@ void SceneRenderer::ImGuiPass()
 		ImGui::Text("Total vertices: %i", m_CurrentSceneRendered->GetVertexCount());
 		ImGui::Text("Total indices: %i", m_CurrentSceneRendered->GetIndexCount());
 
+		ImGui::Text("Frame: %i", m_PushContantRayTrace.GetDataPtr()->frame);
 		ImGui::Text("Time: %fs", m_Time);
 		ImGui::Text("Samples Per Pixel: %i", m_CurrentSamplesPerPixel);
 
@@ -1332,6 +1400,34 @@ void SceneRenderer::ImGuiPass()
 		if (ImGui::CollapsingHeader("Post Processing"))
 		{
 			ImGui::Separator();
+			{
+				const char* items[] = { "None", "Ink"};
+
+				static int currentItem = 0;
+				if (ImGui::ListBox("Current Effect", &currentItem, items, IM_ARRAYSIZE(items), IM_ARRAYSIZE(items)))
+				{
+					switch (currentItem)
+					{
+					case 0:
+						m_CurrentEffect = CurrentPostProcess::None;
+						break;
+					case 1:
+						m_CurrentEffect = CurrentPostProcess::Ink;
+						break;
+					default:
+						break;
+					}
+				}
+
+				if (currentItem == 1)
+				{
+					ImGui::SliderInt("Noise Center Pixel Weight", &m_InkPush.NoiseCenterPixelWeight, 0, 10);
+					ImGui::SliderInt("Noise Sample Range", &m_InkPush.NoiseSampleRange, 0, 3);
+					ImGui::SliderFloat("Luminance Bias", &m_InkPush.LuminanceBias, -0.5f, 0.5f);
+				}
+			}
+
+			ImGui::Separator();
 			ImGui::SeparatorText("Bloom");
 			ImGui::SliderFloat("Threshold",		&m_DrawInfo.BloomInfo.Threshold, 0.0f, 3.0f);
 			ImGui::SliderFloat("Strength",		&m_DrawInfo.BloomInfo.Strength, 0.0f, 3.0f);
@@ -1373,6 +1469,7 @@ void SceneRenderer::ImGuiPass()
 				}
 			}
 
+			// TODO: add this to render file info
 			if(ImGui::Checkbox("Use Normal Maps (Experimental)", &m_DrawInfo.UseNormalMaps))
 			{
 				m_RecompileShader = true;
@@ -1390,6 +1487,14 @@ void SceneRenderer::ImGuiPass()
 				m_RecompileShader = true;
 			}
 			if (ImGui::Checkbox("Use Clearcoat", &m_DrawInfo.UseClearcoat))
+			{
+				m_RecompileShader = true;
+			}
+			if (ImGui::Checkbox("Use Fog", &m_DrawInfo.UseFog))
+			{
+				m_RecompileShader = true;
+			}
+			if (ImGui::Checkbox("Eliminate Fireflies", &m_DrawInfo.UseFireflies))
 			{
 				m_RecompileShader = true;
 			}
@@ -1421,17 +1526,7 @@ void SceneRenderer::ImGuiPass()
 
 			if (m_Denoised)
 			{
-				if (ImGui::Checkbox("Show Denoised Image", &m_ShowDenoised))
-				{
-					if (m_ShowDenoised)
-					{
-						m_ShowTonemapped = false;
-					}
-					else
-					{
-						m_ShowTonemapped = true;
-					}
-				}
+				ImGui::Checkbox("Show Denoised Image", &m_ShowDenoised);
 			}
 
 			if (ImGui::Button("Denoise"))
@@ -1445,81 +1540,27 @@ void SceneRenderer::ImGuiPass()
 		if (ImGui::CollapsingHeader("File"))
 		{
 			ImGui::Separator();
-			if (ImGui::Button("Render to a file"))
-				ImGui::OpenPopup("FileRenderPopup");
 
-			if (ImGui::BeginPopup("FileRenderPopup"))
+			ImGui::Text("Resolution To Be Rendered");
+			ImGui::InputInt2("", m_DrawFileInfo.Resolution);
+
+			ImGui::Separator();
+			if (ImGui::Button("Render"))
 			{
-				ImGui::SeparatorText("Window");
-				ImGui::InputInt2("Resolution",					m_DrawFileInfo.Resolution);
-				ImGui::Checkbox("Denoise", &m_DrawFileInfo.Denoise);
-
-				ImGui::SeparatorText("Camera");
-				{
-					Vulture::CameraComponent* cp = &camScript->GetComponent<Vulture::CameraComponent>();
-					if (ImGui::SliderFloat("FOV", &cp->FOV, 10.0f, 45.0f))
-					{
-						ResetFrame();
-					}
-
-					float newAspectRatio = (float)m_ViewportContentSize.width / (float)m_ViewportContentSize.height;
-					cp->SetPerspectiveMatrix(cp->FOV, newAspectRatio, 0.1f, 1000.0f);
-
-					glm::vec3 position = cp->Translation;
-					glm::vec3 rotation = cp->Rotation.GetAngles();
-					bool changed = false;
-					if (ImGui::InputFloat3("Position", (float*)&position)) { changed = true; };
-					if (ImGui::InputFloat3("Rotation", (float*)&rotation)) { changed = true; };
-
-					if (changed)
-					{
-						cp->Translation = position;
-						cp->Rotation.SetAngles(rotation);
-
-						cp->UpdateViewMatrix();
-					}
-				}
-
-				ImGui::SeparatorText("Path Tracing");
-				if (ImGui::Button("Copy Current Values"))
-				{
-					m_DrawFileInfo.DrawInfo = m_DrawInfo;
-				}
-				ImGui::SeparatorText("Path Tracing");
-				ImGui::SliderInt("Max Ray Depth",				&m_DrawFileInfo.DrawInfo.RayDepth, 1, 20);
-				ImGui::InputInt("Samples Per Frame",			&m_DrawFileInfo.DrawInfo.SamplesPerFrame);
-				ImGui::InputInt("Total Samples Per Pixel",		&m_DrawFileInfo.DrawInfo.TotalSamplesPerPixel);
-				ImGui::SliderFloat("Aliasing Jitter Strength",  &m_DrawFileInfo.DrawInfo.AliasingJitterStr, 0.0f, 1.0f);
-				ImGui::SliderFloat("Focal Length",				&m_DrawFileInfo.DrawInfo.FocalLength, 1.0f, 100.0f);
-				ImGui::SliderFloat("DoF Strength",				&m_DrawFileInfo.DrawInfo.DOFStrength, 0.0f, 100.0f);
-
-				ImGui::SeparatorText("Bloom");
-				ImGui::SliderFloat("Threshold",		&m_DrawFileInfo.DrawInfo.BloomInfo.Threshold, 0.0f, 3.0f);
-				ImGui::SliderFloat("Strength",		&m_DrawFileInfo.DrawInfo.BloomInfo.Strength, 0.0f, 3.0f);
-				ImGui::SliderInt("Mip Count",		&m_DrawFileInfo.DrawInfo.BloomInfo.MipCount, 0, 10);
-
-				ImGui::SeparatorText("Tonemapping");
-				ImGui::SliderFloat("Exposure",		&m_DrawFileInfo.DrawInfo.TonemapInfo.Exposure, 0.0f, 3.0f);
-				ImGui::SliderFloat("Contrast",		&m_DrawFileInfo.DrawInfo.TonemapInfo.Contrast, 0.0f, 3.0f);
-				ImGui::SliderFloat("Brightness",	&m_DrawFileInfo.DrawInfo.TonemapInfo.Brightness, 0.0f, 3.0f);
-				ImGui::SliderFloat("Saturation",	&m_DrawFileInfo.DrawInfo.TonemapInfo.Saturation, 0.0f, 3.0f);
-				ImGui::SliderFloat("Vignette",		&m_DrawFileInfo.DrawInfo.TonemapInfo.Vignette, 0.0f, 1.0f);
-
-				ImGui::Separator();
-				if (ImGui::Button("Render"))
-				{
-					m_DrawIntoAFile = true;
-					m_DrawIntoAFileChanged = true;
-					camScript->m_CameraLocked = true;
-					
-					m_DrawInfo = m_DrawFileInfo.DrawInfo;
-
-					m_ViewportContentSize = { (unsigned int)m_DrawFileInfo.Resolution[0], (unsigned int)m_DrawFileInfo.Resolution[1] };
+				m_DrawIntoAFile = true;
+				m_DrawIntoAFileChanged = true;
+				camScript->m_CameraLocked = true;
+				m_DrawFileInfo.Denoised = false;
 				
-					m_ViewportContentSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
-					prevViewportSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
-				}
-				ImGui::EndPopup();
+				m_DrawInfo = m_DrawInfo;
+
+				m_ViewportContentSize = { (unsigned int)m_DrawFileInfo.Resolution[0], (unsigned int)m_DrawFileInfo.Resolution[1] };
+			
+				m_ViewportContentSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
+				prevViewportSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
+
+				m_DrawInfo.BloomInfo = m_DrawInfo.BloomInfo;
+				m_DrawInfo.TonemapInfo = m_DrawInfo.TonemapInfo;
 			}
 			ImGui::Separator();
 		}
@@ -1551,28 +1592,96 @@ void SceneRenderer::ImGuiPass()
 		ImGui::Text("Current Samples Per Pixel: %i", m_CurrentSamplesPerPixel);
 		ImGui::Text("Total Samples Per Pixel: %i", m_DrawInfo.TotalSamplesPerPixel);
 
-		if (m_DrawFileInfo.DrawingFramebufferFinished)
+		if (m_DrawFileInfo.RenderingFinished)
 		{
-			ImGui::SeparatorText("Finished!");
-			ImGui::Text("Finished!");
-			ImGui::Text("File Saved To PathTracer/Rendered_Images");
+			ImGui::Separator();
+			ImGui::Text("Rendering Finished!");
 
+			if (ImGui::CollapsingHeader("Viewport"))
+			{
+				ImGui::Separator();
+				ImGui::Text("ImGui doesn't allow to change size in dockspace\nso you have to undock the window first");
+				ImGui::InputInt2("Viewport Size", (int*)&m_ViewportSize);
+				ImGui::Separator();
+			}
+
+			if (ImGui::CollapsingHeader("Post Processing"))
+			{
+				ImGui::Separator();
+				{
+					const char* items[] = { "None", "Ink" };
+
+					static int currentItem = 0;
+					if (ImGui::ListBox("Current Effect", &currentItem, items, IM_ARRAYSIZE(items), IM_ARRAYSIZE(items)))
+					{
+						switch (currentItem)
+						{
+						case 0:
+							m_CurrentEffect = CurrentPostProcess::None;
+							break;
+						case 1:
+							m_CurrentEffect = CurrentPostProcess::Ink;
+							break;
+						default:
+							break;
+						}
+					}
+
+					if (currentItem == 1)
+					{
+						ImGui::SliderInt("Noise Center Pixel Weight",	&m_InkPush.NoiseCenterPixelWeight, 0, 10);
+						ImGui::SliderInt("Noise Sample Range",			&m_InkPush.NoiseSampleRange, 0, 3);
+						ImGui::SliderFloat("Luminance Bias",			&m_InkPush.LuminanceBias, -0.5f, 0.5f);
+					}
+				}
+
+				ImGui::Separator();
+				ImGui::SeparatorText("Bloom");
+				ImGui::SliderFloat("Threshold",		&m_DrawInfo.BloomInfo.Threshold, 0.0f, 3.0f);
+				ImGui::SliderFloat("Strength",		&m_DrawInfo.BloomInfo.Strength, 0.0f, 3.0f);
+				if (ImGui::SliderInt("Mip Count",	&m_DrawInfo.BloomInfo.MipCount, 1, 10))
+				{
+					m_Bloom.RecreateDescriptors(m_DrawInfo.BloomInfo.MipCount, ((Vulture::Renderer::GetCurrentFrameIndex() + 1) % MAX_FRAMES_IN_FLIGHT));
+				}
+
+				ImGui::SeparatorText("Tonemapping");
+				ImGui::SliderFloat("Exposure",			  &m_DrawInfo.TonemapInfo.Exposure, 0.0f, 3.0f);
+				ImGui::SliderFloat("Contrast",			  &m_DrawInfo.TonemapInfo.Contrast, 0.0f, 3.0f);
+				ImGui::SliderFloat("Brightness",		  &m_DrawInfo.TonemapInfo.Brightness, 0.0f, 3.0f);
+				ImGui::SliderFloat("Saturation",		  &m_DrawInfo.TonemapInfo.Saturation, 0.0f, 3.0f);
+				ImGui::SliderFloat("Vignette",			  &m_DrawInfo.TonemapInfo.Vignette, 0.0f, 1.0f);
+				if (ImGui::Checkbox("LinearSpace", (bool*)&m_DrawInfo.TonemapInfo.LinearSpace))
+				{
+					VL_CORE_WARN("{}", m_DrawInfo.TonemapInfo.LinearSpace);
+				}
+				ImGui::Separator();
+			}
+
+			ImGui::Separator();
+			ImGui::Checkbox("Use Denoised", &m_DrawFileInfo.ShowDenoised);
+			if (ImGui::Button("Save to file"))
+			{
+				m_DrawFileInfo.SaveToFile = true;
+			}
+
+			ImGui::Separator();
 			if (ImGui::Button("Go Back"))
 			{
 				m_DrawIntoAFileFinished = false;
-				m_DrawFileInfo.DrawingFramebufferFinished = false;
+				m_DrawFileInfo.RenderingFinished = false;
 				m_DrawIntoAFile = false;
 				m_DrawIntoAFileChanged = true;
 				m_ViewportContentSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
 				prevViewportSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
 			}
+			ImGui::Separator();
 		}
 		else
 		{
 			if (ImGui::Button("Cancel"))
 			{
 				m_DrawIntoAFileFinished = false;
-				m_DrawFileInfo.DrawingFramebufferFinished = false;
+				m_DrawFileInfo.RenderingFinished = false;
 				m_DrawIntoAFile = false;
 				m_DrawIntoAFileChanged = true;
 				m_ViewportContentSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };

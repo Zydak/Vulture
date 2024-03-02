@@ -6,6 +6,9 @@
 #define EVENT_TYPE_END 100
 #define EVENT_TYPE_OK 1
 
+#define BOUNCE_NONE 0
+#define BOUNCE_SPECULAR 1
+
 struct BsdfEvaluateData
 {
     vec3  View;         // [in] Toward the incoming ray
@@ -22,6 +25,7 @@ struct BsdfSampleData
     float Pdf;          // [out] PDF
     vec3  Bsdf;         // [out] BSDF
     int   EventType;    // [out] one of the event above
+    int   BounceType;
 };
 
 vec3 BrdfLambertian(vec3 diffuseColor, float metallic)
@@ -184,11 +188,9 @@ void TintColors(Material mat, float eta, out float F0, out vec3 Cspec0)
 void BsdfEvaluate(inout BsdfEvaluateData data, in Surface surface, in Material mat)
 {
     // Initialization
-    vec3 surfaceNormal = surface.Normal;
-
-    // Create tangent space
-    vec3 tangent, bitangent;
-    CalculateTangents2(surfaceNormal, tangent, bitangent);
+    const vec3 surfaceNormal = surface.Normal;
+    const vec3 tangent = surface.Tangent;
+    const vec3 bitangent = surface.Bitangent;
     vec3 albedo = mat.Albedo.rgb;
     float metallic = mat.Metallic;
     float roughness = mat.Roughness;
@@ -344,15 +346,13 @@ void BsdfSample(inout BsdfSampleData data, in Surface surface, in Material mat)
     vec3  surfaceNormal = surface.Normal;
     float roughness = mat.Roughness;
     float metallic = mat.Metallic;
+    vec3 tangent = surface.Tangent;
+    vec3 bitangent = surface.Bitangent;
 
     // Random numbers for importance sampling
     float r1 = data.Random.x;
     float r2 = data.Random.y;
     float r3 = data.Random.z;
-
-    // Create tangent space
-    vec3 tangent, bitangent;
-    CalculateTangents2(surfaceNormal, tangent, bitangent);
 
     // Specular roughness
     float alpha = roughness * roughness;
@@ -407,6 +407,7 @@ void BsdfSample(inout BsdfSampleData data, in Surface surface, in Material mat)
     float glassCDF = metallicCDF + glassProbability;
     float clearCoatCDF = glassCDF + clearCoatProbability;
 
+    data.BounceType = BOUNCE_NONE;
     vec3 halfVector;
     vec3 reflectVector;
     if (r3 < diffuseCDF)
@@ -422,6 +423,7 @@ void BsdfSample(inout BsdfSampleData data, in Surface surface, in Material mat)
 
         // Compute the reflection direction from the sampled half vector and view direction
         reflectVector = reflect(-data.View, halfVector);
+        data.BounceType = BOUNCE_SPECULAR;
     }
 #endif
 #ifdef USE_GLASS

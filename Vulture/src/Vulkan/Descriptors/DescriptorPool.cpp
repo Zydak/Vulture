@@ -199,6 +199,7 @@ namespace Vulture
 		descriptorPoolInfo.flags = m_PoolFlags;
 
 		// Attempt to create the Vulkan descriptor pool.
+		m_DescriptorPoolHandles.push_back(VK_NULL_HANDLE);
 		VL_CORE_RETURN_ASSERT(vkCreateDescriptorPool(Device::GetDevice(), &descriptorPoolInfo, nullptr, &m_DescriptorPoolHandles[m_CurrentPool]),
 			VK_SUCCESS,
 			"Failed to create descriptor pool!"

@@ -113,11 +113,11 @@ HitState ClosestHit(Material mat, Surface surface, vec3 worldPos)
     }
 #endif
 
-    state.Weight       = bsdf / pdf;
-    state.RayDir = rayDir;
-    vec3 offsetDir       = dot(payload.RayDirection, surface.Normal) > 0 ? surface.Normal : -surface.Normal;
-    state.RayOrigin    = OffsetRay(worldPos, offsetDir);
-    state.HitValue = hitValue;
+    state.Weight        = bsdf / pdf;
+    state.RayDir        = rayDir;
+    vec3 offsetDir      = dot(payload.RayDirection, surface.Normal) > 0 ? surface.Normal : -surface.Normal;
+    state.RayOrigin     = OffsetRay(worldPos, offsetDir);
+    state.HitValue      = hitValue;
 
     state.Valid = true;
 
@@ -167,7 +167,7 @@ void main()
     Surface surface;
     surface.Normal = worldNrm;
     surface.GeoNormal = worldNrm;
-    CalculateTangents1(worldNrm, surface.Tangent, surface.Bitangent);
+    CalculateTangents(worldNrm, surface.Tangent, surface.Bitangent);
     
 #ifdef USE_NORMAL_MAPS
     vec3 normalMapVal = texture(uNormalTextures[gl_InstanceCustomIndexEXT], texCoord).xyz;
@@ -176,7 +176,7 @@ void main()
     normalMapVal = TangentToWorld(surface.Tangent, surface.Bitangent, worldNrm, normalMapVal);
     surface.Normal = normalize(normalMapVal);
     
-    CalculateTangents1(worldNrm, surface.Tangent, surface.Bitangent);
+    CalculateTangents(worldNrm, surface.Tangent, surface.Bitangent);
 #endif
 
     // -------------------------------------------
