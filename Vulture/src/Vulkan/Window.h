@@ -70,7 +70,7 @@ namespace Vulture
 
 		GLFWwindow* m_Window;
 		std::vector<Monitor> m_Monitors;
-		std::vector<const char*> m_MonitorRawNames;
+		std::vector<const char*> m_MonitorRawNames; // ³ot?
 		int m_MonitorsCount;
 
 		bool m_Initialized = false;

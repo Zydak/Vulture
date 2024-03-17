@@ -28,7 +28,7 @@ namespace Vulture
 		inline T GetData() const { return m_Data; }
 		inline T* GetDataPtr() { return &m_Data; }
 	private:
-		T m_Data;
+		T m_Data = T{};
 
 		VkPushConstantRange m_Range;
 		VkShaderStageFlags m_Stage;

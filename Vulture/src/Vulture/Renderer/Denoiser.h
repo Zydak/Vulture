@@ -21,6 +21,7 @@ static void contextLogCb(unsigned int level, const char* tag, const char* messag
     VL_CORE_INFO("[{0}][{1}]:{2}", level, tag, message);
 }
 
+// TODO: rework this
 class Denoiser
 {
 public:

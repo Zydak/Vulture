@@ -51,7 +51,6 @@ namespace Vulture
 		static void FramebufferCopyPassImGui(DescriptorSet* descriptorWithImageSampler);
 		static void FramebufferCopyPassBlit(Ref<Image> image);
 		static void EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap);
-		static void SampleEnvMap(Image* image);
 
 	private:
 		static bool BeginFrameInternal();

@@ -11,7 +11,6 @@ namespace Vulture
 	{
 	public:
 		struct CreateInfo
-
 		{
 			VkDeviceSize InstanceSize = 0;
 			uint32_t InstanceCount = 0;

@@ -47,8 +47,10 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
+			std::string currentTonemapper = GetTonemapperMacroDefinition(info.Tonemapper);
+
 			Pipeline::ComputeCreateInfo info{};
-			Shader shader({ "../Vulture/src/Vulture/Shaders/Tonemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT });
+			Shader shader({ "../Vulture/src/Vulture/Shaders/Tonemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT, { currentTonemapper } });
 			info.Shader = &shader;
 
 			// Descriptor set layouts for the pipeline
@@ -78,6 +80,39 @@ namespace Vulture
 		m_Push.Destroy();
 
 		m_Initialized = false;
+	}
+
+	void Tonemap::RecompileShader(Tonemappers tonemapper, bool chromaticAberration)
+	{
+		// Pipeline
+		{
+			m_Push.Init({ VK_SHADER_STAGE_COMPUTE_BIT });
+
+			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+			DescriptorSetLayout imageLayout({ bin, bin1 });
+
+			std::string currentTonemapper = GetTonemapperMacroDefinition(tonemapper);
+			std::vector<std::string> defines = { currentTonemapper };
+			if (chromaticAberration)
+				defines.push_back("USE_CHROMATIC_ABERRATION");
+
+			Pipeline::ComputeCreateInfo info{};
+			Shader shader({ "../Vulture/src/Vulture/Shaders/Tonemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT, defines });
+			info.Shader = &shader;
+
+			// Descriptor set layouts for the pipeline
+			std::vector<VkDescriptorSetLayout> layouts
+			{
+				imageLayout.GetDescriptorSetLayoutHandle()
+			};
+			info.DescriptorSetLayouts = layouts;
+			info.PushConstants = m_Push.GetRangePtr();
+			info.debugName = "Tone Map Pipeline";
+
+			// Create the graphics pipeline
+			m_Pipeline.Init(info);
+		}
 	}
 
 	Tonemap::Tonemap(const CreateInfo& info)
@@ -114,6 +149,34 @@ namespace Vulture
 		m_Push.Push(m_Pipeline.GetPipelineLayout(), cmd);
 
 		vkCmdDispatch(cmd, ((int)m_ImageSize.width) / 8 + 1, ((int)m_ImageSize.height) / 8 + 1, 1);
+	}
+
+	std::string Tonemap::GetTonemapperMacroDefinition(Tonemappers tonemapper)
+	{
+		switch (tonemapper)
+		{
+		case Vulture::Tonemap::Filmic:
+			return "USE_FILMIC";
+			break;
+		case Vulture::Tonemap::HillAces:
+			return "USE_ACES_HILL";
+			break;
+		case Vulture::Tonemap::NarkowiczAces:
+			return "USE_ACES_NARKOWICZ";
+			break;
+		case Vulture::Tonemap::ExposureMapping:
+			return "USE_EXPOSURE_MAPPING";
+			break;
+		case Vulture::Tonemap::Uncharted2:
+			return "USE_UNCHARTED";
+			break;
+		case Vulture::Tonemap::ReinchardExtended:
+			return "USE_REINHARD_EXTENDED";
+			break;
+		default:
+			return "USE_FILMIC";
+			break;
+		}
 	}
 
 }

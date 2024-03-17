@@ -62,8 +62,7 @@ namespace Vulture
 		if (HDR)
 		{
 			m_Format = VK_FORMAT_R32G32B32A32_SFLOAT;
-			// TODO: ability to choose
-			CreateHDRImage(filepath, EnvMethod::ImportanceSampling, samplerInfo);
+			CreateHDRImage(filepath, samplerInfo);
 			return;
 		}
 
@@ -351,7 +350,7 @@ namespace Vulture
 		Device::CreateImage(imageCreateInfo, m_ImageHandle, *m_Allocation, createInfo.Properties);
 	}
 
-	void Image::CreateHDRImage(const std::string& filepath, EnvMethod method, SamplerInfo samplerInfo)
+	void Image::CreateHDRImage(const std::string& filepath, SamplerInfo samplerInfo)
 	{
 		m_Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		m_MemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -367,37 +366,35 @@ namespace Vulture
 		m_Size.width = (uint32_t)sizeX;
 		m_Size.height = (uint32_t)sizeY;
 
-		if (method == EnvMethod::ImportanceSampling)
+		// TODO: add ability to not create importance sampling buffer?
+		float average, integral;
+		std::vector<EnvAccel> envAccel;
+		if (sizeX == 1 && sizeY == 1) // dummy file loaded
 		{
-			float average, integral;
-			std::vector<EnvAccel> envAccel;
-			if (sizeX == 1 && sizeY == 1) // dummy file loaded
-			{
-				envAccel.push_back({0, 0});
-			}
-			else
-			{
-				envAccel = CreateEnvAccel(pixels, sizeX, sizeY, average, integral);
-			}
-
-			Buffer::CreateInfo bufferInfo{};
-			bufferInfo.InstanceCount = 1;
-			bufferInfo.InstanceSize = sizeof(EnvAccel) * envAccel.size();
-			bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-			bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-			Buffer stagingBuf(bufferInfo);
-			stagingBuf.Map();
-			stagingBuf.WriteToBuffer(envAccel.data());
-			stagingBuf.Unmap();
-
-			bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-			bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-			m_ImportanceSmplAccel = std::make_shared<Buffer>();
-			m_ImportanceSmplAccel->Init(bufferInfo);
-
-			Buffer::CopyBuffer(stagingBuf.GetBuffer(), m_ImportanceSmplAccel->GetBuffer(), stagingBuf.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
+			envAccel.push_back({ 0, 0 });
 		}
+		else
+		{
+			envAccel = CreateEnvAccel(pixels, sizeX, sizeY, average, integral);
+		}
+
+		Buffer::CreateInfo bufferInfo{};
+		bufferInfo.InstanceCount = 1;
+		bufferInfo.InstanceSize = sizeof(EnvAccel) * envAccel.size();
+		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+		bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+
+		Buffer stagingBuf(bufferInfo);
+		stagingBuf.Map();
+		stagingBuf.WriteToBuffer(envAccel.data());
+		stagingBuf.Unmap();
+
+		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		m_ImportanceSmplAccel = std::make_shared<Buffer>();
+		m_ImportanceSmplAccel->Init(bufferInfo);
+
+		Buffer::CopyBuffer(stagingBuf.GetBuffer(), m_ImportanceSmplAccel->GetBuffer(), stagingBuf.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 
 		//m_MipLevels = uint32_t(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
 		uint64_t sizeOfPixel = sizeof(float) * 4;
@@ -453,14 +450,6 @@ namespace Vulture
 		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 		CreateImageView(info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
-
-		if (method == EnvMethod::InverseTransformSampling)
-		{
-			m_JointPDF = std::make_shared<Image>();
-			m_CDFInverseX = std::make_shared<Image>();
-			m_CDFInverseY = std::make_shared<Image>();
-			Renderer::SampleEnvMap(this);
-		}
 
 		m_Initialized = true;
 	}

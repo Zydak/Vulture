@@ -33,5 +33,5 @@ void main()
 		color = vec3(0.0f);
 	}
 
-	imageStore(outputImage, ivec2(gl_GlobalInvocationID.xy), vec4(color, 1.0f));
+	imageStore(outputImage, ivec2(gl_GlobalInvocationID.xy), vec4(min(color, 50.0f), 1.0f));
 }

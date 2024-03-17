@@ -89,11 +89,23 @@ void main()
 	rayDir = Rotate(rayDir, vec3(1, 0, 0), -pcRay.EnvAltitude);
 	rayDir = Rotate(rayDir, vec3(0, 1, 0), -pcRay.EnvAzimuth);
 	vec2 uv = directionToSphericalEnvmap(rayDir);
-	vec3 color = texture(uEnvMap, uv).rgb;
-	prd.HitValue += color;
+	vec4 color = texture(uEnvMap, uv);
+	if (prd.Depth != 0)
+    {
+#ifdef SAMPLE_ENV_MAP
+        const float misWeight = color.w / (color.w + prd.Pdf);
+        const vec3 w = (color.xyz / color.w) * misWeight;
 
-	if(prd.Depth == 0)
+        vec3 contribution = w * prd.Bsdf;
+
+	    prd.HitValue += contribution;
+#else
+        prd.HitValue += color.rgb;
+#endif
+    }
+    else
 	{
+	    prd.HitValue += color.rgb;
 		prd.MissedAllGeometry = true; // set to true to eliminate collecting more samples of the pixel
 	}
 

@@ -148,6 +148,8 @@ namespace Vulture
 		static std::vector<Extension> s_OptionalExtensions;
 		static VkPhysicalDeviceRayTracingPipelinePropertiesKHR s_RayTracingProperties;
 		static VkPhysicalDeviceAccelerationStructurePropertiesKHR s_AccelerationStructureProperties;
+		static VkPhysicalDeviceSubgroupProperties s_SubgroupProperties;
+
 
 #ifdef DISTRIBUTION
 		static const bool s_EnableValidationLayers = false;

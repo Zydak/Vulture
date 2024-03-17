@@ -250,7 +250,7 @@ namespace Vulture
 		//-----------------------------------------------
 
 		// Bloom Separate Bright Values
-		m_SeparateBrightValuesSet.resize(m_InputImages.size()); // TODO hell nah
+		m_SeparateBrightValuesSet.resize(m_InputImages.size());
 		for (uint32_t i = frameIndex; i < loopCount + frameIndex; i++)
 		{
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };

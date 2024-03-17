@@ -849,13 +849,15 @@ namespace Vulture
 		s_Properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 		s_Properties.pNext = &s_RayTracingProperties;
 		s_RayTracingProperties.pNext = &s_AccelerationStructureProperties;
+		s_AccelerationStructureProperties.pNext = &s_SubgroupProperties;
 		vkGetPhysicalDeviceProperties2(s_PhysicalDevice, &s_Properties);
 
 		// Get the maximum sample count supported by the device
 		s_MaxSampleCount = GetMaxSampleCount();
 
 		// Log the name of the selected physical device
-		VL_CORE_INFO("physical device: {0}", s_Properties.properties.deviceName);
+		VL_CORE_INFO("Physical device: {0}", s_Properties.properties.deviceName);
+		VL_CORE_INFO("\tSubgroup Size: {0}", s_SubgroupProperties.subgroupSize);
 	}
 
 	/**
@@ -1330,6 +1332,7 @@ namespace Vulture
 
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR Device::s_RayTracingProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
 	VkPhysicalDeviceAccelerationStructurePropertiesKHR Device::s_AccelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
+	VkPhysicalDeviceSubgroupProperties Device::s_SubgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES };
 
 	// -----------------------------------
 	// Loaded functions

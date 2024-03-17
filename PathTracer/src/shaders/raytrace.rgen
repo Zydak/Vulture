@@ -68,6 +68,8 @@ void main()
         ivec2 outputImageSize = imageSize(image);
         prd.HitValue = vec3(0.0);
         prd.Depth = 0;
+        prd.Pdf = 0.0f;
+        prd.Bsdf = vec3(0.0f);
 
         // Applying small jitter for anti aliasing
         vec2 antiAliasingJitter = (RandomPointInCircle(prd.Seed) * 0.25f / outputImageSize.x) * pcRay.AliasingJitter;

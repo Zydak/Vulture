@@ -9,5 +9,5 @@ Vulture::Application* Vulture::CreateApplication()
 	appInfo.Name = "2D Sandbox";
 	appInfo.WorkingDirectory = "";
 	appInfo.RayTracingSupport = false;
-	return new Sandbox(appInfo, 1600, 900);
+	return new PathTracer(appInfo, 1600, 900);
 }

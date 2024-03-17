@@ -87,7 +87,7 @@ namespace Vulture
 			InverseTransformSampling,
 			ImportanceSampling
 		};
-		void CreateHDRImage(const std::string& filepath, EnvMethod method, SamplerInfo samplerInfo);
+		void CreateHDRImage(const std::string& filepath, SamplerInfo samplerInfo);
 		struct EnvAccel
 		{
 			uint32_t Alias;

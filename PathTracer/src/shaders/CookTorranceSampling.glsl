@@ -100,7 +100,6 @@ vec3 CosineSampleHemisphere(float r1, float r2)
     return dir;
 }
 
-
 float DielectricFresnel(float cosThetaI, float eta)
 {
     float sinThetaTSq = eta * eta * (1.0f - cosThetaI * cosThetaI);

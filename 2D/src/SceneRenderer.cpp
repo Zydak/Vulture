@@ -51,10 +51,10 @@ void SceneRenderer::RecreateResources()
 	RecreateDescriptorSets();
 	CreatePipelines();
 
-	FixCameraAspectRatio();
+	UpdateCamera();
 }
 
-void SceneRenderer::FixCameraAspectRatio()
+void SceneRenderer::UpdateCamera()
 {
 	float newAspectRatio = (float)Vulture::Renderer::GetSwapchain().GetSwapchainExtent().width / (float)Vulture::Renderer::GetSwapchain().GetSwapchainExtent().height;
 	auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::CameraComponent>();

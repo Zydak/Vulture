@@ -38,7 +38,7 @@ public:
 private:
 
 	void RecreateResources();
-	void FixCameraAspectRatio();
+	void UpdateCamera();
 	void UpdateStorageBuffer();
 	void UpdateTextStorageBuffers();
 	void UpdateTextBuffers();

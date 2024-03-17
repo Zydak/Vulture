@@ -26,3 +26,7 @@
 #include "Vulture/src/Vulture/Effects/Tonemap.h"
 #include "Vulture/src/Vulture/Effects/Bloom.h"
 #include "Vulture/src/Vulture/Effects/Effect.h"
+#include "Vulture/src/Vulture/Math/Math.h"
+
+#include <backends/imgui_impl_vulkan.h>
+#include <backends/imgui_impl_glfw.h>

@@ -4,24 +4,24 @@
 #include "CameraScript.h"
 #include "TypingScript.h"
 
-Sandbox::Sandbox(Vulture::ApplicationInfo appInfo, float width, float height)
+PathTracer::PathTracer(Vulture::ApplicationInfo appInfo, float width, float height)
 	: Vulture::Application(appInfo, width, height), m_Scene(m_Window)
 {
 	Init();
 	InitScripts();
 }
 
-Sandbox::~Sandbox()
+PathTracer::~PathTracer()
 {
 	DestroyScripts();
 }
 
-void Sandbox::Destroy()
+void PathTracer::Destroy()
 {
 
 }
 
-void Sandbox::OnUpdate(double deltaTime)
+void PathTracer::OnUpdate(double deltaTime)
 {
 	if (Vulture::Input::IsKeyPressed(VL_KEY_ESCAPE))
 	{
@@ -34,22 +34,22 @@ void Sandbox::OnUpdate(double deltaTime)
 	m_SceneRenderer->Render(m_Scene);
 }
 
-void Sandbox::InitScripts()
+void PathTracer::InitScripts()
 {
 	m_Scene.InitScripts();
 }
 
-void Sandbox::UpdateScripts(double deltaTime)
+void PathTracer::UpdateScripts(double deltaTime)
 {
 	m_Scene.UpdateScripts(deltaTime);
 }
 
-void Sandbox::DestroyScripts()
+void PathTracer::DestroyScripts()
 {
 	m_Scene.DestroyScripts();
 }
 
-void Sandbox::Init()
+void PathTracer::Init()
 {
 	m_Scene.CreateAtlas("assets/Texture.png");
 	m_Scene.AddFont("assets/Pixel.ttf", "PixelFont");

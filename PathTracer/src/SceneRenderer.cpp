@@ -6,6 +6,10 @@
 #include <backends/imgui_impl_glfw.h>
 
 #include "CameraScript.h"
+#include "State.h"
+
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtx/compatibility.hpp"
 
 SceneRenderer::SceneRenderer()
 {
@@ -54,13 +58,20 @@ SceneRenderer::SceneRenderer()
 	bloomInfo.OutputImages = { m_BloomImage };
 	m_DenoisedBloom.Init(bloomInfo);
 
-	Vulture::Effect<StipplingPushContant>::CreateInfo stipplingInfo{};
-	stipplingInfo.DebugName = "Stippling";
-	stipplingInfo.InputImages = { m_TonemappedImage };
-	stipplingInfo.OutputImages = { m_InkEffectImage };
-	stipplingInfo.AdditionalTextures = { m_BlueNoiseImage, m_PaperTexture, m_InkTexture, m_GBufferFramebuffer->GetImageNoVk(4) };
-	stipplingInfo.ShaderPath = "src/shaders/InkEffect.comp";
-	m_InkEffect.Init(stipplingInfo);
+	Vulture::Effect<InkPushConstant>::CreateInfo inkInfo{};
+	inkInfo.DebugName = "Ink Effect";
+	inkInfo.InputImages = { m_TonemappedImage };
+	inkInfo.OutputImages = { m_TonemappedImage };
+	inkInfo.AdditionalTextures = { m_BlueNoiseImage, m_PaperTexture, m_InkTexture, m_GBufferFramebuffer->GetImageNoVk(4) };
+	inkInfo.ShaderPath = "src/shaders/InkEffect.comp";
+	m_InkEffect.Init(inkInfo);
+
+	Vulture::Effect<PosterizePushConstant>::CreateInfo posterizeInfo{};
+	posterizeInfo.DebugName = "Posterize Effect";
+	posterizeInfo.InputImages = { m_TonemappedImage };
+	posterizeInfo.OutputImages = { m_TonemappedImage };
+	posterizeInfo.ShaderPath = "src/shaders/Posterize.comp";
+	m_PosterizeEffect.Init(posterizeInfo);
 
 	m_PresentedImage = m_PathTracingImage;
 
@@ -74,7 +85,7 @@ SceneRenderer::SceneRenderer()
 	VkFenceCreateInfo createInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
 	vkCreateFence(Vulture::Device::GetDevice(), &createInfo, nullptr, &m_DenoiseFence);
 
-	Vulture::Renderer::RenderImGui([this](){ImGuiPass(); });
+	//Vulture::Renderer::RenderImGui([this](){ImGuiPass(); });
 	m_TotalTimer.Reset();
 }
 
@@ -82,218 +93,6 @@ SceneRenderer::~SceneRenderer()
 {
 	vkDestroyFence(Vulture::Device::GetDevice(), m_DenoiseFence, nullptr);
 	m_Denoiser->Destroy();
-}
-
-void SceneRenderer::Render(Vulture::Scene& scene)
-{
-	m_CurrentSceneRendered = &scene;
-
-	auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::ModelComponent>();
-	for (auto entity : view)
-	{
-		CurrentModelEntity = { entity, m_CurrentSceneRendered };
-	}
-
-	if (m_DrawIntoAFile)
-		m_PresentedImage = m_PathTracingImage;
-	else
-		m_PresentedImage = m_TonemappedImage;
-
-	if (m_RecreateRtPipeline)
-	{
-		vkDeviceWaitIdle(Vulture::Device::GetDevice());
-		ResetFrame();
-		CreateRayTracingPipeline();
-		m_RecreateRtPipeline = false;
-	}
-
-	if (m_RecompileShader)
-	{
-		m_RecompileShader = false;
-		CreateRayTracingPipeline();
-		ResetFrame();
-	}
-
-	if (m_DrawIntoAFileChanged)
-	{
-		RecreateResources();
-		m_DrawIntoAFileChanged = false;
-
-		if (m_DrawIntoAFile)
-		{
-			m_PresentedImage = m_PathTracingImage;
-		}
-	}
-
-	if (m_ChangeSkybox)
-	{
-		m_ChangeSkybox = false;
-		vkDeviceWaitIdle(Vulture::Device::GetDevice());
-
-		m_CurrentSceneRendered->DestroyEntity(m_CurrentSkyboxEntity);
-
-		m_CurrentSkyboxEntity = m_CurrentSceneRendered->CreateEntity();
-		auto& skyboxComponent = m_CurrentSkyboxEntity.AddComponent<Vulture::SkyboxComponent>(m_SkyboxPath);
-
-		SetSkybox(m_CurrentSkyboxEntity);
-	}
-
-	if (m_ModelChanged)
-	{
-		m_ModelChanged = false;
-		vkDeviceWaitIdle(Vulture::Device::GetDevice());
-
-		auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::ModelComponent>();
-		for (auto entity : view)
-		{
-			m_CurrentSceneRendered->GetRegistry().destroy(entity);
-		}
-		m_CurrentSceneRendered->ResetMeshCount();
-		m_CurrentSceneRendered->ResetModelCount();
-		m_CurrentSceneRendered->ResetVertexCount();
-		m_CurrentSceneRendered->ResetIndexCount();
-
-		CurrentModelEntity = m_CurrentSceneRendered->CreateModel(m_ModelPath, Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(m_ModelScale)));
-
-		m_CurrentSceneRendered->InitAccelerationStructure();
-		CreateRayTracingDescriptorSets(*m_CurrentSceneRendered);
-
-		ResetFrame();
-	}
-
-	if (m_DrawIntoAFile)
-	{
-		if (Vulture::Renderer::BeginFrame())
-		{
-			UpdateDescriptorSetsData();
-			bool rayTracingFinished = !RayTrace(glm::vec4(0.1f));
-			if (rayTracingFinished)
-			{
-				if (m_CurrentEffect == CurrentPostProcess::None)
-				{
-					m_PresentedImage = m_TonemappedImage;
-				}
-				else if (m_CurrentEffect == CurrentPostProcess::Ink)
-				{
-					m_PresentedImage = m_InkEffectImage;
-				}
-				m_DrawFileInfo.RenderingFinished = true;
-				
-				if (!m_DrawFileInfo.Denoised)
-				{
-					Denoise();
-
-					m_DrawFileInfo.Denoised = true;
-				}
-
-				if (m_DrawFileInfo.ShowDenoised)
-					m_DenoisedBloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
-				else
-					m_Bloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
-
-				m_Tonemapper.Run(m_DrawInfo.TonemapInfo, Vulture::Renderer::GetCurrentCommandBuffer());
-
-				if (m_CurrentEffect == CurrentPostProcess::None)
-				{
-					m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
-				}
-				else if (m_CurrentEffect == CurrentPostProcess::Ink)
-				{
-					if (m_GBufferFramebuffer->GetImageNoVk(4)->GetLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-					{
-						m_GBufferFramebuffer->GetImageNoVk(4)->TransitionImageLayout(
-							VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-							Vulture::Renderer::GetCurrentCommandBuffer(),
-							VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-							0,
-							VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-							0
-						);
-					}
-					m_InkEffect.Run(m_InkPush, Vulture::Renderer::GetCurrentCommandBuffer());
-					m_InkEffectImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
-				}
-
-				m_DrawIntoAFileFinished = true;
-			}
-			else
-			{
-				m_PathTracingImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
-			}
-
-			Vulture::Renderer::ImGuiPass();
-
-			if (!rayTracingFinished)
-			{
-				m_PathTracingImage->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, Vulture::Renderer::GetCurrentCommandBuffer());
-			}
-
-			Vulture::Renderer::EndFrame();
-
-			if (m_DrawFileInfo.SaveToFile)
-			{
-				vkDeviceWaitIdle(Vulture::Device::GetDevice());
-				Vulture::Renderer::SaveImageToFile("", m_PresentedImage);
-
-				m_PresentedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-				m_DrawFileInfo.SaveToFile = false;
-			}
-		}
-	}
-	else if (m_ImGuiViewportResized)
-	{
-		RecreateResources();
-		m_ImGuiViewportResized = false;
-	}
-	else if (Vulture::Renderer::BeginFrame())
-	{
-		UpdateDescriptorSetsData();
-		RayTrace(glm::vec4(0.1f));
-
-		// Run denoised if requested
-		if (m_RunDenoising)
-		{
-			Denoise();
-			m_RunDenoising = false;
-			m_Denoised = true;
-		}
-
-		if (m_ShowDenoised)
-			m_DenoisedBloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
-		else
-			m_Bloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
-
-		m_Tonemapper.Run(m_DrawInfo.TonemapInfo, Vulture::Renderer::GetCurrentCommandBuffer());
-
-		if(m_CurrentEffect == CurrentPostProcess::None)
-		{
-			m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
-		}
-		else if (m_CurrentEffect == CurrentPostProcess::Ink)
-		{
-			if (m_GBufferFramebuffer->GetImageNoVk(4)->GetLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-			{
-				m_GBufferFramebuffer->GetImageNoVk(4)->TransitionImageLayout(
-					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-					Vulture::Renderer::GetCurrentCommandBuffer(),
-					VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-					0,
-					VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-					0
-				);
-			}
-			m_InkEffect.Run(m_InkPush, Vulture::Renderer::GetCurrentCommandBuffer());
-			m_InkEffectImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
-		}
-		Vulture::Renderer::ImGuiPass();
-		
-		if (!Vulture::Renderer::EndFrame())
-			RecreateResources();
-	}
-	else
-	{
-		RecreateResources();
-	}
 }
 
 void SceneRenderer::RecreateRayTracingDescriptorSets()
@@ -322,7 +121,8 @@ bool SceneRenderer::RayTrace(const glm::vec4& clearColor)
 	static glm::mat4 previousMat{ 0.0f };
 	if (previousMat != m_CurrentSceneRendered->GetMainCamera()->ViewMat) // if camera moved
 	{
-		ResetFrame();
+		UpdateDescriptorSetsData();
+		ResetFrameAccumulation();
 		previousMat = m_CurrentSceneRendered->GetMainCamera()->ViewMat;
 	}
 	else
@@ -337,8 +137,6 @@ bool SceneRenderer::RayTrace(const glm::vec4& clearColor)
 	}
 
 	Vulture::Device::BeginLabel(Vulture::Renderer::GetCurrentCommandBuffer(), "Ray Trace Pass", { 1.0f, 0.0f, 0.0f, 1.0f });
-	
-	m_Time = m_TotalTimer.ElapsedSeconds();
 
 	m_RtPipeline.Bind(Vulture::Renderer::GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
 	m_RayTracingDescriptorSet->Bind(
@@ -366,6 +164,38 @@ bool SceneRenderer::RayTrace(const glm::vec4& clearColor)
 	}
 
 	return true;
+}
+
+void SceneRenderer::PostProcess()
+{
+	if (State::ShowDenoised)
+		m_DenoisedBloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+	else
+		m_Bloom.Run(m_DrawInfo.BloomInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+
+	m_Tonemapper.Run(m_DrawInfo.TonemapInfo, Vulture::Renderer::GetCurrentCommandBuffer());
+
+	if (m_CurrentEffect == PostProcessEffects::Ink)
+	{
+		if (m_GBufferFramebuffer->GetImageNoVk(4)->GetLayout() != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+		{
+			m_GBufferFramebuffer->GetImageNoVk(4)->TransitionImageLayout(
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				Vulture::Renderer::GetCurrentCommandBuffer(),
+				VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+				0,
+				VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+				0
+			);
+		}
+		m_InkEffect.Run(Vulture::Renderer::GetCurrentCommandBuffer());
+	}
+	else if (m_CurrentEffect == PostProcessEffects::Posterize)
+	{
+		m_PosterizeEffect.Run(Vulture::Renderer::GetCurrentCommandBuffer());
+	}
+
+	m_TonemappedImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
 }
 
 void SceneRenderer::DrawGBuffer()
@@ -496,12 +326,11 @@ void SceneRenderer::Denoise()
 		0, nullptr);
 }
 
-void SceneRenderer::ResetFrame()
+void SceneRenderer::ResetFrameAccumulation()
 {
 	m_PushContantRayTrace.GetDataPtr()->frame = -1;
 	m_CurrentSamplesPerPixel = 0;
 	m_TotalTimer.Reset();
-	m_ToneMapped = false;
 
 	m_DrawGBuffer = true;
 }
@@ -509,7 +338,7 @@ void SceneRenderer::ResetFrame()
 void SceneRenderer::RecreateResources()
 {
 	vkDeviceWaitIdle(Vulture::Device::GetDevice());
-	ResetFrame();
+	ResetFrameAccumulation();
 	m_PushContantRayTrace.GetDataPtr()->frame -= 1;
 
 	CreateFramebuffers();
@@ -529,24 +358,34 @@ void SceneRenderer::RecreateResources()
 	bloomInfo.OutputImages = { m_BloomImage };
 	m_DenoisedBloom.Init(bloomInfo);
 
-	Vulture::Effect<StipplingPushContant>::CreateInfo stipplingInfo{};
-	stipplingInfo.DebugName = "Stippling";
-	stipplingInfo.InputImages = { m_TonemappedImage };
-	stipplingInfo.OutputImages = { m_InkEffectImage };
-	stipplingInfo.AdditionalTextures = { m_BlueNoiseImage, m_PaperTexture, m_InkTexture, m_GBufferFramebuffer->GetImageNoVk(4) };
-	stipplingInfo.ShaderPath = "src/shaders/InkEffect.comp";
-	m_InkEffect.Init(stipplingInfo);
+	Vulture::Effect<InkPushConstant>::CreateInfo inkInfo{};
+	inkInfo.DebugName = "Stippling";
+	inkInfo.InputImages = { m_TonemappedImage };
+	inkInfo.OutputImages = { m_TonemappedImage };
+	inkInfo.AdditionalTextures = { m_BlueNoiseImage, m_PaperTexture, m_InkTexture, m_GBufferFramebuffer->GetImageNoVk(4) };
+	inkInfo.ShaderPath = "src/shaders/InkEffect.comp";
+	m_InkEffect.Init(inkInfo);
+
+	Vulture::Effect<PosterizePushConstant>::CreateInfo posterizeInfo{};
+	posterizeInfo.DebugName = "Posterize Effect";
+	posterizeInfo.InputImages = { m_TonemappedImage };
+	posterizeInfo.OutputImages = { m_TonemappedImage };
+	posterizeInfo.ShaderPath = "src/shaders/Posterize.comp";
+	if (State::ReplacePalletDefineInPosterizeShader)
+		posterizeInfo.Defines = { "REPLACE_PALLET" };
+	
+	m_PosterizeEffect.Init(posterizeInfo);
 
 	CreatePipelines();
 
-	FixCameraAspectRatio();
+	UpdateCamera();
 
 	m_Denoiser->AllocateBuffers(m_ViewportContentSize);
 
 	RecreateDescriptorSets();
 }
 
-void SceneRenderer::FixCameraAspectRatio()
+void SceneRenderer::UpdateCamera()
 {
 	float newAspectRatio = (float)m_ViewportContentSize.width / (float)m_ViewportContentSize.height;
 	auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::CameraComponent>();
@@ -555,6 +394,7 @@ void SceneRenderer::FixCameraAspectRatio()
 		auto& cameraCp = view.get<Vulture::CameraComponent>(entity);
 		cameraCp.SetPerspectiveMatrix(cameraCp.FOV, newAspectRatio, 0.1f, 1000.0f);
 	}
+	UpdateDescriptorSetsData();
 }
 
 void SceneRenderer::CreateRenderPasses()
@@ -606,16 +446,15 @@ void SceneRenderer::CreateDescriptorSets()
 	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Normal), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::RoughnessMetallness), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Emissive), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiViewportDescriptorInk = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_InkEffectImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 #endif
 }
 
-void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
+void SceneRenderer::CreateRayTracingDescriptorSets()
 {
-	uint32_t texturesCount = scene.GetMeshCount();
+	uint32_t texturesCount = m_CurrentSceneRendered->GetMeshCount();
 	{
 		Vulture::DescriptorSetLayout::Binding bin0{ 0, 1, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
 		Vulture::DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR };
@@ -630,7 +469,7 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 		m_RayTracingDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 		m_RayTracingDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin0, bin1, bin2, bin3, bin4, bin5, bin6, bin7, bin8 });
 
-		VkAccelerationStructureKHR tlas = scene.GetAccelerationStructure()->GetTlas().Accel;
+		VkAccelerationStructureKHR tlas = m_CurrentSceneRendered->GetAccelerationStructure()->GetTlas().Accel;
 		VkWriteDescriptorSetAccelerationStructureKHR asInfo{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR };
 		asInfo.accelerationStructureCount = 1;
 		asInfo.pAccelerationStructures = &tlas;
@@ -640,10 +479,10 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 		m_RayTracingDescriptorSet->AddStorageBuffer(2, sizeof(MeshAdresses) * 50000, false, true);
 		m_RayTracingDescriptorSet->AddStorageBuffer(3, sizeof(Vulture::Material) * 50000, false, true);
 
-		auto view = scene.GetRegistry().view<Vulture::ModelComponent>();
+		auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::ModelComponent>();
 		for (auto& entity : view)
 		{
-			auto& modelComp = scene.GetRegistry().get<Vulture::ModelComponent>(entity);
+			auto& modelComp = m_CurrentSceneRendered->GetRegistry().get<Vulture::ModelComponent>(entity);
 			for (int j = 0; j < (int)modelComp.Model->GetAlbedoTextureCount(); j++)
 			{
 				m_RayTracingDescriptorSet->AddImageSampler(
@@ -690,12 +529,12 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 	{
 		std::vector<MeshAdresses> meshAddresses;
 		std::vector<Vulture::Material> materials;
-		auto modelView = scene.GetRegistry().view<Vulture::ModelComponent, Vulture::TransformComponent>();
+		auto modelView = m_CurrentSceneRendered->GetRegistry().view<Vulture::ModelComponent, Vulture::TransformComponent>();
 		uint32_t meshSizes = 0;
 		uint32_t materialSizes = 0;
 		for (auto& entity : modelView)
 		{
-			auto& [modelComp, transformComp] = scene.GetRegistry().get<Vulture::ModelComponent, Vulture::TransformComponent>(entity);
+			auto& [modelComp, transformComp] = m_CurrentSceneRendered->GetRegistry().get<Vulture::ModelComponent, Vulture::TransformComponent>(entity);
 			for (int i = 0; i < (int)modelComp.Model->GetMeshCount(); i++)
 			{
 				MeshAdresses adr{};
@@ -726,7 +565,7 @@ void SceneRenderer::CreateRayTracingDescriptorSets(Vulture::Scene& scene)
 
 void SceneRenderer::SetSkybox(Vulture::Entity& skyboxEntity)
 {
-	m_CurrentSkyboxEntity = skyboxEntity;
+	State::CurrentSkyboxEntity = skyboxEntity;
 	Vulture::SkyboxComponent skybox = skyboxEntity.GetComponent<Vulture::SkyboxComponent>();
 
 	m_GlobalDescriptorSets.clear();
@@ -762,14 +601,83 @@ void SceneRenderer::SetSkybox(Vulture::Entity& skyboxEntity)
 		);
 	}
 
-	m_RecompileShader = true;
+	State::RecreateRayTracingPipeline = true;
 	m_HasEnvMap = true;
+}
+
+void SceneRenderer::UpdateResources()
+{
+	if (State::RecreateRayTracingPipeline)
+	{
+		vkDeviceWaitIdle(Vulture::Device::GetDevice());
+		ResetFrameAccumulation();
+		CreateRayTracingPipeline();
+		State::RecreateRayTracingPipeline = false;
+	}
+
+	if (State::ChangeSkybox)
+	{
+		State::ChangeSkybox = false;
+		vkDeviceWaitIdle(Vulture::Device::GetDevice());
+
+		m_CurrentSceneRendered->DestroyEntity(State::CurrentSkyboxEntity);
+
+		State::CurrentSkyboxEntity = m_CurrentSceneRendered->CreateEntity();
+		auto& skyboxComponent = State::CurrentSkyboxEntity.AddComponent<Vulture::SkyboxComponent>(State::CurrentSkyboxPath);
+
+		SetSkybox(State::CurrentSkyboxEntity);
+	}
+
+	if (State::ModelChanged)
+	{
+		State::ModelChanged = false;
+		vkDeviceWaitIdle(Vulture::Device::GetDevice());
+
+		auto view = m_CurrentSceneRendered->GetRegistry().view<Vulture::ModelComponent>();
+		for (auto entity : view)
+		{
+			m_CurrentSceneRendered->GetRegistry().destroy(entity);
+		}
+		m_CurrentSceneRendered->ResetMeshCount();
+		m_CurrentSceneRendered->ResetModelCount();
+		m_CurrentSceneRendered->ResetVertexCount();
+		m_CurrentSceneRendered->ResetIndexCount();
+
+		State::CurrentModelEntity = m_CurrentSceneRendered->CreateModel(State::ModelPath, Vulture::Transform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(State::ModelScale)));
+
+		m_CurrentSceneRendered->InitAccelerationStructure();
+		CreateRayTracingDescriptorSets();
+
+		ResetFrameAccumulation();
+	}
+
+	if (m_RecompileTonemapShader)
+	{
+		vkDeviceWaitIdle(Vulture::Device::GetDevice());
+		m_Tonemapper.RecompileShader(State::CurrentTonemapper, State::UseChromaticAberration);
+		m_RecompileTonemapShader = false;
+	}
+
+	if (State::RecompilePosterizeShader)
+	{
+		vkDeviceWaitIdle(Vulture::Device::GetDevice());
+		std::vector<std::string> define;
+		if (State::ReplacePalletDefineInPosterizeShader) { define.push_back("REPLACE_PALLET"); }
+		m_PosterizeEffect.RecompileShader(define);
+		State::RecompilePosterizeShader = false;
+	}
+}
+
+void SceneRenderer::SetCurrentScene(Vulture::Scene* scene)
+{
+	m_CurrentSceneRendered = scene;
+	UpdateDescriptorSetsData();
 }
 
 void SceneRenderer::RecreateDescriptorSets()
 {
-	m_Denoised = false;
-	m_ShowDenoised = false;
+	State::Denoised = false;
+	State::ShowDenoised = false;
 
 	{
 		m_RayTracingDescriptorSet->UpdateImageSampler(
@@ -787,7 +695,6 @@ void SceneRenderer::RecreateDescriptorSets()
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiNormalDescriptor);
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiRoughnessDescriptor);
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiEmissiveDescriptor);
-	ImGui_ImplVulkan_RemoveTexture(m_ImGuiViewportDescriptorInk);
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiViewportDescriptorTonemapped);
 	ImGui_ImplVulkan_RemoveTexture(m_ImGuiViewportDescriptorPathTracing);
 
@@ -795,7 +702,6 @@ void SceneRenderer::RecreateDescriptorSets()
 	m_ImGuiNormalDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Normal), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiRoughnessDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::RoughnessMetallness), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiEmissiveDescriptor = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_GBufferFramebuffer->GetImageView(GBufferImage::Emissive), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	m_ImGuiViewportDescriptorInk = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_InkEffectImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorTonemapped = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_TonemappedImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	m_ImGuiViewportDescriptorPathTracing = ImGui_ImplVulkan_AddTexture(Vulture::Renderer::GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -822,27 +728,27 @@ void SceneRenderer::CreateRayTracingPipeline()
 		Vulture::Pipeline::RayTracingCreateInfo info{};
 		info.PushConstants = m_PushContantRayTrace.GetRangePtr();
 
-		std::vector<std::string> macros;
+		std::vector<std::string> defines;
 		if (m_DrawInfo.UseAlbedo)
-			macros.push_back("USE_ALBEDO");
+			defines.push_back("USE_ALBEDO");
 		if (m_DrawInfo.UseNormalMaps)
-			macros.push_back("USE_NORMAL_MAPS");
+			defines.push_back("USE_NORMAL_MAPS");
 		if (m_DrawInfo.SampleEnvMap)
-			macros.push_back("SAMPLE_ENV_MAP");
+			defines.push_back("SAMPLE_ENV_MAP");
 		if (m_DrawInfo.UseGlossy)
-			macros.push_back("USE_GLOSSY");
+			defines.push_back("USE_GLOSSY");
 		if (m_DrawInfo.UseGlass)
-			macros.push_back("USE_GLASS");
+			defines.push_back("USE_GLASS");
 		if (m_DrawInfo.UseClearcoat)
-			macros.push_back("USE_CLEARCOAT");
+			defines.push_back("USE_CLEARCOAT");
 		if (m_DrawInfo.UseFog)
-			macros.push_back("USE_FOG");
+			defines.push_back("USE_FOG");
 		if (m_DrawInfo.UseFireflies)
-			macros.push_back("USE_FIREFLIES");
+			defines.push_back("USE_FIREFLIES");
 
-		Vulture::Shader shader1({ "src/shaders/raytrace.rgen", VK_SHADER_STAGE_RAYGEN_BIT_KHR, macros });
-		Vulture::Shader shader2({ m_CurrentHitShaderPath, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, macros });
-		Vulture::Shader shader3({ "src/shaders/raytrace.rmiss", VK_SHADER_STAGE_MISS_BIT_KHR, macros });
+		Vulture::Shader shader1({ "src/shaders/raytrace.rgen", VK_SHADER_STAGE_RAYGEN_BIT_KHR, defines });
+		Vulture::Shader shader2({ "src/shaders/CookTorrance.rchit", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, defines});
+		Vulture::Shader shader3({ "src/shaders/raytrace.rmiss", VK_SHADER_STAGE_MISS_BIT_KHR, defines });
 
 		info.RayGenShaders.push_back(&shader1);
 		info.HitShaders.push_back(&shader2);
@@ -885,15 +791,15 @@ void SceneRenderer::CreateRayTracingPipeline()
 			info.BindingDesc = Vulture::Mesh::Vertex::GetBindingDescriptions();
 			Vulture::Shader shader1({ "src/shaders/GBuffer.vert", VK_SHADER_STAGE_VERTEX_BIT });
 
-			std::vector<std::string> macros;
+			std::vector<std::string> defines;
 			if (m_DrawInfo.UseAlbedo)
-				macros.push_back("USE_ALBEDO");
+				defines.push_back("USE_ALBEDO");
 			if (m_DrawInfo.UseNormalMaps)
-				macros.push_back("USE_NORMAL_MAPS");
+				defines.push_back("USE_NORMAL_MAPS");
 			if (m_DrawInfo.SampleEnvMap)
-				macros.push_back("SAMPLE_ENV_MAP");
+				defines.push_back("SAMPLE_ENV_MAP");
 
-			Vulture::Shader shader2({ "src/shaders/GBuffer.frag", VK_SHADER_STAGE_FRAGMENT_BIT, macros });
+			Vulture::Shader shader2({ "src/shaders/GBuffer.frag", VK_SHADER_STAGE_FRAGMENT_BIT, defines });
 			info.Shaders.push_back(&shader1);
 			info.Shaders.push_back(&shader2);
 			info.BlendingEnable = false;
@@ -1017,7 +923,7 @@ void SceneRenderer::CreateFramebuffers()
 		Vulture::Image::CreateInfo info{};
 		info.Width = m_ViewportContentSize.width;
 		info.Height = m_ViewportContentSize.height;
-		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		info.Format = VK_FORMAT_R8G8B8A8_UNORM;
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -1029,25 +935,6 @@ void SceneRenderer::CreateFramebuffers()
 
 		m_TonemappedImage = std::make_shared<Vulture::Image>();
 		m_TonemappedImage->Init(info);
-	}
-
-	// Stippling
-	{
-		Vulture::Image::CreateInfo info{};
-		info.Width = m_ViewportContentSize.width;
-		info.Height = m_ViewportContentSize.height;
-		info.Format = VK_FORMAT_R8G8B8A8_UNORM;
-		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
-		info.Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-		info.LayerCount = 1;
-		info.SamplerInfo = Vulture::SamplerInfo{};
-		info.Type = Vulture::Image::ImageType::Image2D;
-		info.DebugName = "Stippling Image";
-
-		m_InkEffectImage = std::make_shared<Vulture::Image>();
-		m_InkEffectImage->Init(info);
 	}
 
 	// Bloom
@@ -1094,604 +981,4 @@ void SceneRenderer::UpdateDescriptorSetsData()
 	m_GlobalDescriptorSets[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->WriteToBuffer(&ubo);
 
 	m_GlobalDescriptorSets[Vulture::Renderer::GetCurrentFrameIndex()]->GetBuffer(0)->Flush();
-}
-
-void SceneRenderer::ImGuiPass()
-{
-	Vulture::Entity cameraEntity;
-	m_CurrentSceneRendered->GetMainCamera(&cameraEntity);
-
-	Vulture::ScriptComponent* scComp = m_CurrentSceneRendered->GetRegistry().try_get<Vulture::ScriptComponent>(cameraEntity);
-	Vulture::CameraComponent* camComp = m_CurrentSceneRendered->GetRegistry().try_get<Vulture::CameraComponent>(cameraEntity);
-	CameraScript* camScript;
-
-	if (scComp)
-	{
-		camScript = scComp->GetScript<CameraScript>(0);
-	}
-
-	ImGui_ImplVulkan_NewFrame();
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
-	ImGuiIO& io = ImGui::GetIO();
-	if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
-	{
-		ImGuiID dockspaceID = ImGui::GetID("Dockspace");
-		ImGuiViewport* viewport = ImGui::GetMainViewport();
-		ImGui::DockSpaceOverViewport(viewport);
-	}
-
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-	ImGui::SetNextWindowSize({ (float)m_ViewportSize.width, (float)m_ViewportSize.height });
-	ImGui::Begin("Preview Viewport");
-
-	if (camScript && !m_DrawIntoAFile)
-	{
-		if (ImGui::IsWindowHovered() && (ImGui::IsWindowDocked()))
-			camScript->m_CameraLocked = false;
-		else
-			camScript->m_CameraLocked = true;
-	}
-
-	ImVec2 viewportContentSize = ImGui::GetContentRegionAvail();
-	if (m_DrawIntoAFile && !m_DrawIntoAFileFinished)
-		ImGui::Image(m_ImGuiViewportDescriptorPathTracing, viewportContentSize);
-	else
-	{
-		switch (m_CurrentEffect)
-		{
-		case SceneRenderer::CurrentPostProcess::None:
-			ImGui::Image(m_ImGuiViewportDescriptorTonemapped, viewportContentSize);
-			break;
-		case SceneRenderer::CurrentPostProcess::Ink:
-			ImGui::Image(m_ImGuiViewportDescriptorInk, viewportContentSize);
-			break;
-		default:
-			break;
-		}
-	}
-
-	static VkExtent2D prevViewportSize = { 1920, 1080 };
-	VkExtent2D imGuiViewportContentSize = { (unsigned int)viewportContentSize.x, (unsigned int)viewportContentSize.y };
-	if (imGuiViewportContentSize.width != prevViewportSize.width || imGuiViewportContentSize.height != prevViewportSize.height)
-	{
-		m_ImGuiViewportResized = true;
-		prevViewportSize = imGuiViewportContentSize;
-	}
-	if (!m_DrawIntoAFile)
-		m_ViewportContentSize = imGuiViewportContentSize;
-
-	m_ViewportSize = { (uint32_t)ImGui::GetWindowSize().x, (uint32_t)ImGui::GetWindowSize().y };
-
-	ImGui::End();
-	ImGui::PopStyleVar();
-
-	ImGui::Begin("Settings");
-	if (!m_DrawIntoAFile)
-	{
-		ImGui::SeparatorText("Info");
-		ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.ElapsedSeconds());
-		ImGui::Text("Total vertices: %i", m_CurrentSceneRendered->GetVertexCount());
-		ImGui::Text("Total indices: %i", m_CurrentSceneRendered->GetIndexCount());
-
-		ImGui::Text("Frame: %i", m_PushContantRayTrace.GetDataPtr()->frame);
-		ImGui::Text("Time: %fs", m_Time);
-		ImGui::Text("Samples Per Pixel: %i", m_CurrentSamplesPerPixel);
-
-		if (ImGui::Button("Reset"))
-		{
-			ResetFrame();
-		}
-
-		ImGui::SeparatorText("Info");
-
-		m_Timer.Reset();
-
-		if (ImGui::CollapsingHeader("Viewport"))
-		{
-			ImGui::Separator();
-			ImGui::Text("ImGui doesn't allow to change size in dockspace\nso you have to undock the window first");
-			ImGui::InputInt2("Viewport Size", (int*)&m_ViewportSize);
-			ImGui::Separator();
-		}
-
-		if (ImGui::CollapsingHeader("Scene"))
-		{
-			ImGui::InputFloat("Models Scale", &m_ModelScale);
-			ImGui::SeparatorText("Current Model");
-
-			std::vector<std::string> scenesString;
-			std::vector<const char*> scenes;
-
-			int i = 0;
-			for (const auto& entry : std::filesystem::directory_iterator("assets/"))
-			{
-				if (entry.is_regular_file())
-				{
-					if (entry.path().extension() == ".gltf" || entry.path().extension() == ".obj")
-					{
-						i++;
-					}
-				}
-			}
-
-			scenesString.reserve(i);
-			scenes.reserve(i);
-			i = 0;
-			for (const auto& entry : std::filesystem::directory_iterator("assets/"))
-			{
-				if (entry.is_regular_file())
-				{
-					if (entry.path().extension() == ".gltf" || entry.path().extension() == ".obj")
-					{
-						scenesString.push_back(entry.path().filename().string());
-						scenes.push_back(scenesString[i].c_str());
-						i++;
-					}
-				}
-			}
-
-			static int currentSceneItem = 0;
-			if (ImGui::ListBox("Current Scene", &currentSceneItem, scenes.data(), (int)scenes.size(), scenes.size() > 10 ? 10 : (int)scenes.size()))
-			{
-				m_ModelPath = "assets/" + scenesString[currentSceneItem];
-				m_ModelChanged = true;
-			}
-
-			ImGui::SeparatorText("Materials");
-
-			Vulture::ModelComponent comp = CurrentModelEntity.GetComponent<Vulture::ModelComponent>();
-			m_CurrentMaterials = &comp.Model->GetMaterials();
-			m_CurrentMeshesNames = comp.Model->GetNames();
-
-			std::vector<const char*> meshesNames(m_CurrentMeshesNames.size());
-			for (int i = 0; i < meshesNames.size(); i++)
-			{
-				meshesNames[i] = m_CurrentMeshesNames[i].c_str();
-			}
-
-			static int currentMaterialItem = 0;
-			ImGui::ListBox("Materials", &currentMaterialItem, meshesNames.data(), (int)meshesNames.size(), meshesNames.size() > 10 ? 10 : (int)meshesNames.size());
-
-			ImGui::SeparatorText("Material Values");
-
-			bool valuesChanged = false;
-			if (ImGui::ColorEdit4("Albedo", (float*)&(*m_CurrentMaterials)[currentMaterialItem].Color)) { valuesChanged = true; };
-			if (ImGui::ColorEdit3("Emissive", (float*)&(*m_CurrentMaterials)[currentMaterialItem].Emissive)) { valuesChanged = true; };
-			if (ImGui::SliderFloat("Emissive Strength", &(*m_CurrentMaterials)[currentMaterialItem].Emissive.a, 0.0f, 10.0f)) { valuesChanged = true; };
-			if (ImGui::SliderFloat("Roughness", &(*m_CurrentMaterials)[currentMaterialItem].Roughness, 0.0f, 1.0f)) { valuesChanged = true; };
-			if (ImGui::SliderFloat("Metallic", &(*m_CurrentMaterials)[currentMaterialItem].Metallic, 0.0f, 1.0f)) { valuesChanged = true; };
-			if (ImGui::SliderFloat("IOR", &(*m_CurrentMaterials)[currentMaterialItem].Ior, 1.001f, 2.0f)) { valuesChanged = true; };
-			if (ImGui::SliderFloat("Clearcoat", &(*m_CurrentMaterials)[currentMaterialItem].Clearcoat, 0.0f, 1.0f)) { valuesChanged = true; };
-			if (ImGui::SliderFloat("Clearcoat Roughness", &(*m_CurrentMaterials)[currentMaterialItem].ClearcoatRoughness, 0.0f, 1.0f)) { valuesChanged = true; };
-			if (ImGui::SliderFloat("SubSurface", &(*m_CurrentMaterials)[currentMaterialItem].Subsurface, 0.0f, 1.0f)) { valuesChanged = true; };
-			
-			static bool editAll = false;
-			ImGui::Checkbox("Edit All Values", &editAll);
-
-			if (editAll)
-			{
-				for (int i = 0; i < (*m_CurrentMaterials).size(); i++)
-				{
-					(*m_CurrentMaterials)[i].Color = (*m_CurrentMaterials)[currentMaterialItem].Color;
-					(*m_CurrentMaterials)[i].Roughness = (*m_CurrentMaterials)[currentMaterialItem].Roughness;
-					(*m_CurrentMaterials)[i].Metallic = (*m_CurrentMaterials)[currentMaterialItem].Metallic;
-					(*m_CurrentMaterials)[i].Clearcoat = (*m_CurrentMaterials)[currentMaterialItem].Clearcoat;
-					(*m_CurrentMaterials)[i].ClearcoatRoughness = (*m_CurrentMaterials)[currentMaterialItem].ClearcoatRoughness;
-					(*m_CurrentMaterials)[i].Ior = (*m_CurrentMaterials)[currentMaterialItem].Ior;
-				}
-
-				if (valuesChanged)
-				{
-					// Upload to GPU
-					m_RayTracingDescriptorSet->GetBuffer(3)->WriteToBuffer(
-						m_CurrentMaterials->data(),
-						sizeof(Vulture::Material) * (*m_CurrentMaterials).size(),
-						0
-					);
-
-					ResetFrame();
-				}
-			}
-			else
-			{
-				if (valuesChanged)
-				{
-					// Upload to GPU
-					m_RayTracingDescriptorSet->GetBuffer(3)->WriteToBuffer(
-						((uint8_t*)m_CurrentMaterials->data()) + (uint8_t)sizeof(Vulture::Material) * (uint8_t)currentMaterialItem,
-						sizeof(Vulture::Material),
-						sizeof(Vulture::Material) * currentMaterialItem
-					);
-
-					ResetFrame();
-				}
-			}
-			ImGui::Separator();
-		}
-
-		if (ImGui::CollapsingHeader("Camera"))
-		{
-			ImGui::Separator();
-			if (camScript)
-			{
-				if (ImGui::Button("Reset Camera"))
-				{
-					camScript->Reset();
-					FixCameraAspectRatio();
-				}
-				ImGui::SliderFloat("Movement Speed", &camScript->m_MovementSpeed, 0.0f, 20.0f);
-				ImGui::SliderFloat("Rotation Speed", &camScript->m_RotationSpeed, 0.0f, 40.0f);
-
-				Vulture::CameraComponent* cp = &camScript->GetComponent<Vulture::CameraComponent>();
-				if (ImGui::SliderFloat("FOV", &cp->FOV, 10.0f, 45.0f))
-				{
-					ResetFrame();
-				}
-
-				float newAspectRatio = (float)m_ViewportContentSize.width / (float)m_ViewportContentSize.height;
-				cp->SetPerspectiveMatrix(cp->FOV, newAspectRatio, 0.1f, 1000.0f);
-
-				glm::vec3 position = cp->Translation;
-				glm::vec3 rotation = cp->Rotation.GetAngles();
-				bool changed = false;
-				if (ImGui::InputFloat3("Position", (float*)&position)) { changed = true; };
-				if (ImGui::InputFloat3("Rotation", (float*)&rotation)) { changed = true; };
-
-				if (changed)
-				{
-					cp->Translation = position;
-					cp->Rotation.SetAngles(rotation);
-
-					cp->UpdateViewMatrix();
-				}
-			}
-			ImGui::Separator();
-		}
-
-		if (ImGui::CollapsingHeader("Environment Map"))
-		{
-			ImGui::Separator();
-
-			if (ImGui::SliderFloat("Azimuth", &m_DrawInfo.EnvAzimuth, 0.0f, 360.0f)) { ResetFrame(); };
-			if (ImGui::SliderFloat("Altitude", &m_DrawInfo.EnvAltitude, 0.0f, 360.0f)) { ResetFrame(); };
-
-			std::vector<std::string> envMapsString;
-			std::vector<const char*> envMaps;
-
-			int i = 0;
-			for (const auto& entry : std::filesystem::directory_iterator("assets/"))
-			{
-				if (entry.is_regular_file()) 
-				{
-					if (entry.path().extension() == ".hdr") 
-					{
-						i++;
-					}
-				}
-			}
-
-			envMapsString.reserve(i);
-			envMaps.reserve(i);
-			i = 0;
-			for (const auto& entry : std::filesystem::directory_iterator("assets/"))
-			{
-				if (entry.is_regular_file())
-				{
-					if (entry.path().extension() == ".hdr")
-					{
-						envMapsString.push_back(entry.path().filename().string());
-						envMaps.push_back(envMapsString[i].c_str());
-						i++;
-					}
-				}
-			}
-
-			static int currentItem = 0;
-			if (ImGui::ListBox("Current Environment Map", &currentItem, envMaps.data(), (int)envMaps.size(), envMaps.size() > 10 ? 10 : (int)envMaps.size()))
-			{
-				m_SkyboxPath = "assets/" + envMapsString[currentItem];
-				m_ChangeSkybox = true;
-			}
-
-			ImGui::Separator();
-		}
-
-		if (ImGui::CollapsingHeader("Post Processing"))
-		{
-			ImGui::Separator();
-			{
-				const char* items[] = { "None", "Ink"};
-
-				static int currentItem = 0;
-				if (ImGui::ListBox("Current Effect", &currentItem, items, IM_ARRAYSIZE(items), IM_ARRAYSIZE(items)))
-				{
-					switch (currentItem)
-					{
-					case 0:
-						m_CurrentEffect = CurrentPostProcess::None;
-						break;
-					case 1:
-						m_CurrentEffect = CurrentPostProcess::Ink;
-						break;
-					default:
-						break;
-					}
-				}
-
-				if (currentItem == 1)
-				{
-					ImGui::SliderInt("Noise Center Pixel Weight", &m_InkPush.NoiseCenterPixelWeight, 0, 10);
-					ImGui::SliderInt("Noise Sample Range", &m_InkPush.NoiseSampleRange, 0, 3);
-					ImGui::SliderFloat("Luminance Bias", &m_InkPush.LuminanceBias, -0.5f, 0.5f);
-				}
-			}
-
-			ImGui::Separator();
-			ImGui::SeparatorText("Bloom");
-			ImGui::SliderFloat("Threshold",		&m_DrawInfo.BloomInfo.Threshold, 0.0f, 3.0f);
-			ImGui::SliderFloat("Strength",		&m_DrawInfo.BloomInfo.Strength, 0.0f, 3.0f);
-			if (ImGui::SliderInt("Mip Count",	&m_DrawInfo.BloomInfo.MipCount, 1, 10))
-			{
-				m_Bloom.RecreateDescriptors(m_DrawInfo.BloomInfo.MipCount, ((Vulture::Renderer::GetCurrentFrameIndex() + 1) % MAX_FRAMES_IN_FLIGHT));
-			}
-
-			ImGui::SeparatorText("Tonemapping");
-			ImGui::SliderFloat("Exposure",		&m_DrawInfo.TonemapInfo.Exposure, 0.0f, 3.0f);
-			ImGui::SliderFloat("Contrast",		&m_DrawInfo.TonemapInfo.Contrast, 0.0f, 3.0f);
-			ImGui::SliderFloat("Brightness",	&m_DrawInfo.TonemapInfo.Brightness, 0.0f, 3.0f);
-			ImGui::SliderFloat("Saturation",	&m_DrawInfo.TonemapInfo.Saturation, 0.0f, 3.0f);
-			ImGui::SliderFloat("Vignette",		&m_DrawInfo.TonemapInfo.Vignette, 0.0f, 1.0f);
-			if (ImGui::Checkbox("LinearSpace", (bool*)&m_DrawInfo.TonemapInfo.LinearSpace))
-			{
-				VL_CORE_WARN("{}", m_DrawInfo.TonemapInfo.LinearSpace);
-			}
-			ImGui::Separator();
-		}
-
-		if (ImGui::CollapsingHeader("Path tracing"))
-		{
-			ImGui::Separator();
-
-			static int currentItem = 0;
-			int prevItem = currentItem;
-			const char* items[] = { "Cook-Torrance", "Disney" };
-			if (ImGui::ListBox("Current Model", &currentItem, items, IM_ARRAYSIZE(items), 2))
-			{
-				if (currentItem == 0)
-					m_CurrentHitShaderPath = "src/shaders/CookTorrance.rchit";
-				else if (currentItem == 1)
-					m_CurrentHitShaderPath = "src/shaders/Disney.rchit";
-
-				if (prevItem != currentItem)
-				{
-					m_RecreateRtPipeline = true;
-				}
-			}
-
-			// TODO: add this to render file info
-			if(ImGui::Checkbox("Use Normal Maps (Experimental)", &m_DrawInfo.UseNormalMaps))
-			{
-				m_RecompileShader = true;
-			}
-			if (ImGui::Checkbox("Use Albedo", &m_DrawInfo.UseAlbedo))
-			{
-				m_RecompileShader = true;
-			}
-			if (ImGui::Checkbox("Use Glossy Reflections", &m_DrawInfo.UseGlossy))
-			{
-				m_RecompileShader = true;
-			}
-			if (ImGui::Checkbox("Use Glass", &m_DrawInfo.UseGlass))
-			{
-				m_RecompileShader = true;
-			}
-			if (ImGui::Checkbox("Use Clearcoat", &m_DrawInfo.UseClearcoat))
-			{
-				m_RecompileShader = true;
-			}
-			if (ImGui::Checkbox("Use Fog", &m_DrawInfo.UseFog))
-			{
-				m_RecompileShader = true;
-			}
-			if (ImGui::Checkbox("Eliminate Fireflies", &m_DrawInfo.UseFireflies))
-			{
-				m_RecompileShader = true;
-			}
-
-			if (m_HasEnvMap)
-			{
-				if (ImGui::Checkbox("Sample Environment Map", &m_DrawInfo.SampleEnvMap))
-				{
-					m_RecompileShader = true;
-				}
-			}
-
-			ImGui::Text("");
-
-			ImGui::SliderInt("Max Depth",			&m_DrawInfo.RayDepth, 1, 20);
-			ImGui::SliderInt("Samples Per Pixel",	&m_DrawInfo.TotalSamplesPerPixel, 1, 50'000);
-			ImGui::SliderInt("Samples Per Frame",	&m_DrawInfo.SamplesPerFrame, 1, 40);
-
-			if(ImGui::SliderFloat("Aliasing Jitter Strength", &m_DrawInfo.AliasingJitterStr, 0.0f, 1.0f)) { ResetFrame(); };
-			if(ImGui::Checkbox("Auto Focal Length",		&m_DrawInfo.AutoDoF)) { ResetFrame(); };
-			if(ImGui::SliderFloat("Focal Length",		&m_DrawInfo.FocalLength, 1.0f, 100.0f)) { ResetFrame(); };
-			if(ImGui::SliderFloat("DoF Strength",		&m_DrawInfo.DOFStrength, 0.0f, 100.0f)) { ResetFrame(); };
-			ImGui::Separator();
-		}
-
-		if (ImGui::CollapsingHeader("Denoiser"))
-		{
-			ImGui::Separator();
-
-			if (m_Denoised)
-			{
-				ImGui::Checkbox("Show Denoised Image", &m_ShowDenoised);
-			}
-
-			if (ImGui::Button("Denoise"))
-			{
-				m_RunDenoising = true;
-			}
-
-			ImGui::Separator();
-		}
-
-		if (ImGui::CollapsingHeader("File"))
-		{
-			ImGui::Separator();
-
-			ImGui::Text("Resolution To Be Rendered");
-			ImGui::InputInt2("", m_DrawFileInfo.Resolution);
-
-			ImGui::Separator();
-			if (ImGui::Button("Render"))
-			{
-				m_DrawIntoAFile = true;
-				m_DrawIntoAFileChanged = true;
-				camScript->m_CameraLocked = true;
-				m_DrawFileInfo.Denoised = false;
-				
-				m_DrawInfo = m_DrawInfo;
-
-				m_ViewportContentSize = { (unsigned int)m_DrawFileInfo.Resolution[0], (unsigned int)m_DrawFileInfo.Resolution[1] };
-			
-				m_ViewportContentSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
-				prevViewportSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
-
-				m_DrawInfo.BloomInfo = m_DrawInfo.BloomInfo;
-				m_DrawInfo.TonemapInfo = m_DrawInfo.TonemapInfo;
-			}
-			ImGui::Separator();
-		}
-
-		if (ImGui::CollapsingHeader("GBuffer"))
-		{
-			ImGui::Separator();
-			ImVec2 availSpace = ImGui::GetContentRegionAvail();
-			ImGui::Text("Albedo");
-			float aspectRatio = camComp->GetAspectRatio();
-			ImGui::Image(m_ImGuiAlbedoDescriptor, { 300 * aspectRatio, 300 });
-			ImGui::Text("Normal");
-			ImGui::Image(m_ImGuiNormalDescriptor, { 300 * aspectRatio, 300 });
-			ImGui::Text("Roughness & Metallness");
-			ImGui::Image(m_ImGuiRoughnessDescriptor, { 300 * aspectRatio, 300 });
-			ImGui::Text("Emissive");
-			ImGui::Image(m_ImGuiEmissiveDescriptor, { 300 * aspectRatio, 300 });
-			ImGui::Separator();
-		}
-	}
-	else
-	{
-		ImGui::Text("ms %f | fps %f", m_Timer.ElapsedMillis(), 1.0f / m_Timer.ElapsedSeconds());
-		ImGui::Text("Total vertices: %i", m_CurrentSceneRendered->GetVertexCount());
-		ImGui::Text("Total indices: %i", m_CurrentSceneRendered->GetIndexCount());
-		m_Timer.Reset();
-		ImGui::Separator();
-		ImGui::Text("Time: %fs", m_Time);
-		ImGui::Text("Current Samples Per Pixel: %i", m_CurrentSamplesPerPixel);
-		ImGui::Text("Total Samples Per Pixel: %i", m_DrawInfo.TotalSamplesPerPixel);
-
-		if (m_DrawFileInfo.RenderingFinished)
-		{
-			ImGui::Separator();
-			ImGui::Text("Rendering Finished!");
-
-			if (ImGui::CollapsingHeader("Viewport"))
-			{
-				ImGui::Separator();
-				ImGui::Text("ImGui doesn't allow to change size in dockspace\nso you have to undock the window first");
-				ImGui::InputInt2("Viewport Size", (int*)&m_ViewportSize);
-				ImGui::Separator();
-			}
-
-			if (ImGui::CollapsingHeader("Post Processing"))
-			{
-				ImGui::Separator();
-				{
-					const char* items[] = { "None", "Ink" };
-
-					static int currentItem = 0;
-					if (ImGui::ListBox("Current Effect", &currentItem, items, IM_ARRAYSIZE(items), IM_ARRAYSIZE(items)))
-					{
-						switch (currentItem)
-						{
-						case 0:
-							m_CurrentEffect = CurrentPostProcess::None;
-							break;
-						case 1:
-							m_CurrentEffect = CurrentPostProcess::Ink;
-							break;
-						default:
-							break;
-						}
-					}
-
-					if (currentItem == 1)
-					{
-						ImGui::SliderInt("Noise Center Pixel Weight",	&m_InkPush.NoiseCenterPixelWeight, 0, 10);
-						ImGui::SliderInt("Noise Sample Range",			&m_InkPush.NoiseSampleRange, 0, 3);
-						ImGui::SliderFloat("Luminance Bias",			&m_InkPush.LuminanceBias, -0.5f, 0.5f);
-					}
-				}
-
-				ImGui::Separator();
-				ImGui::SeparatorText("Bloom");
-				ImGui::SliderFloat("Threshold",		&m_DrawInfo.BloomInfo.Threshold, 0.0f, 3.0f);
-				ImGui::SliderFloat("Strength",		&m_DrawInfo.BloomInfo.Strength, 0.0f, 3.0f);
-				if (ImGui::SliderInt("Mip Count",	&m_DrawInfo.BloomInfo.MipCount, 1, 10))
-				{
-					m_Bloom.RecreateDescriptors(m_DrawInfo.BloomInfo.MipCount, ((Vulture::Renderer::GetCurrentFrameIndex() + 1) % MAX_FRAMES_IN_FLIGHT));
-				}
-
-				ImGui::SeparatorText("Tonemapping");
-				ImGui::SliderFloat("Exposure",			  &m_DrawInfo.TonemapInfo.Exposure, 0.0f, 3.0f);
-				ImGui::SliderFloat("Contrast",			  &m_DrawInfo.TonemapInfo.Contrast, 0.0f, 3.0f);
-				ImGui::SliderFloat("Brightness",		  &m_DrawInfo.TonemapInfo.Brightness, 0.0f, 3.0f);
-				ImGui::SliderFloat("Saturation",		  &m_DrawInfo.TonemapInfo.Saturation, 0.0f, 3.0f);
-				ImGui::SliderFloat("Vignette",			  &m_DrawInfo.TonemapInfo.Vignette, 0.0f, 1.0f);
-				if (ImGui::Checkbox("LinearSpace", (bool*)&m_DrawInfo.TonemapInfo.LinearSpace))
-				{
-					VL_CORE_WARN("{}", m_DrawInfo.TonemapInfo.LinearSpace);
-				}
-				ImGui::Separator();
-			}
-
-			ImGui::Separator();
-			ImGui::Checkbox("Use Denoised", &m_DrawFileInfo.ShowDenoised);
-			if (ImGui::Button("Save to file"))
-			{
-				m_DrawFileInfo.SaveToFile = true;
-			}
-
-			ImGui::Separator();
-			if (ImGui::Button("Go Back"))
-			{
-				m_DrawIntoAFileFinished = false;
-				m_DrawFileInfo.RenderingFinished = false;
-				m_DrawIntoAFile = false;
-				m_DrawIntoAFileChanged = true;
-				m_ViewportContentSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
-				prevViewportSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
-			}
-			ImGui::Separator();
-		}
-		else
-		{
-			if (ImGui::Button("Cancel"))
-			{
-				m_DrawIntoAFileFinished = false;
-				m_DrawFileInfo.RenderingFinished = false;
-				m_DrawIntoAFile = false;
-				m_DrawIntoAFileChanged = true;
-				m_ViewportContentSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
-				prevViewportSize = { (uint32_t)m_DrawFileInfo.Resolution[0], (uint32_t)m_DrawFileInfo.Resolution[1] };
-			}
-		}
-	}
-
-	ImGui::End();
-
-	ImGui::Render();
-	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), Vulture::Renderer::GetCurrentCommandBuffer());
 }

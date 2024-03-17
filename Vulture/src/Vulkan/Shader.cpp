@@ -15,7 +15,7 @@ namespace Vulture
 
 		m_Type = info.Type;
 
-		std::vector<uint32_t> data = CompileSource(info.Filepath, info.Macros);
+		std::vector<uint32_t> data = CompileSource(info.Filepath, info.Defines);
 
 		VkShaderModuleCreateInfo createInfo{};
 
@@ -60,14 +60,14 @@ namespace Vulture
 		return str; // Return the original string if no slash is found or if the last character is a slash
 	}
 
-	std::vector<uint32_t> Shader::CompileSource(const std::string& filepath, std::vector<std::string> macros)
+	std::vector<uint32_t> Shader::CompileSource(const std::string& filepath, std::vector<std::string> defines)
 	{
 		CreateCacheDir();
 		std::string sourceToCache = ReadShaderFile(filepath);
 
-		for (int i = 0; i < macros.size(); i++)
+		for (int i = 0; i < defines.size(); i++)
 		{
-			sourceToCache += (macros[i]);
+			sourceToCache += (defines[i]);
 		}
 
 		std::string shaderName = GetLastPartAfterLastSlash(filepath);
@@ -88,9 +88,9 @@ namespace Vulture
 				shaderc::CompileOptions options;
 				options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
 				options.SetOptimizationLevel(shaderc_optimization_level_performance);
-				for (int i = 0; i < macros.size(); i++)
+				for (int i = 0; i < defines.size(); i++)
 				{
-					options.AddMacroDefinition(macros[i]);
+					options.AddMacroDefinition(defines[i]);
 				}
 				shaderc_util::FileFinder fileFinder;
 				options.SetIncluder(std::make_unique<glslc::FileIncluder>(&fileFinder));
@@ -116,9 +116,9 @@ namespace Vulture
 			shaderc::CompileOptions options;
 			options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
 			options.SetOptimizationLevel(shaderc_optimization_level_performance);
-			for (int i = 0; i < macros.size(); i++)
+			for (int i = 0; i < defines.size(); i++)
 			{
-				options.AddMacroDefinition(macros[i]);
+				options.AddMacroDefinition(defines[i]);
 			}
 			shaderc_util::FileFinder fileFinder;
 			options.SetIncluder(std::make_unique<glslc::FileIncluder>(&fileFinder));

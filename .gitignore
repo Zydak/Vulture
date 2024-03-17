@@ -7,3 +7,5 @@ bin-int/
 **/Vulture.log
 PathTracer/assets/panther.obj
 **/CachedShaders/**
+PathTracer/assets/SmallDragon.obj
+PathTracer/assets/SmallDragon.mtl

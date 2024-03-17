@@ -19,6 +19,9 @@ struct hitPayload
     vec3 RayDirection;
     vec3 Weight;
     bool MissedAllGeometry;
+
+    float Pdf;
+    vec3 Bsdf;
 };
 
 struct GlobalUniforms

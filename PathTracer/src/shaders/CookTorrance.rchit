@@ -139,6 +139,7 @@ HitState ClosestHit(Material mat, Surface surface, vec3 worldPos)
         evalData.View    = -gl_WorldRayDirectionEXT;
         evalData.Light   = dirToLight;
 
+        // TODO:  move this below traceRays
         BsdfEvaluate(evalData, surface, mat);
         if(evalData.Pdf > 0.0)
         {
@@ -178,6 +179,10 @@ HitState ClosestHit(Material mat, Surface surface, vec3 worldPos)
     }
 #endif
     
+    // Store pdf and bsdf for miss shader
+    payload.Pdf      = min(sampleData.Pdf, 1.0f);
+    payload.Bsdf     = min(sampleData.Bsdf, 1.0f);
+
     state.Weight    = sampleData.Bsdf / sampleData.Pdf;
     state.RayDir    = sampleData.RayDir;
     vec3 offsetDir  = dot(payload.RayDirection, surface.Normal) > 0 ? surface.Normal : -surface.Normal;

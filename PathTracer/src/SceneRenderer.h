@@ -9,11 +9,20 @@ struct GlobalUbo
 	glm::mat4 ProjInverse;
 };
 
-struct StipplingPushContant
+struct InkPushConstant
 {
-	int NoiseCenterPixelWeight;
-	int NoiseSampleRange;
-	float LuminanceBias;
+	int NoiseCenterPixelWeight = 2;
+	int NoiseSampleRange = 1;
+	float LuminanceBias = 0.0f;
+};
+
+struct PosterizePushConstant
+{
+	int ColorCount = 4;
+	float DitherSpread = 0.5f;
+	float Sharpness = 0.0f;
+
+	glm::vec4 colors[8];
 };
 
 struct PushConstantRay
@@ -48,19 +57,61 @@ public:
 	SceneRenderer();
 	~SceneRenderer();
 
-	void Render(Vulture::Scene& scene);
-
-	void CreateRayTracingDescriptorSets(Vulture::Scene& scene);
+	void CreateRayTracingDescriptorSets();
 	void SetSkybox(Vulture::Entity& skyboxEntity);
-private:
-	void RecreateRayTracingDescriptorSets();
-	bool RayTrace(const glm::vec4& clearColor);
-	void DrawGBuffer();
-	void Denoise();
-	void ResetFrame();
 
 	void RecreateResources();
-	void FixCameraAspectRatio();
+	void UpdateResources();
+	void Denoise();
+	void SetCurrentScene(Vulture::Scene* scene);
+	bool RayTrace(const glm::vec4& clearColor);
+	void PostProcess();
+	void ResetFrameAccumulation();
+
+	inline Vulture::PushConstant<PushConstantRay>& GetRTPush() { return m_PushContantRayTrace; };
+	inline Vulture::PushConstant<InkPushConstant>& GetInkPush() { return m_InkEffect.GetPush(); };
+	inline Vulture::PushConstant<PosterizePushConstant>& GetPosterizePush() { return m_PosterizeEffect.GetPush(); };
+	inline Vulture::Ref<Vulture::DescriptorSet> GetRTSet() { return m_RayTracingDescriptorSet; };
+
+	inline Vulture::Bloom* GetBloom() { return &m_Bloom; };
+
+	inline void RecompileTonemapShader() { m_RecompileTonemapShader = true; }
+
+	enum class PostProcessEffects
+	{
+		None, // Bloom And Tonemap
+		Ink, // Bloom And Tonemap With Ink Effect
+		Posterize
+	};
+
+	void SetCurrentPostProcessEffect(PostProcessEffects effect) { m_CurrentEffect = effect; }
+	void UpdateCamera();
+
+	inline VkDescriptorSet GetTonemappedDescriptor() { return m_ImGuiViewportDescriptorTonemapped; }
+	inline VkDescriptorSet GetPathTraceDescriptor() { return m_ImGuiViewportDescriptorPathTracing; }
+	inline VkDescriptorSet GetNormalDescriptor() { return m_ImGuiNormalDescriptor; }
+	inline VkDescriptorSet GetAlbedoDescriptor() { return m_ImGuiAlbedoDescriptor; }
+	inline VkDescriptorSet GetRoughnessDescriptor() { return m_ImGuiRoughnessDescriptor; }
+	inline VkDescriptorSet GetEmissiveDescriptor() { return m_ImGuiEmissiveDescriptor; }
+
+	struct DrawInfo;
+	struct DrawFileInfo;
+
+	inline DrawInfo& GetDrawInfo() { return m_DrawInfo; }
+
+	inline void SetViewportContentSize(VkExtent2D val) { m_ViewportContentSize = val; }
+	inline void SetViewportSize(VkExtent2D val) { m_ViewportSize = val; }
+	inline VkExtent2D GetViewportContentSize() { return m_ViewportContentSize; }
+	inline VkExtent2D GetViewportSize() { return m_ViewportSize; }
+
+	inline Vulture::Ref<Vulture::Image>& GetTonemappedImage() { return m_TonemappedImage; };
+	inline Vulture::Ref<Vulture::Image>& GetPathTraceImage() { return m_PathTracingImage; };
+
+	inline uint64_t GetAccumulatedSamples() { return m_CurrentSamplesPerPixel; };
+private:
+	void RecreateRayTracingDescriptorSets();
+	void DrawGBuffer();
+
 
 	void CreateRenderPasses();
 	void CreateDescriptorSets();
@@ -70,8 +121,6 @@ private:
 	void CreateShaderBindingTable();
 	void CreateFramebuffers();
 	void UpdateDescriptorSetsData();
-
-	void ImGuiPass();
 
 	enum GBufferImage
 	{
@@ -97,19 +146,12 @@ private:
 	Vulture::Ref<Vulture::Image> m_PresentedImage;
 	Vulture::Ref<Vulture::Image> m_TonemappedImage;
 	Vulture::Ref<Vulture::Image> m_BloomImage;
-	Vulture::Ref<Vulture::Image> m_InkEffectImage;
 
 	Vulture::Ref<Vulture::Image> m_BlueNoiseImage;
 	Vulture::Ref<Vulture::Image> m_PaperTexture;
 	Vulture::Ref<Vulture::Image> m_InkTexture;
 
-	enum class CurrentPostProcess
-	{
-		None, // Bloom And Tonemap
-		Ink, // Bloom And Tonemap With Ink Effect
-	};
-
-	CurrentPostProcess m_CurrentEffect = CurrentPostProcess::None;
+	PostProcessEffects m_CurrentEffect = PostProcessEffects::None;
 
 	Vulture::SBT m_SBT;
 
@@ -121,53 +163,34 @@ private:
 	VkFence m_DenoiseFence;
 	uint64_t m_DenoiseFenceValue = 0U;
 	Vulture::Ref<Vulture::Denoiser> m_Denoiser;
-	Vulture::Tonemap m_Tonemapper;
 	Vulture::Tonemap m_DenoisedTonemapper;
 	Vulture::Bloom m_Bloom;
 	Vulture::Bloom m_DenoisedBloom;
 
-	StipplingPushContant m_InkPush = {2, 1, 0.0f};
-	Vulture::Effect<StipplingPushContant> m_InkEffect;
+	Vulture::Tonemap m_Tonemapper;
+	bool m_RecompileTonemapShader = false;
 
-	std::string m_CurrentHitShaderPath = "src/shaders/CookTorrance.rchit";
-	bool m_RecreateRtPipeline = false;
+	Vulture::Effect<InkPushConstant> m_InkEffect;
+	Vulture::Effect<PosterizePushConstant> m_PosterizeEffect;
 
 	// ImGui Stuff / Interface
-	Vulture::Entity m_CurrentSkyboxEntity;
-	std::string m_SkyboxPath;
-	bool m_ChangeSkybox = false;
-
-	float m_ModelScale = 0.5f;
-	std::string m_ModelPath = "";
-	bool m_ModelChanged = false;
-	Vulture::Entity CurrentModelEntity;
-	std::vector<Vulture::Material>* m_CurrentMaterials;
-	std::vector<std::string> m_CurrentMeshesNames;
 
 	Vulture::Timer m_Timer;
 	Vulture::Timer m_TotalTimer;
 	uint64_t m_CurrentSamplesPerPixel = 0;
 	VkDescriptorSet m_ImGuiViewportDescriptorTonemapped;
 	VkDescriptorSet m_ImGuiViewportDescriptorPathTracing;
-	VkDescriptorSet m_ImGuiViewportDescriptorInk;
 	VkDescriptorSet m_ImGuiNormalDescriptor;
 	VkDescriptorSet m_ImGuiAlbedoDescriptor;
 	VkDescriptorSet m_ImGuiRoughnessDescriptor;
 	VkDescriptorSet m_ImGuiEmissiveDescriptor;
 	VkExtent2D m_ViewportSize = { 1920, 1080 };
 	VkExtent2D m_ViewportContentSize = { 1920, 1080 };
-	bool m_ImGuiViewportResized = false;
-	float m_Time = 0;
 
-	bool m_RunDenoising = false;
-	bool m_ShowDenoised = false;
-	bool m_Denoised		= false;
-
-	bool m_ToneMapped      = false;
 	bool m_DrawGBuffer     = true;
 	bool m_HasEnvMap	   = false;
-	bool m_RecompileShader = false;
 
+public:
 	struct DrawInfo
 	{
 		float DOFStrength			= 0.0f;
@@ -192,22 +215,6 @@ private:
 		Vulture::Tonemap::TonemapInfo TonemapInfo{};
 		Vulture::Bloom::BloomInfo BloomInfo{};
 	};
-
-	bool m_DrawIntoAFile = false;
-	bool m_DrawIntoAFileFinished = false;
-	bool m_DrawIntoAFileChanged = false;
-
-	struct DrawFileInfo
-	{
-		int Resolution[2] = { 1920, 1080 };
-
-		bool RenderingFinished = false;
-
-		bool SaveToFile = false;
-		bool Denoised = false;
-		bool ShowDenoised = false;
-	};
-
+private:
 	DrawInfo m_DrawInfo{};
-	DrawFileInfo m_DrawFileInfo{};
 };

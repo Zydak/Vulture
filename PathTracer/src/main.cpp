@@ -1,13 +1,14 @@
 #define VL_ENTRY_POINT
 
 #include <Vulture.h>
-#include "Sandbox.h"
+#include "PathTracer.h"
 
+// Create VL Entry point definition
 Vulture::Application* Vulture::CreateApplication()
 {
 	Vulture::ApplicationInfo appInfo;
-	appInfo.Name = "PathTracer Sandbox";
+	appInfo.Name = "Path Tracer";
 	appInfo.WorkingDirectory = "";
 	appInfo.RayTracingSupport = true;
-	return new Sandbox(appInfo, 1600, 900);
+	return new PathTracer(appInfo, 1600, 900);
 }

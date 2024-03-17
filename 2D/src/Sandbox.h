@@ -3,11 +3,11 @@
 #include <Vulture.h>
 #include "SceneRenderer.h"
 
-class Sandbox : public Vulture::Application
+class PathTracer : public Vulture::Application
 {
 public:
-	Sandbox(Vulture::ApplicationInfo appInfo, float width, float height);
-	~Sandbox();
+	PathTracer(Vulture::ApplicationInfo appInfo, float width, float height);
+	~PathTracer();
 
 	void OnUpdate(double deltaTime) override;
 	void Destroy() override;
