@@ -1,32 +1,81 @@
-workspace "Vulture"
-    configurations { "Debug", "Release", "Distribution" }
-    platforms { "Windows" }
+include "lib/glfw"
+include "lib/imgui"
+include "lib/spdlog"
+include "lib/msdf-atlas-gen"
+include "lib/assimp"
+include "lib/lodepng"
 
-outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
+project "Vulture"
+	architecture "x86_64"
+    kind "StaticLib"
+    language "C++"
+	cppdialect "C++20"
+	staticruntime "on"
 
-globalIncludes = 
-{
-    "%{wks.location}/Vulture/src/",
-    "%{wks.location}/Vulture/src/Vulture",
-    "%{wks.location}",
-    "%{wks.location}/Vulture/lib/",
-    "%{wks.location}/Vulture/lib/glfw/include/",
-    "%{wks.location}/Vulture/lib/imgui/",
-    "%{wks.location}/Vulture/lib/stbimage/",
-    "%{wks.location}/Vulture/lib/glm/",
-    "%{wks.location}/Vulture/lib/msdf-atlas-gen/",
-    "%{wks.location}/Vulture/lib/msdf-atlas-gen/msdfgen/",
-    "%{wks.location}/Vulture/lib/entt/",
-    "%{wks.location}/Vulture/lib/vulkanLib/Include/",
-    "%{wks.location}/Vulture/lib/vulkanMemoryAllocator/",
-    "%{wks.location}/Vulture/lib/spdlog/include/",
-    "%{wks.location}/Vulture/lib/tinyobjloader/",
-    "%{wks.location}/Vulture/lib/assimp/include/",
-    "%{wks.location}/Vulture/lib/cuda/include/",
-    "%{wks.location}/Vulture/lib/Optix/include/",
-    "%{wks.location}/Vulture/lib/lodepng/",
-}
-	
-include "Vulture"
+    targetdir ("%{wks.location}/bin/" .. outputdir .. "/%{prj.name}")
+	objdir ("%{wks.location}/bin-int/" .. outputdir .. "/%{prj.name}")
 
--- your project here
+    pchheader "pch.h"
+    pchsource "src/pch.cpp"
+
+    libdirs
+    {
+        "lib/",
+        "lib/vulkanLib/",
+    }
+
+    files 
+    {
+        "src/**.cpp",
+        "src/**.h",
+
+        "lib/shaderc/glslc/file_includer.cc",
+    }
+
+    includedirs 
+    {
+        "src/",
+        "src/Vulture/",
+        "lib/shaderc/include/",
+
+        globalIncludes,
+    }
+
+    links
+    {
+        "glfw",
+        "imgui",
+        "msdf-atlas-gen",
+        "msdfgen",
+        "msdfgenfreetype",
+        "vulkan-1",
+        "spdlog",
+        "assimp",
+        "lib/cuda/*.lib",
+        "lodepng",
+    }
+
+    filter "platforms:Windows"
+        system "Windows"
+        defines { "WIN", "VK_USE_PLATFORM_WIN32_KHR" }
+
+    filter "platforms:Linux"
+        system "Linux"
+        defines "LIN"
+
+    filter "configurations:Debug"
+        defines { "DEBUG" }
+        symbols "On"
+        links {"lib/shaderc/shadercDebug.lib"}
+
+    filter "configurations:Release"
+        defines { "NDEBUG" }
+		runtime "Release"
+        optimize "speed"
+        links {"lib/shaderc/shadercRelease.lib"}
+
+    filter "configurations:Distribution"
+		defines "DISTRIBUTION"
+		runtime "Release"
+		optimize "on"
+        links {"lib/shaderc/shadercRelease.lib"}
