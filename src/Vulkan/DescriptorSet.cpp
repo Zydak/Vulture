@@ -308,6 +308,8 @@ namespace Vulture
 	 * @param newSize - New size of the storage buffer.
 	 * @param commandBuffer (Optional) - Vulkan cmd buffer that copy command will be recorded onto.
 	 * @param buffer (Optional) - If there are multiple buffers in single binding, index of the buffer within the binding must be specified.
+	 * 
+	 * @note All data within the buffer is lost after resize
 	 */
 	void DescriptorSet::Resize(uint32_t binding, VkDeviceSize newSize, VkCommandBuffer commandBuffer, uint32_t buffer)
 	{
@@ -322,24 +324,19 @@ namespace Vulture
 		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings()[binding].Type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, "Only storage buffers can be resized");
 		
 		// Create a copy of the old buffer.
-		Vulture::Buffer::CreateInfo ci = m_Buffers[binding][buffer].GetCreateInfo();
-		Vulture::Buffer oldBuffer;
-		oldBuffer.Init(ci);
-
-		// Copy data from the old buffer to the new buffer.
-		Vulture::Buffer::CopyBuffer(m_Buffers[binding][buffer].GetBuffer(), oldBuffer.GetBuffer(), oldBuffer.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
-
+		Vulture::Buffer::CreateInfo oldInfo = m_Buffers[binding][buffer].GetCreateInfo();
+		
 		// Initialize a new buffer with the new size and properties.
 		Vulture::Buffer::CreateInfo info{};
 		info.InstanceCount = 1;
 		info.InstanceSize = newSize;
 		info.UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		if (oldBuffer.GetMemoryPropertyFlags() & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+		if (oldInfo.MemoryPropertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 			info.MemoryPropertyFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		else
 			info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 		m_Buffers[binding][buffer].Init(info);
-		if ((oldBuffer.GetMemoryPropertyFlags() & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) == 0)
+		if ((oldInfo.MemoryPropertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) == 0)
 			m_Buffers[binding][buffer].Map();
 
 		m_BindingsWriteInfo[binding].m_BufferInfo[buffer] = m_Buffers[binding][buffer].DescriptorInfo();
@@ -348,9 +345,6 @@ namespace Vulture
 		DescriptorWriter writer(&m_DescriptorSetLayout, m_Pool);
 		writer.WriteBuffer(binding, m_BindingsWriteInfo[binding].m_BufferInfo.data());
 		writer.Build(&m_DescriptorSetHandle, false);
-
-		// Copy data from the old buffer to the new buffer.
-		Buffer::CopyBuffer(oldBuffer.GetBuffer(), m_Buffers[binding][buffer].GetBuffer(), oldBuffer.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), commandBuffer, Device::GetGraphicsCommandPool());
 	}
 
 	/*
