@@ -74,7 +74,7 @@ namespace Vulture
 		static void BeginSingleTimeCommands(VkCommandBuffer& buffer, VkCommandPool pool);
 		static uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
-		static void CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0, bool noPool = false);
+		static void CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0, VmaPool* poolOut = nullptr, bool noPool = false);
 		static void CreateImage(VkImageCreateInfo& createInfo, VkImage& image, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0);
 
 		static void SetObjectName(VkObjectType type, uint64_t handle, const char* name);
@@ -124,7 +124,6 @@ namespace Vulture
 
 		static VmaAllocator s_Allocator;
 		static std::unordered_map<uint32_t, VmaPool> s_Pools;
-		static std::vector<VmaPool> s_SingleObjPools;
 		static bool s_RayTracingSupport;
 		static VkPhysicalDeviceProperties2 s_Properties;
 		static VkSampleCountFlagBits s_MaxSampleCount;

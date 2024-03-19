@@ -73,6 +73,8 @@ namespace Vulture
 		// Assert the validity of the provided creation information.
 		VL_CORE_ASSERT(createInfo, "Incorrectly Initialized Buffer::CreateInfo! Values: InstanceCount: {0}, InstanceSize: {1}, UsageFlags: {2}, MemoryPropertyFlags: {3}", createInfo.InstanceCount, createInfo.InstanceSize, createInfo.UsageFlags, createInfo.MemoryPropertyFlags);
 
+
+		m_CreateInfo = createInfo;
 		// Mark the buffer as initialized.
 		m_Initialized = true;
 
@@ -82,6 +84,8 @@ namespace Vulture
 		m_MemoryPropertyFlags = createInfo.MemoryPropertyFlags;
 		m_InstanceSize = createInfo.InstanceSize;
 		m_NoPool = createInfo.NoPool;
+		if (m_NoPool)
+			m_Pool = std::make_unique<VmaPool>();
 		m_MinOffsetAlignment = createInfo.MinOffsetAlignment;
 
 		// Calculate alignment size and total buffer size.
@@ -100,7 +104,7 @@ namespace Vulture
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 		// Create the Vulkan buffer and allocate memory for it.
-		Device::CreateBuffer(bufferInfo, m_BufferHandle, *m_Allocation, m_MemoryPropertyFlags, m_NoPool);
+		Device::CreateBuffer(bufferInfo, m_BufferHandle, *m_Allocation, m_MemoryPropertyFlags, &*m_Pool, m_NoPool);
 	}
 
 	/**
@@ -123,8 +127,16 @@ namespace Vulture
 		// Deallocate the allocation object.
 		delete m_Allocation;
 
+		if (m_Pool != nullptr)
+		{
+			vmaDestroyPool(Device::GetAllocator(), *m_Pool);
+			m_Pool = nullptr;
+		}
+
 		// Mark the buffer as uninitialized.
 		m_Initialized = false;
+
+		m_CreateInfo = {};
 	}
 
 	/**

@@ -72,22 +72,13 @@ struct Material
     float Metallic;
     float Roughness;
 
-    float Sheen;
-    float SheenTint;
-    float SpecularTint;
     float Ior;
-    float Anisotropic;
     float SpecTrans;
     float Clearcoat;
     float ClearcoatRoughness;
     float eta;
-    float Subsurface;
     float ax;
     float ay;
-
-    uint mediumType;
-    vec4 mediumColor;
-    float mediumDensity;
 };
 
 struct Surface
@@ -192,17 +183,17 @@ vec3 Slerp(vec3 p0, vec3 p1, float t)
 
 vec3 OffsetRay(in vec3 p, in vec3 n)
 {
-    // Smallest epsilon that can be added without losing precision is 1.19209e-07, but we play safe
-    const float epsilon = 1.0f / 65536.0f;  // Safe epsilon
+    //// Smallest epsilon that can be added without losing precision is 1.19209e-07, but we play safe
+    //const float epsilon = 1.0f / 65536.0f * 5.0f;  // Safe epsilon
+    //
+    //float magnitude = length(p);
+    //float offset = epsilon * magnitude;
+    //// multiply the direction vector by the smallest offset
+    //vec3 offsetVector = n * offset;
+    //// add the offset vector to the starting point
+    //vec3 offsetPoint = p + offsetVector;
 
-    float magnitude = length(p);
-    float offset = epsilon * magnitude;
-    // multiply the direction vector by the smallest offset
-    vec3 offsetVector = n * offset;
-    // add the offset vector to the starting point
-    vec3 offsetPoint = p + offsetVector;
-
-    return offsetPoint;
+    return p;
 }
 
 float CalculateLuminance(vec3 rgb)

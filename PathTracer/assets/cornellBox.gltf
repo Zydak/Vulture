@@ -3,9 +3,6 @@
 		"generator":"Khronos glTF Blender I/O v4.0.44",
 		"version":"2.0"
 	},
-	"extensionsUsed":[
-		"KHR_materials_emissive_strength"
-	],
 	"scene":0,
 	"scenes":[
 		{
@@ -19,8 +16,7 @@
 				5,
 				6,
 				7,
-				8,
-				9
+				8
 			]
 		}
 	],
@@ -29,7 +25,7 @@
 			"mesh":0,
 			"name":"cube_instance",
 			"translation":[
-				0,
+				0.1073388084769249,
 				0,
 				-5
 			]
@@ -38,7 +34,7 @@
 			"mesh":1,
 			"name":"cube_instance_2",
 			"translation":[
-				0,
+				0.1073388084769249,
 				-5,
 				0
 			]
@@ -47,7 +43,7 @@
 			"mesh":1,
 			"name":"cube_instance_3",
 			"translation":[
-				0,
+				0.1073388084769249,
 				5,
 				0
 			]
@@ -56,7 +52,7 @@
 			"mesh":2,
 			"name":"cube_instance_5",
 			"translation":[
-				-5,
+				-4.892661094665527,
 				0,
 				0
 			]
@@ -65,27 +61,13 @@
 			"mesh":3,
 			"name":"cube_instance_6",
 			"translation":[
-				5,
+				5.107338905334473,
 				0,
 				0
 			]
 		},
 		{
 			"mesh":4,
-			"name":"cube_instance_8",
-			"scale":[
-				3,
-				1,
-				3
-			],
-			"translation":[
-				0,
-				4.626189708709717,
-				0
-			]
-		},
-		{
-			"mesh":5,
 			"name":"cube_instance_14",
 			"rotation":[
 				0,
@@ -99,40 +81,40 @@
 				2.500000476837158
 			],
 			"translation":[
-				3,
+				3.1073389053344727,
 				-3.5,
 				1.6790000200271606
 			]
 		},
 		{
-			"mesh":6,
+			"mesh":5,
 			"name":"cube_instance_16",
 			"rotation":[
 				0,
-				0.026176944375038147,
+				0.02617694064974785,
 				0,
 				0.9996573328971863
 			],
 			"translation":[
-				-2.5,
+				-2.3926610946655273,
 				-2,
 				-2
 			]
 		},
 		{
-			"mesh":7,
+			"mesh":6,
 			"name":"sphere_instance",
 			"translation":[
-				3.311300039291382,
+				3.4186389446258545,
 				-1,
 				0.08760000020265579
 			]
 		},
 		{
-			"mesh":8,
+			"mesh":7,
 			"name":"sphere_instance_22",
 			"translation":[
-				-3,
+				-2.8926610946655273,
 				-4,
 				3
 			]
@@ -180,24 +162,6 @@
 		},
 		{
 			"doubleSided":true,
-			"emissiveFactor":[
-				1,
-				1,
-				1
-			],
-			"extensions":{
-				"KHR_materials_emissive_strength":{
-					"emissiveStrength":10
-				}
-			},
-			"name":"cube_instance_8_material.001",
-			"pbrMetallicRoughness":{
-				"metallicFactor":0,
-				"roughnessFactor":0
-			}
-		},
-		{
-			"doubleSided":true,
 			"name":"cube_instance_14_material.001",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
@@ -222,8 +186,9 @@
 					0.949999988079071,
 					0.949999988079071,
 					0.949999988079071,
-					1
+					0
 				],
+				"metallicFactor":0,
 				"roughnessFactor":0
 			}
 		},
@@ -231,13 +196,6 @@
 			"doubleSided":true,
 			"name":"sphere_instance_22_material.001",
 			"pbrMetallicRoughness":{
-				"baseColorFactor":[
-					1,
-					1,
-					1,
-					0
-				],
-				"metallicFactor":0,
 				"roughnessFactor":0
 			}
 		}
@@ -300,7 +258,7 @@
 			]
 		},
 		{
-			"name":"cube_7.001",
+			"name":"cube_13.001",
 			"primitives":[
 				{
 					"attributes":{
@@ -314,7 +272,7 @@
 			]
 		},
 		{
-			"name":"cube_13.001",
+			"name":"cube_15.001",
 			"primitives":[
 				{
 					"attributes":{
@@ -328,7 +286,7 @@
 			]
 		},
 		{
-			"name":"cube_15.001",
+			"name":"sphere.001",
 			"primitives":[
 				{
 					"attributes":{
@@ -336,22 +294,8 @@
 						"NORMAL":20,
 						"TEXCOORD_0":21
 					},
-					"indices":3,
+					"indices":22,
 					"material":6
-				}
-			]
-		},
-		{
-			"name":"sphere.001",
-			"primitives":[
-				{
-					"attributes":{
-						"POSITION":22,
-						"NORMAL":23,
-						"TEXCOORD_0":24
-					},
-					"indices":25,
-					"material":7
 				}
 			]
 		},
@@ -360,12 +304,12 @@
 			"primitives":[
 				{
 					"attributes":{
-						"POSITION":26,
-						"NORMAL":27,
-						"TEXCOORD_0":28
+						"POSITION":23,
+						"NORMAL":24,
+						"TEXCOORD_0":25
 					},
-					"indices":25,
-					"material":8
+					"indices":22,
+					"material":7
 				}
 			]
 		}
@@ -495,12 +439,12 @@
 			"count":24,
 			"max":[
 				0.5,
-				0.05000000074505806,
+				0.5,
 				0.5
 			],
 			"min":[
 				-0.5,
-				-0.05000000074505806,
+				-0.5,
 				-0.5
 			],
 			"type":"VEC3"
@@ -522,14 +466,14 @@
 			"componentType":5126,
 			"count":24,
 			"max":[
-				0.5,
-				0.5,
-				0.5
+				1.25,
+				3,
+				1.25
 			],
 			"min":[
-				-0.5,
-				-0.5,
-				-0.5
+				-1.25,
+				-3,
+				-1.25
 			],
 			"type":"VEC3"
 		},
@@ -548,33 +492,39 @@
 		{
 			"bufferView":19,
 			"componentType":5126,
-			"count":24,
+			"count":8320,
 			"max":[
-				1.25,
-				3,
-				1.25
+				1,
+				1,
+				1
 			],
 			"min":[
-				-1.25,
-				-3,
-				-1.25
+				-1,
+				-1,
+				-1
 			],
 			"type":"VEC3"
 		},
 		{
 			"bufferView":20,
 			"componentType":5126,
-			"count":24,
+			"count":8320,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":21,
 			"componentType":5126,
-			"count":24,
+			"count":8320,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":22,
+			"componentType":5123,
+			"count":24954,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":23,
 			"componentType":5126,
 			"count":8320,
 			"max":[
@@ -587,50 +537,16 @@
 				-1,
 				-1
 			],
-			"type":"VEC3"
-		},
-		{
-			"bufferView":23,
-			"componentType":5126,
-			"count":8320,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":24,
 			"componentType":5126,
 			"count":8320,
-			"type":"VEC2"
+			"type":"VEC3"
 		},
 		{
 			"bufferView":25,
-			"componentType":5123,
-			"count":24954,
-			"type":"SCALAR"
-		},
-		{
-			"bufferView":26,
-			"componentType":5126,
-			"count":8320,
-			"max":[
-				1,
-				1,
-				1
-			],
-			"min":[
-				-1,
-				-1,
-				-1
-			],
-			"type":"VEC3"
-		},
-		{
-			"bufferView":27,
-			"componentType":5126,
-			"count":8320,
-			"type":"VEC3"
-		},
-		{
-			"bufferView":28,
 			"componentType":5126,
 			"count":8320,
 			"type":"VEC2"
@@ -753,68 +669,50 @@
 		},
 		{
 			"buffer":0,
-			"byteLength":288,
+			"byteLength":99840,
 			"byteOffset":4680,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":288,
-			"byteOffset":4968,
-			"target":34962
-		},
-		{
-			"buffer":0,
-			"byteLength":192,
-			"byteOffset":5256,
-			"target":34962
-		},
-		{
-			"buffer":0,
 			"byteLength":99840,
-			"byteOffset":5448,
-			"target":34962
-		},
-		{
-			"buffer":0,
-			"byteLength":99840,
-			"byteOffset":105288,
+			"byteOffset":104520,
 			"target":34962
 		},
 		{
 			"buffer":0,
 			"byteLength":66560,
-			"byteOffset":205128,
+			"byteOffset":204360,
 			"target":34962
 		},
 		{
 			"buffer":0,
 			"byteLength":49908,
-			"byteOffset":271688,
+			"byteOffset":270920,
 			"target":34963
 		},
 		{
 			"buffer":0,
 			"byteLength":99840,
-			"byteOffset":321596,
+			"byteOffset":320828,
 			"target":34962
 		},
 		{
 			"buffer":0,
 			"byteLength":99840,
-			"byteOffset":421436,
+			"byteOffset":420668,
 			"target":34962
 		},
 		{
 			"buffer":0,
 			"byteLength":66560,
-			"byteOffset":521276,
+			"byteOffset":520508,
 			"target":34962
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":587836,
+			"byteLength":587068,
 			"uri":"cornellBox.bin"
 		}
 	]

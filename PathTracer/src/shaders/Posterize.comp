@@ -11,7 +11,7 @@ struct Info
 {
 	int ColorsCount;
 	float DitherSpread;
-	float Sharpness;
+	int DitherSize;
 
 	vec4 Colors[8];
 };
@@ -44,19 +44,8 @@ void main()
 
     vec3 color = texelFetch(uInput, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
 
-    // sharpness
-    vec3 neighboursColor = vec3(0.0f);
-    neighboursColor += texelFetch(uInput, ivec2(gl_GlobalInvocationID.xy + vec2(-1,  0)), 0).rgb;
-    neighboursColor += texelFetch(uInput, ivec2(gl_GlobalInvocationID.xy + vec2( 1,  0)), 0).rgb;
-    neighboursColor += texelFetch(uInput, ivec2(gl_GlobalInvocationID.xy + vec2( 0, -1)), 0).rgb;
-    neighboursColor += texelFetch(uInput, ivec2(gl_GlobalInvocationID.xy + vec2( 0,  1)), 0).rgb;
-    neighboursColor *= -pInfo.Sharpness;
-
-    color *= pInfo.Sharpness * 4 + 1;
-    color += neighboursColor;
-
     // Dithering
-    ivec2 position = ivec2(gl_GlobalInvocationID.xy) % 4;
+    ivec2 position = ivec2(gl_GlobalInvocationID.xy / pInfo.DitherSize) % 4;
     float M = bayer4[position.x][position.y];
     M = M * (1.0f / 16.0f) - 0.5f;
 

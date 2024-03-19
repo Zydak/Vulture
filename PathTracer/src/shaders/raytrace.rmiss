@@ -5,7 +5,7 @@
 
 #include "raycommon.glsl"
 
-layout(location = 0) rayPayloadInEXT hitPayload prd;
+layout(location = 0) rayPayloadInEXT hitPayload payload;
 
 layout (set = 1, binding = 1) uniform sampler2D uEnvMap;
 
@@ -51,63 +51,32 @@ bool ShouldScatter(float opticalDepth, float rand)
 
 void main()
 {
-#ifdef USE_FOG
-    float distance = Rnd(prd.Seed) * 100.0f;
-
-    float aFactor = 0.1f;
-    float sFactor = 0.1f;
-    float tFactor = sFactor + aFactor;
-    float Tr = exp(-tFactor * distance);
-    float r0 = Rnd(prd.Seed);
-    float r1 = Rnd(prd.Seed);
-    float r2 = Rnd(prd.Seed);
-    float r3 = Rnd(prd.Seed);
-
-    float opticalDepth = CalculateOpticalDepth(aFactor, distance);
-
-    float scatterDist = SampleExponentialDistance(aFactor, r3);
-    if (scatterDist < distance)
-    {
-        prd.RayOrigin = prd.RayOrigin + prd.RayDirection * scatterDist;
-        prd.RayDirection = SampleHenyeyGreenstein(prd.RayDirection, 0.0f, r1, r2);
-
-        
-		vec3 rayDir = prd.RayDirection;
-		rayDir = Rotate(rayDir, vec3(1, 0, 0), -pcRay.EnvAltitude);
-		rayDir = Rotate(rayDir, vec3(0, 1, 0), -pcRay.EnvAzimuth);
-		vec2 uv = directionToSphericalEnvmap(rayDir);
-		vec3 color = texture(uEnvMap, uv).rgb;
-
-        prd.HitValue = color;
-        prd.Weight = vec3(1.0f) * (1.0f - Tr);
-        
-        return;
-    }
-#endif
-
-    vec3 rayDir = prd.RayDirection;
+    vec3 rayDir = payload.RayDirection;
 	rayDir = Rotate(rayDir, vec3(1, 0, 0), -pcRay.EnvAltitude);
 	rayDir = Rotate(rayDir, vec3(0, 1, 0), -pcRay.EnvAzimuth);
 	vec2 uv = directionToSphericalEnvmap(rayDir);
 	vec4 color = texture(uEnvMap, uv);
-	if (prd.Depth != 0)
+	if (payload.Depth != 0)
     {
 #ifdef SAMPLE_ENV_MAP
-        const float misWeight = color.w / (color.w + prd.Pdf);
-        const vec3 w = (color.xyz / color.w) * misWeight;
-
-        vec3 contribution = w * prd.Bsdf;
-
-	    prd.HitValue += contribution;
+        //const float misWeight = color.w / (color.w + payload.Pdf);
+        //const vec3 w = (color.xyz / color.w) * misWeight;
+        //
+        //vec3 contribution = w * payload.Bsdf;
+        //
+	    //payload.HitValue += contribution;
+        payload.HitValue = color.rgb;
 #else
-        prd.HitValue += color.rgb;
+        payload.HitValue = color.rgb;
 #endif
     }
     else
 	{
-	    prd.HitValue += color.rgb;
-		prd.MissedAllGeometry = true; // set to true to eliminate collecting more samples of the pixel
+#ifdef SHOW_SKYBOX
+	    payload.HitValue = color.rgb;
+#endif
+		payload.MissedAllGeometry = true; // set to true to eliminate collecting more samples of the pixel
 	}
 
-	prd.Depth = DEPTH_INFINITE;
+	payload.Depth = DEPTH_INFINITE;
 }

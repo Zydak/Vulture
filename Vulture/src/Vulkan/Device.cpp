@@ -145,11 +145,6 @@ namespace Vulture
 		{
 			vmaDestroyPool(s_Allocator, pool.second);
 		}
-		// Destroy single object pools
-		for (auto& pool : s_SingleObjPools)
-		{
-			vmaDestroyPool(s_Allocator, pool);
-		}
 		// Destroy memory allocator
 		vmaDestroyAllocator(s_Allocator);
 
@@ -565,14 +560,10 @@ namespace Vulture
 	 * @param customFlags - Custom memory property flags for the buffer's memory (optional).
 	 * @param noPool - Flag indicating whether to create a dedicated memory pool for the buffer (optional).
 	 */
-	void Device::CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags, bool noPool)
+	void Device::CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags, VmaPool* poolOut, bool noPool)
 	{
 		// Assert that the device has been initialized before creating the buffer
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
-
-		// Index to track single object pools (if applicable)
-		static int singleObjIndex = 0;
-
 		// Find the memory type index suitable for the buffer
 		uint32_t memoryIndex = 0;
 		s_ExternalMemoryBufferInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
@@ -583,15 +574,13 @@ namespace Vulture
 		// Create buffer without using memory pool
 		if (noPool)
 		{
-			s_SingleObjPools.push_back(VmaPool());
-			CreateMemoryPool(memoryIndex, s_SingleObjPools[singleObjIndex], 0, createInfo.size);
+			CreateMemoryPool(memoryIndex, *poolOut, 0, createInfo.size);
 
 			VmaAllocationCreateInfo allocCreateInfo = {};
 			allocCreateInfo.priority = 0.5f;
-			allocCreateInfo.pool = s_SingleObjPools[singleObjIndex];
+			allocCreateInfo.pool = *poolOut;
 
 			VkResult res = vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr);
-			singleObjIndex++;
 			return;
 		}
 
@@ -1308,7 +1297,6 @@ namespace Vulture
 
 	VmaAllocator Device::s_Allocator;
 	std::unordered_map<uint32_t, VmaPool> Device::s_Pools;
-	std::vector<VmaPool> Device::s_SingleObjPools;
 	VkMemoryAllocateInfo Device::s_MemoryAllocateInfo;
 	VkExportMemoryAllocateInfo Device::s_ExportMemoryInfo;
 	VkExternalMemoryBufferCreateInfo Device::s_ExternalMemoryBufferInfo;

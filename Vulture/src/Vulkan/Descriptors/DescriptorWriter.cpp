@@ -161,19 +161,23 @@ namespace Vulture
 	 * @brief Builds a Vulkan descriptor set using the populated descriptor writes (WriteBuffer(), WriteImage(), etc.).
 	 *
 	 * @param set - Pointer to the Vulkan descriptor set that will be built.
+	 * @param allocateNewSet - Flag that dictates whether to allocate new set, set to false if set is already allocated.
 	 *
 	 * @return True if the descriptor set is successfully built, false otherwise.
 	 */
-	bool DescriptorWriter::Build(VkDescriptorSet* set)
+	bool DescriptorWriter::Build(VkDescriptorSet* set, bool allocateNewSet)
 	{
 		// Check if the DescriptorWriter has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorWriter Not Initialized!");
 
-		// Attempt to allocate a descriptor set from the descriptor pool using the descriptor set layout.
-		VL_CORE_RETURN_ASSERT(m_Pool->AllocateDescriptorSets(m_SetLayout->GetDescriptorSetLayoutHandle(), set),
-			true,
-			"Failed to build descriptor. Pool is probably empty."
-		);
+		if (allocateNewSet)
+		{
+			// Attempt to allocate a descriptor set from the descriptor pool using the descriptor set layout.
+			VL_CORE_RETURN_ASSERT(m_Pool->AllocateDescriptorSets(m_SetLayout->GetDescriptorSetLayoutHandle(), set),
+				true,
+				"Failed to build descriptor. Pool is probably empty."
+			);
+		}
 
 		// Overwrite the allocated descriptor set with the accumulated write operations.
 		Overwrite(set);

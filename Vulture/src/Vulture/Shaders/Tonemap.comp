@@ -157,7 +157,7 @@ void main()
 
 #ifdef USE_CHROMATIC_ABERRATION
     // Chromatic aberration
-    float aberrationVignette = clamp(length(centeredTexCoord) * pTonemapInfo.AberrationVignette, 0.0f, 1.0f);
+    int aberrationVignette = int(round(clamp(length(centeredTexCoord) * pTonemapInfo.AberrationVignette * 3, 0, 3)));
 
     ivec2 uvRed     = clamp(ivec2(gl_GlobalInvocationID.xy) + ivec2(pTonemapInfo.AberrationOffsets[0].x * aberrationVignette, pTonemapInfo.AberrationOffsets[0].y * aberrationVignette), ivec2(0, 0), ivec2(textureSize) - 1);
     ivec2 uvGreen   = clamp(ivec2(gl_GlobalInvocationID.xy) + ivec2(pTonemapInfo.AberrationOffsets[1].x * aberrationVignette, pTonemapInfo.AberrationOffsets[1].y * aberrationVignette), ivec2(0, 0), ivec2(textureSize) - 1);

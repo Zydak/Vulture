@@ -8,7 +8,7 @@ class CameraScript : public Vulture::ScriptInterface
 {
 public:
 	CameraScript() {}
-	~CameraScript() {}
+	~CameraScript() {} 
 
 	void OnCreate() override
 	{

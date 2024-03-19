@@ -43,6 +43,8 @@ namespace Vulture
 		VkResult Invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 		static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0, VkQueue queue = 0, VkCommandBuffer cmd = 0, VkCommandPool pool = 0);
 
+		inline CreateInfo GetCreateInfo() const { return m_CreateInfo; }
+
 		operator bool() const
 		{
 			return m_Initialized;
@@ -72,6 +74,7 @@ namespace Vulture
 		void* m_Mapped = nullptr;
 		VkBuffer m_BufferHandle = VK_NULL_HANDLE;
 		VmaAllocation* m_Allocation = nullptr;
+		Scope<VmaPool> m_Pool = nullptr; // only for buffers that are allocated on their own pools
 
 		VkDeviceSize m_BufferSize = 0;
 		uint32_t m_InstanceCount = 0;
@@ -81,6 +84,8 @@ namespace Vulture
 		VkMemoryPropertyFlags m_MemoryPropertyFlags = 0;
 		VkDeviceSize m_MinOffsetAlignment = 1; // Stored only for copies of the buffer
 		bool m_NoPool = false;
+
+		CreateInfo m_CreateInfo;
 
 		bool m_Initialized = false;
 	};

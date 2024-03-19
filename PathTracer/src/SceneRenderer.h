@@ -20,7 +20,7 @@ struct PosterizePushConstant
 {
 	int ColorCount = 4;
 	float DitherSpread = 0.5f;
-	float Sharpness = 0.0f;
+	int DitherSize = 1;
 
 	glm::vec4 colors[8];
 };
@@ -28,7 +28,7 @@ struct PosterizePushConstant
 struct PushConstantRay
 {
 	glm::vec4 ClearColor;
-	int64_t frame;
+	int64_t frame = -1;
 	int maxDepth;
 	int SamplesPerFrame;
 	float EnvAzimuth;
@@ -112,7 +112,6 @@ private:
 	void RecreateRayTracingDescriptorSets();
 	void DrawGBuffer();
 
-
 	void CreateRenderPasses();
 	void CreateDescriptorSets();
 	void RecreateDescriptorSets();
@@ -174,9 +173,6 @@ private:
 	Vulture::Effect<PosterizePushConstant> m_PosterizeEffect;
 
 	// ImGui Stuff / Interface
-
-	Vulture::Timer m_Timer;
-	Vulture::Timer m_TotalTimer;
 	uint64_t m_CurrentSamplesPerPixel = 0;
 	VkDescriptorSet m_ImGuiViewportDescriptorTonemapped;
 	VkDescriptorSet m_ImGuiViewportDescriptorPathTracing;
@@ -205,8 +201,8 @@ public:
 		bool UseGlossy				= true;
 		bool UseGlass				= true;
 		bool UseClearcoat			= true;
-		bool UseFog					= false;
 		bool UseFireflies			= true;
+		bool ShowSkybox				= true;
 
 		bool SampleEnvMap   = true;
 		float EnvAzimuth	= 0.0f;

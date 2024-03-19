@@ -70,6 +70,8 @@ private:
 		int Handle = -1;
 		#endif
 		void* CudaPtr = nullptr;  // Pointer for cuda
+
+		void Destroy();
 	};
 
 	std::array<BufferCuda, 3> m_PixelBufferIn;  // Buffers for the input images

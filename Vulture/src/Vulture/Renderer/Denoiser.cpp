@@ -286,41 +286,45 @@ namespace Vulture
 		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = usage;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        BufferInfo.NoPool = true; // Important
+		BufferInfo.NoPool = true; // Important
 
-        // Path Tracing Result
-        {
-            m_PixelBufferIn[0].BufferVk.Init(BufferInfo);
-            CreateBufferHandles(m_PixelBufferIn[0]);  // Exporting the buffer to Cuda handle and pointers
-        }
+		// Path Tracing Result
+		{
+            m_PixelBufferIn[0].Destroy();
+			m_PixelBufferIn[0].BufferVk.Init(BufferInfo);
+			CreateBufferHandles(m_PixelBufferIn[0]);  // Exporting the buffer to Cuda handle and pointers
+		}
 
-        // Albedo
-        {
-            m_PixelBufferIn[1].BufferVk.Init(BufferInfo);
-            CreateBufferHandles(m_PixelBufferIn[1]);
-        }
-        // Normal
-        {
-            m_PixelBufferIn[2].BufferVk.Init(BufferInfo);
-            CreateBufferHandles(m_PixelBufferIn[2]);
-        }
+		// Albedo
+		{
+			m_PixelBufferIn[1].Destroy();
+			m_PixelBufferIn[1].BufferVk.Init(BufferInfo);
+			CreateBufferHandles(m_PixelBufferIn[1]);
+		}
+		// Normal
+		{
+			m_PixelBufferIn[2].Destroy();
+			m_PixelBufferIn[2].BufferVk.Init(BufferInfo);
+			CreateBufferHandles(m_PixelBufferIn[2]);
+		}
 
-        // Output image/buffer
-        BufferInfo.InstanceSize = outputBufferSize;
-        m_PixelBufferOut.BufferVk.Init(BufferInfo);
-        CreateBufferHandles(m_PixelBufferOut);
+		// Output image/buffer
+		BufferInfo.InstanceSize = outputBufferSize;
+        m_PixelBufferOut.Destroy();
+		m_PixelBufferOut.BufferVk.Init(BufferInfo);
+		CreateBufferHandles(m_PixelBufferOut);
 
-        // Computing the amount of memory needed to do the denoiser
-        VL_CORE_RETURN_ASSERT(optixDenoiserComputeMemoryResources(m_Denoiser, m_ImageSize.width, m_ImageSize.height, &m_DenoiserSizes), 0, "Computing Sizes Failed");
+		//Computing the amount of memory needed to do the denoiser
+		VL_CORE_RETURN_ASSERT(optixDenoiserComputeMemoryResources(m_Denoiser, m_ImageSize.width, m_ImageSize.height, &m_DenoiserSizes), 0, "Computing Sizes Failed");
 
-        VL_CORE_RETURN_ASSERT(cudaMalloc((void**)&m_StateBuffer, m_DenoiserSizes.stateSizeInBytes), 0, "Allocating State Buffer Failed");
-        VL_CORE_RETURN_ASSERT(cudaMalloc((void**)&m_ScratchBuffer, m_DenoiserSizes.withoutOverlapScratchSizeInBytes), 0, "Allocating Scratch Buffer Failed");
-        VL_CORE_RETURN_ASSERT(cudaMalloc((void**)&m_MinRGB, 4 * sizeof(float)), 0, "Allocating MinRgb Buffer Failed");
-        if (m_PixelFormat == OPTIX_PIXEL_FORMAT_FLOAT3 || m_PixelFormat == OPTIX_PIXEL_FORMAT_FLOAT4)
-            VL_CORE_RETURN_ASSERT(cudaMalloc((void**)&m_Intensity, sizeof(float)), 0, "Allocating Intensity Buffer Failed");
+		VL_CORE_RETURN_ASSERT(cudaMalloc((void**)&m_StateBuffer, m_DenoiserSizes.stateSizeInBytes), 0, "Allocating State Buffer Failed");
+		VL_CORE_RETURN_ASSERT(cudaMalloc((void**)&m_ScratchBuffer, m_DenoiserSizes.withoutOverlapScratchSizeInBytes), 0, "Allocating Scratch Buffer Failed");
+		VL_CORE_RETURN_ASSERT(cudaMalloc((void**)&m_MinRGB, 4 * sizeof(float)), 0, "Allocating MinRgb Buffer Failed");
+		if (m_PixelFormat == OPTIX_PIXEL_FORMAT_FLOAT3 || m_PixelFormat == OPTIX_PIXEL_FORMAT_FLOAT4)
+			VL_CORE_RETURN_ASSERT(cudaMalloc((void**)&m_Intensity, sizeof(float)), 0, "Allocating Intensity Buffer Failed");
 
-        VL_CORE_RETURN_ASSERT(optixDenoiserSetup(m_Denoiser, m_CudaStream, m_ImageSize.width, m_ImageSize.height, m_StateBuffer,
-            m_DenoiserSizes.stateSizeInBytes, m_ScratchBuffer, m_DenoiserSizes.withoutOverlapScratchSizeInBytes), 0, "Optix Denoiser Failed");
+		VL_CORE_RETURN_ASSERT(optixDenoiserSetup(m_Denoiser, m_CudaStream, m_ImageSize.width, m_ImageSize.height, m_StateBuffer,
+			m_DenoiserSizes.stateSizeInBytes, m_ScratchBuffer, m_DenoiserSizes.withoutOverlapScratchSizeInBytes), 0, "Optix Denoiser Failed");
     }
 
 
@@ -331,29 +335,31 @@ namespace Vulture
     */
     void Denoiser::CreateBufferHandles(BufferCuda& buf)
     {
-        VkMemoryGetWin32HandleInfoKHR info{ VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR };
-        VmaAllocationInfo memInfo = buf.BufferVk.GetMemoryInfo();
-        info.memory = memInfo.deviceMemory;
-        info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
-        VkResult res = Device::vkGetMemoryWin32HandleKHR(Device::GetDevice(), &info, &buf.Handle);
+		VkMemoryGetWin32HandleInfoKHR info{ VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR };
+		VmaAllocationInfo memInfo = buf.BufferVk.GetMemoryInfo();
+		info.memory = memInfo.deviceMemory;
+		info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+		VkResult res = Device::vkGetMemoryWin32HandleKHR(Device::GetDevice(), &info, &buf.Handle);
 
-        VkMemoryRequirements memoryReq{};
+		VkMemoryRequirements memoryReq{};
         vkGetBufferMemoryRequirements(Device::GetDevice(), buf.BufferVk.GetBuffer(), &memoryReq);
-
+        
         cudaExternalMemoryHandleDesc cudaExtMemHandleDesc{};
         cudaExtMemHandleDesc.size = memoryReq.size;
-
+        
         cudaExtMemHandleDesc.type = cudaExternalMemoryHandleTypeOpaqueWin32;
         cudaExtMemHandleDesc.handle.win32.handle = buf.Handle;
-
-        cudaExternalMemory_t cudaExtMemVertexBuffer{};
-        VL_CORE_RETURN_ASSERT(cudaImportExternalMemory(&cudaExtMemVertexBuffer, &cudaExtMemHandleDesc), 0, "Importing External Memory Failed");
-
+        
+		cudaExternalMemory_t cudaExtMemVertexBuffer{};
+		VL_CORE_RETURN_ASSERT(cudaImportExternalMemory(&cudaExtMemVertexBuffer, &cudaExtMemHandleDesc), 0, "Importing External Memory Failed");
+        
         cudaExternalMemoryBufferDesc cudaExtBufferDesc{};
         cudaExtBufferDesc.offset = 0;
         cudaExtBufferDesc.size = memoryReq.size;
         cudaExtBufferDesc.flags = 0;
         VL_CORE_RETURN_ASSERT(cudaExternalMemoryGetMappedBuffer(&buf.CudaPtr, cudaExtMemVertexBuffer, &cudaExtBufferDesc), 0, "Cuda Getting Mapped Memory Failed");
+    
+        cudaDestroyExternalMemory(cudaExtMemVertexBuffer);
     }
 
     /**
@@ -410,5 +416,15 @@ namespace Vulture
 
         VL_CORE_RETURN_ASSERT(cudaImportExternalSemaphore(&m_Semaphore.Cu, &externalSemaphoreHandleDesc), 0, "Importing External Semaphore Failed");
     }
+
+	void Denoiser::BufferCuda::Destroy()
+	{
+		if (Handle)
+		{
+			CloseHandle(Handle);
+			cudaFree(CudaPtr);
+			Handle = nullptr;
+		}
+	}
 
 }  // namespace Vulture

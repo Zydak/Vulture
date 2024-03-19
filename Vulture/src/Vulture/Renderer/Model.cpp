@@ -119,27 +119,8 @@ namespace Vulture
 			material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
 			material->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
 			material->Get(AI_MATKEY_REFRACTI, m_Materials[index].Ior);
-			material->Get(AI_MATKEY_ANISOTROPY_FACTOR, m_Materials[index].Anisotropic);
 			material->Get(AI_MATKEY_CLEARCOAT_FACTOR, m_Materials[index].Clearcoat);
 			material->Get(AI_MATKEY_CLEARCOAT_ROUGHNESS_FACTOR, m_Materials[index].ClearcoatRoughness);
-
-			//if (roughness < 0.1f)
-			//{
-			//	roughness = 0.01f;
-			//	m_Materials[index].Ior = 1.7f;
-			//	m_Materials[index].SpecTrans = 1.0f;
-			//	metallic = 0.0f;
-			//}
-			//else
-			//{
-			//	//roughness = 1.0f;
-			//	//metallic = 0.0f;
-			//}
-			//albedoColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-			//metallic = 0.0f;
-			//roughness = 0.2f;
-			//m_Materials[index].Ior = 1.5f;
-			//m_Materials[index].SpecTrans = 1.0f;
 
 			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_DIFFUSE); i++)
 			{

@@ -149,7 +149,10 @@ void Editor::RenderImGui()
 	ImGui::Begin("Settings");
 
 	ImGuiInfoHeader();
+	if (m_SceneRenderer->GetAccumulatedSamples() < m_SceneRenderer->GetDrawInfo().TotalSamplesPerPixel)
+		m_Time += m_Timer.ElapsedSeconds();
 	m_Timer.Reset();
+	if (m_SceneRenderer->GetRTPush().GetDataPtr()->frame <= 0) { m_Time = 0; }
 
 	if (State::CurrentRenderState == State::RenderState::PreviewRender)
 	{
@@ -343,13 +346,14 @@ void Editor::ImGuiInfoHeader()
 	ImGui::Text("Total vertices: %i", m_CurrentScene->GetVertexCount());
 	ImGui::Text("Total indices: %i", m_CurrentScene->GetIndexCount());
 
-	ImGui::Text("Frame: %i", m_SceneRenderer->GetRTPush().GetDataPtr()->frame);
+	ImGui::Text("Frame: %i", m_SceneRenderer->GetRTPush().GetDataPtr()->frame + 1); // renderer starts counting from 0 so add 1
 	ImGui::Text("Time: %fs", m_Time);
 	ImGui::Text("Samples Per Pixel: %i", m_SceneRenderer->GetAccumulatedSamples());
 
 	if (ImGui::Button("Reset"))
 	{
 		m_SceneRenderer->ResetFrameAccumulation();
+		m_Time = 0.0f;
 	}
 
 	ImGui::SeparatorText("Info");
@@ -392,10 +396,12 @@ void Editor::ImGuiSceneSettings()
 	}
 
 	static int currentSceneItem = 0;
+	static int currentMaterialItem = 0;
 	if (ImGui::ListBox("Current Scene", &currentSceneItem, scenes.data(), (int)scenes.size(), scenes.size() > 10 ? 10 : (int)scenes.size()))
 	{
 		State::ModelPath = "assets/" + scenesString[currentSceneItem];
 		State::ModelChanged = true;
+		currentMaterialItem = 0;
 	}
 
 	ImGui::SeparatorText("Materials");
@@ -410,7 +416,6 @@ void Editor::ImGuiSceneSettings()
 		meshesNames[i] = m_CurrentMeshesNames[i].c_str();
 	}
 
-	static int currentMaterialItem = 0;
 	ImGui::ListBox("Materials", &currentMaterialItem, meshesNames.data(), (int)meshesNames.size(), meshesNames.size() > 10 ? 10 : (int)meshesNames.size());
 
 	ImGui::SeparatorText("Material Values");
@@ -424,8 +429,7 @@ void Editor::ImGuiSceneSettings()
 	if (ImGui::SliderFloat("IOR",					(float*)&(*m_CurrentMaterials)[currentMaterialItem].Ior, 1.001f, 2.0f)) { valuesChanged = true; };
 	if (ImGui::SliderFloat("Clearcoat",				(float*)&(*m_CurrentMaterials)[currentMaterialItem].Clearcoat, 0.0f, 1.0f)) { valuesChanged = true; };
 	if (ImGui::SliderFloat("Clearcoat Roughness",	(float*)&(*m_CurrentMaterials)[currentMaterialItem].ClearcoatRoughness, 0.0f, 1.0f)) { valuesChanged = true; };
-	if (ImGui::SliderFloat("SubSurface",			(float*)&(*m_CurrentMaterials)[currentMaterialItem].Subsurface, 0.0f, 1.0f)) { valuesChanged = true; };
-
+	
 	static bool editAll = false;
 	ImGui::Checkbox("Edit All Values", &editAll);
 
@@ -625,7 +629,7 @@ void Editor::ImGuiPostProcessingSettings()
 			ImGui::SliderInt("Color Count", &m_SceneRenderer->GetPosterizePush().GetDataPtr()->ColorCount, 1, 8);
 			glm::clamp(m_SceneRenderer->GetPosterizePush().GetDataPtr()->ColorCount, 1, 8);
 			ImGui::SliderFloat("Dither Spread", &m_SceneRenderer->GetPosterizePush().GetDataPtr()->DitherSpread, 0.0f, 4.0f);
-			ImGui::SliderFloat("Sharpness", &m_SceneRenderer->GetPosterizePush().GetDataPtr()->Sharpness, 0.0f, 4.0f);
+			ImGui::SliderInt("Dither Size", &m_SceneRenderer->GetPosterizePush().GetDataPtr()->DitherSize, 0, 5);
 
 			static bool posterizeReplacePallet = false;
 			if (ImGui::Checkbox("Replace Color Pallet", &posterizeReplacePallet))
@@ -724,11 +728,11 @@ void Editor::ImGuiPathTracingSettings()
 	{
 		State::RecreateRayTracingPipeline = true;
 	}
-	if (ImGui::Checkbox("Use Fog", &drawInfo.UseFog))
+	if (ImGui::Checkbox("Eliminate Fireflies", &drawInfo.UseFireflies))
 	{
 		State::RecreateRayTracingPipeline = true;
 	}
-	if (ImGui::Checkbox("Eliminate Fireflies", &drawInfo.UseFireflies))
+	if (ImGui::Checkbox("Show Skybox", &drawInfo.ShowSkybox))
 	{
 		State::RecreateRayTracingPipeline = true;
 	}

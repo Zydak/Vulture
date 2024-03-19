@@ -86,7 +86,6 @@ SceneRenderer::SceneRenderer()
 	vkCreateFence(Vulture::Device::GetDevice(), &createInfo, nullptr, &m_DenoiseFence);
 
 	//Vulture::Renderer::RenderImGui([this](){ImGuiPass(); });
-	m_TotalTimer.Reset();
 }
 
 SceneRenderer::~SceneRenderer()
@@ -100,7 +99,7 @@ void SceneRenderer::RecreateRayTracingDescriptorSets()
 	m_RayTracingDescriptorSet->UpdateImageSampler(1, Vulture::Renderer::GetSamplerHandle(), m_PathTracingImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL);
 }
 
-// TODO descritpion
+// TODO description
 bool SceneRenderer::RayTrace(const glm::vec4& clearColor)
 {
 	Vulture::Device::InsertLabel(Vulture::Renderer::GetCurrentCommandBuffer(), "Inserted label", { 0.0f, 1.0f, 0.0f, 1.0f });
@@ -113,7 +112,6 @@ bool SceneRenderer::RayTrace(const glm::vec4& clearColor)
 	m_PushContantRayTrace.GetDataPtr()->SamplesPerFrame = m_DrawInfo.SamplesPerFrame;
 	m_PushContantRayTrace.GetDataPtr()->EnvAzimuth =  glm::radians(m_DrawInfo.EnvAzimuth);
 	m_PushContantRayTrace.GetDataPtr()->EnvAltitude = glm::radians(m_DrawInfo.EnvAltitude);
-	m_PushContantRayTrace.GetDataPtr()->SamplesPerFrame = m_DrawInfo.SamplesPerFrame;
 
 	// Draw Albedo, Roughness, Metallness, Normal into GBuffer
 	DrawGBuffer();
@@ -330,7 +328,6 @@ void SceneRenderer::ResetFrameAccumulation()
 {
 	m_PushContantRayTrace.GetDataPtr()->frame = -1;
 	m_CurrentSamplesPerPixel = 0;
-	m_TotalTimer.Reset();
 
 	m_DrawGBuffer = true;
 }
@@ -339,7 +336,7 @@ void SceneRenderer::RecreateResources()
 {
 	vkDeviceWaitIdle(Vulture::Device::GetDevice());
 	ResetFrameAccumulation();
-	m_PushContantRayTrace.GetDataPtr()->frame -= 1;
+	m_PushContantRayTrace.GetDataPtr()->frame = -1;
 
 	CreateFramebuffers();
 
@@ -424,7 +421,7 @@ void SceneRenderer::CreateDescriptorSets()
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 
-		m_GlobalDescriptorSets[i]->AddStorageBuffer(2, (uint32_t)Vulture::Renderer::GetEnv()->GetAccelBuffer()->GetBufferSize(), false, true);
+		m_GlobalDescriptorSets[i]->AddStorageBuffer(2, (uint32_t)Vulture::Renderer::GetEnv()->GetAccelBuffer()->GetBufferSize(), true, true);
 
 		m_GlobalDescriptorSets[i]->Build();
 
@@ -568,27 +565,17 @@ void SceneRenderer::SetSkybox(Vulture::Entity& skyboxEntity)
 	State::CurrentSkyboxEntity = skyboxEntity;
 	Vulture::SkyboxComponent skybox = skyboxEntity.GetComponent<Vulture::SkyboxComponent>();
 
-	m_GlobalDescriptorSets.clear();
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR };
-		Vulture::DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
-		Vulture::DescriptorSetLayout::Binding bin2{ 2, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_MISS_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR };
-
-		m_GlobalDescriptorSets.push_back(std::make_shared<Vulture::DescriptorSet>());
-		m_GlobalDescriptorSets[i]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1, bin2 });
-		m_GlobalDescriptorSets[i]->AddUniformBuffer(0, sizeof(GlobalUbo));
-
-		m_GlobalDescriptorSets[i]->AddImageSampler(
+		m_GlobalDescriptorSets[i]->UpdateImageSampler(
 			1,
 			Vulture::Renderer::GetSamplerHandle(),
 			skybox.SkyboxImage->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 		);
 
-		m_GlobalDescriptorSets[i]->AddStorageBuffer(2, (uint32_t)skybox.SkyboxImage->GetAccelBuffer()->GetBufferSize(), false, true);
-
-		m_GlobalDescriptorSets[i]->Build();
+		// Resize env map accel info because env map is probably different size
+		m_GlobalDescriptorSets[i]->Resize(2, skybox.SkyboxImage->GetAccelBuffer()->GetBufferSize());
 
 		Vulture::Buffer::CopyBuffer(
 			skybox.SkyboxImage->GetAccelBuffer()->GetBuffer(),
@@ -741,13 +728,13 @@ void SceneRenderer::CreateRayTracingPipeline()
 			defines.push_back("USE_GLASS");
 		if (m_DrawInfo.UseClearcoat)
 			defines.push_back("USE_CLEARCOAT");
-		if (m_DrawInfo.UseFog)
-			defines.push_back("USE_FOG");
 		if (m_DrawInfo.UseFireflies)
 			defines.push_back("USE_FIREFLIES");
+		if (m_DrawInfo.ShowSkybox)
+			defines.push_back("SHOW_SKYBOX");
 
 		Vulture::Shader shader1({ "src/shaders/raytrace.rgen", VK_SHADER_STAGE_RAYGEN_BIT_KHR, defines });
-		Vulture::Shader shader2({ "src/shaders/CookTorrance.rchit", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, defines});
+		Vulture::Shader shader2({ "src/shaders/raytrace.rchit", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, defines});
 		Vulture::Shader shader3({ "src/shaders/raytrace.rmiss", VK_SHADER_STAGE_MISS_BIT_KHR, defines });
 
 		info.RayGenShaders.push_back(&shader1);
