@@ -363,7 +363,7 @@ namespace Vulture
 	 * @param sampler - Vulkan sampler to be associated with the image sampler.
 	 * @param layout - Vulkan image layout to be associated with the image sampler.
 	 */
-	void DescriptorSet::UpdateImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout layout) const
+	void DescriptorSet::UpdateImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout layout)
 	{
 		// Check if the descriptor set has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");

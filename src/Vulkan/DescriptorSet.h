@@ -33,7 +33,7 @@ namespace Vulture
 		void AddStorageBuffer(uint32_t binding, VkDeviceSize bufferSize, bool resizable = false, bool deviceLocal = false);
 		void Build();
 		void Resize(uint32_t binding, VkDeviceSize newSize, VkCommandBuffer commandBuffer = 0, uint32_t buffer = 0);
-		void UpdateImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout layout) const;
+		void UpdateImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout layout);
 
 		void Bind(const uint32_t& set, const VkPipelineLayout& layout, const VkPipelineBindPoint& bindPoint, const VkCommandBuffer& cmdBuffer) const;
 
