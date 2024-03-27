@@ -222,9 +222,6 @@ namespace Vulture
 
 	void Image::Destroy()
 	{
-		m_JointPDF.reset();
-		m_CDFInverseX.reset();
-		m_CDFInverseY.reset();
 		m_ImportanceSmplAccel.reset();
 		vkDestroyImageView(Device::GetDevice(), m_ImageView, nullptr);
 		vmaDestroyImage(Device::GetAllocator(), m_ImageHandle, *m_Allocation);
@@ -390,7 +387,7 @@ namespace Vulture
 		stagingBuf.Unmap();
 
 		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		bufferInfo.UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		m_ImportanceSmplAccel = std::make_shared<Buffer>();
 		m_ImportanceSmplAccel->Init(bufferInfo);
 
@@ -618,11 +615,7 @@ namespace Vulture
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
 		barrier.image = m_ImageHandle;
-
-		if (m_Aspect == VK_IMAGE_ASPECT_COLOR_BIT)
-			subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		else if (m_Aspect == VK_IMAGE_ASPECT_DEPTH_BIT)
-			subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		subresourceRange.aspectMask = m_Aspect;
 		barrier.subresourceRange = subresourceRange;
 		barrier.srcAccessMask = srcAccess;
 		barrier.dstAccessMask = dstAccess;

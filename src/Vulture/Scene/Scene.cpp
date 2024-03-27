@@ -21,7 +21,6 @@ namespace Vulture
 	void Scene::Destroy()
 	{
 		m_Window.reset();
-		m_Atlas.reset();
 		m_FontAtlases.clear();
 		m_Registry.reset();
 		m_AccelerationStructure.reset();
@@ -58,7 +57,7 @@ namespace Vulture
 	{
 		Entity entity = CreateEntity();
 		entity.AddComponent<TransformComponent>(transform);
-		glm::vec2 offset = m_Atlas->GetTextureOffset(tileOffset);
+		glm::vec2 offset = glm::vec2(0);// m_Atlas->GetTextureOffset(tileOffset);
 		entity.AddComponent<SpriteComponent>(offset);
 		return entity;
 	}
@@ -77,7 +76,7 @@ namespace Vulture
 	{
 		Entity entity = CreateEntity();
 		entity.AddComponent<StaticTransformComponent>(transform);
-		glm::vec2 offset = m_Atlas->GetTextureOffset(tileOffset);
+		glm::vec2 offset = glm::vec2(0);//m_Atlas->GetTextureOffset(tileOffset);
 		entity.AddComponent<SpriteComponent>(offset);
 	}
 
@@ -117,11 +116,6 @@ namespace Vulture
 	void Scene::DestroyEntity(Entity& entity)
 	{
 		m_Registry->destroy(entity);
-	}
-
-	void Scene::CreateAtlas(const std::string& filepath)
-	{
-		m_Atlas = std::make_shared<TextureAtlas>(filepath);
 	}
 
 	void Scene::InitAccelerationStructure()

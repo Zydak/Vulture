@@ -436,11 +436,9 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			s_EnvToCubemapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 			s_EnvToCubemapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			s_EnvToCubemapDescriptorSet->AddImageSampler(0, GetSamplerHandle(), envMap->GetImageView(),
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			s_EnvToCubemapDescriptorSet->AddImageSampler(0, { GetSamplerHandle(), envMap->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 			);
-			s_EnvToCubemapDescriptorSet->AddImageSampler(1, GetSamplerHandle(), cubemap->GetImageView(),
-				VK_IMAGE_LAYOUT_GENERAL
+			s_EnvToCubemapDescriptorSet->AddImageSampler(1, { GetSamplerHandle(), cubemap->GetImageView(), VK_IMAGE_LAYOUT_GENERAL }
 			);
 			s_EnvToCubemapDescriptorSet->Build();
 		}

@@ -26,15 +26,15 @@ namespace Vulture
 			m_Descriptor[i].Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 			m_Descriptor[i].AddImageSampler(
 				0,
-				Vulture::Renderer::GetSamplerHandle(),
+				{ Vulture::Renderer::GetSamplerHandle(),
 				info.InputImages[i]->GetImageView(),
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 			);
 			m_Descriptor[i].AddImageSampler(
 				1,
-				Vulture::Renderer::GetSamplerHandle(),
+				{ Vulture::Renderer::GetSamplerHandle(),
 				info.OutputImages[i]->GetImageView(),
-				VK_IMAGE_LAYOUT_GENERAL
+				VK_IMAGE_LAYOUT_GENERAL }
 			);
 			m_Descriptor[i].Build();
 		}

@@ -13,7 +13,7 @@ namespace Vulture
 		struct CreateInfo
 		{
 			VkDeviceSize InstanceSize = 0;
-			uint32_t InstanceCount = 0;
+			uint32_t InstanceCount = 1;
 			VkBufferUsageFlags UsageFlags = 0;
 			VkMemoryPropertyFlags MemoryPropertyFlags = 0;
 			VkDeviceSize MinOffsetAlignment = 1;
@@ -39,7 +39,7 @@ namespace Vulture
 
 		void WriteToBuffer(void* data, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0, VkCommandBuffer cmdBuffer = 0);
 		VkResult Flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
-		VkDescriptorBufferInfo DescriptorInfo(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+		VkDescriptorBufferInfo DescriptorInfo();
 		VkResult Invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 		static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0, VkQueue queue = 0, VkCommandBuffer cmd = 0, VkCommandPool pool = 0);
 

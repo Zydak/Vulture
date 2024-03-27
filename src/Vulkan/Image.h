@@ -58,10 +58,7 @@ namespace Vulture
 		static void TransitionImageLayout(const VkImage& image, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkCommandBuffer cmdBuffer = 0, const VkImageSubresourceRange& subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 		void CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkOffset3D offset = {0, 0, 0});
 		void CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkImageLayout layout, VkCommandBuffer cmd, VkOffset3D srcOffset = { 0, 0, 0 }, VkOffset3D dstOffset = {0, 0, 0});
-		
-		Ref<Image> GetJointPDF() { return m_JointPDF; }
-		Ref<Image> GetCDFInverseX() { return m_CDFInverseX; }
-		Ref<Image> GetCDFInverseY() { return m_CDFInverseY; }
+
 	public:
 
 		inline VkImage GetImage() const { return m_ImageHandle; }
@@ -120,9 +117,6 @@ namespace Vulture
 
 		// HDR only
 		Ref<Buffer> m_ImportanceSmplAccel;
-		Ref<Image> m_JointPDF;
-		Ref<Image> m_CDFInverseX;
-		Ref<Image> m_CDFInverseY;
 	};
 
 }

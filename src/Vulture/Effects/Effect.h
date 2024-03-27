@@ -58,24 +58,24 @@ namespace Vulture
 				m_Descriptor[i].Init(&Vulture::Renderer::GetDescriptorPool(), m_Bindings);
 				m_Descriptor[i].AddImageSampler(
 					0,
-					Vulture::Renderer::GetSamplerHandle(),
+					{ Vulture::Renderer::GetSamplerHandle(),
 					createInfo.InputImages[i]->GetImageView(),
-					inputLayout
+					inputLayout }
 				);
 				m_Descriptor[i].AddImageSampler(
 					1,
-					Vulture::Renderer::GetSamplerHandle(),
+					{ Vulture::Renderer::GetSamplerHandle(),
 					createInfo.OutputImages[i]->GetImageView(),
-					VK_IMAGE_LAYOUT_GENERAL
+					VK_IMAGE_LAYOUT_GENERAL }
 				);
 
 				for (int j = 0; j < createInfo.AdditionalTextures.size(); j++)
 				{
 					m_Descriptor[i].AddImageSampler(
 						j + 2,
-						Vulture::Renderer::GetSamplerHandle(),
+						{ Vulture::Renderer::GetSamplerHandle(),
 						createInfo.AdditionalTextures[j]->GetImageView(),
-						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 					);
 				}
 

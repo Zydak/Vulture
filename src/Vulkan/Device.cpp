@@ -912,11 +912,16 @@ namespace Vulture
 		VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = {};
 		rayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
 
+		VkPhysicalDeviceRobustness2FeaturesEXT robustFeatures = {};
+		robustFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
+
 		// ------------------------
 		// Chain feature structures
 		// ------------------------
 
-		s_Features.pNext = &indexingFeatures;
+		s_Features.pNext = &robustFeatures;
+		robustFeatures.pNext = &indexingFeatures;
+
 		indexingFeatures.pNext = &memoryPriorityFeatures;
 
 		if (s_RayTracingSupport)

@@ -55,6 +55,8 @@ project "Vulture"
         "lodepng",
     }
 
+    defines { "_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS" }
+
     filter "platforms:Windows"
         system "Windows"
         defines { "WIN", "VK_USE_PLATFORM_WIN32_KHR" }

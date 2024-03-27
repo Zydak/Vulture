@@ -19,42 +19,32 @@ namespace Vulture
 		DescriptorSet(DescriptorPool* pool, const std::vector<DescriptorSetLayout::Binding>& bindings);
 		~DescriptorSet();
 
-		inline Buffer* GetBuffer(int binding, int buffer = 0) { return &m_Buffers[binding][buffer]; }
-		inline void WriteToBuffer(int binding, int buffer = 0); // todo
-
 		inline const DescriptorSetLayout* GetDescriptorSetLayout() const { return &m_DescriptorSetLayout; }
 
 		inline const VkDescriptorSet& GetDescriptorSetHandle() const { return m_DescriptorSetHandle; }
 		inline const DescriptorPool* GetPool() const { return m_Pool; }
 
-		void AddImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout);
+		void AddImageSampler(uint32_t binding, VkDescriptorImageInfo info);
 		void AddAccelerationStructure(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR asInfo);
-		void AddUniformBuffer(uint32_t binding, VkDeviceSize bufferSize, bool deviceLocal = false);
-		void AddStorageBuffer(uint32_t binding, VkDeviceSize bufferSize, bool resizable = false, bool deviceLocal = false);
+		void AddBuffer(uint32_t binding, VkDescriptorBufferInfo info);
 		void Build();
-		void Resize(uint32_t binding, VkDeviceSize newSize, VkCommandBuffer commandBuffer = 0, uint32_t buffer = 0);
-		void UpdateImageSampler(uint32_t binding, VkSampler sampler, VkImageView imageView, VkImageLayout layout);
+		void UpdateImageSampler(uint32_t binding, VkDescriptorImageInfo info);
+		void UpdateBuffer(uint32_t binding, VkDescriptorBufferInfo info);
 
 		void Bind(const uint32_t& set, const VkPipelineLayout& layout, const VkPipelineBindPoint& bindPoint, const VkCommandBuffer& cmdBuffer) const;
 
 	private:
-		enum BindingType
-		{
-			Buffer,
-			Image,
-			AS
-		};
 
 		struct Binding
 		{
-			BindingType m_Type;
+			VkDescriptorType m_Type;
+			uint32_t m_DescriptorCount = 0;
 			std::vector<VkDescriptorImageInfo> m_ImageInfo;
 			std::vector<VkDescriptorBufferInfo> m_BufferInfo;
 			std::vector<VkWriteDescriptorSetAccelerationStructureKHR> m_AccelInfo;
 		};
 
-		std::unordered_map<uint32_t, std::vector<Vulture::Buffer>> m_Buffers;
-		std::unordered_map<uint32_t, Binding> m_BindingsWriteInfo;
+		std::vector<Binding> m_BindingsWriteInfo;
 		Vulture::DescriptorSetLayout m_DescriptorSetLayout;
 		VkDescriptorSet m_DescriptorSetHandle;
 

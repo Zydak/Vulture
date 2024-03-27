@@ -2,7 +2,6 @@
 #include "entt/entt.h"
 #include "pch.h"
 #include "../Renderer/Transform.h"
-#include "../Renderer/TextureAtlas.h"
 #include "../Renderer/FontAtlas.h"
 
 #include "System.h"
@@ -37,8 +36,6 @@ namespace Vulture
 
 		Entity CreateModel(std::string filepath, Transform transform);
 
-		void CreateAtlas(const std::string& filepath);
-
 		void InitAccelerationStructure();
 		Ref<AccelerationStructure> GetAccelerationStructure() { return m_AccelerationStructure; }
 
@@ -62,7 +59,6 @@ namespace Vulture
 		std::vector<Entity> CheckCollisionsWith(Entity& entity, const std::string nameToCheckAgainst);
 
 		inline entt::registry& GetRegistry() { return *m_Registry; }
-		inline Ref<TextureAtlas> GetAtlas() const { return m_Atlas; }
 		Ref<Window> GetWindow() const { return m_Window; }
 		CameraComponent* GetMainCamera(Entity* entity = nullptr);
 
@@ -80,7 +76,6 @@ namespace Vulture
 		Ref<AccelerationStructure> m_AccelerationStructure = nullptr;
 		Ref<Window> m_Window;
 		Ref<entt::registry> m_Registry;
-		Ref<TextureAtlas> m_Atlas;
 		std::vector<SystemInterface*> m_Systems;
 		std::unordered_map<std::string, Ref<FontAtlas>> m_FontAtlases;
 		uint32_t m_MeshCount = 0;

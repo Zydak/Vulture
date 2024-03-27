@@ -213,27 +213,27 @@ namespace Vulture
 
 		m_TextureSets[index]->AddImageSampler(
 			0,
-			Vulture::Renderer::GetSamplerHandle(),
+			{ Vulture::Renderer::GetSamplerHandle(),
 			m_AlbedoTextures[index]->GetImageView(),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
 		m_TextureSets[index]->AddImageSampler(
 			1,
-			Vulture::Renderer::GetSamplerHandle(),
+			{ Vulture::Renderer::GetSamplerHandle(),
 			m_NormalTextures[index]->GetImageView(),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
 		m_TextureSets[index]->AddImageSampler(
 			2,
-			Vulture::Renderer::GetSamplerHandle(),
+			{ Vulture::Renderer::GetSamplerHandle(),
 			m_RoughnessTextures[index]->GetImageView(),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
 		m_TextureSets[index]->AddImageSampler(
 			3,
-			Vulture::Renderer::GetSamplerHandle(),
+			{ Vulture::Renderer::GetSamplerHandle(),
 			m_MetallnessTextures[index]->GetImageView(),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
 
 		m_TextureSets[index]->Build();

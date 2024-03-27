@@ -167,6 +167,11 @@ namespace Vulture
 		copyRegion.dstOffset = dstOffset;   // Optional
 		copyRegion.size = size;
 
+		if (size == VK_WHOLE_SIZE)
+		{
+			VL_CORE_ASSERT(false, "");
+		}
+
 		// Copy data from the source buffer to the destination buffer.
 		vkCmdCopyBuffer(cmd, srcBuffer, dstBuffer, 1, &copyRegion);
 
@@ -311,6 +316,9 @@ namespace Vulture
 		// Check if the data pointer is valid.
 		VL_CORE_ASSERT(data != nullptr, "Invalid data pointer");
 
+		if (size == VK_WHOLE_SIZE)
+			size = m_BufferSize;
+
 		// If no command buffer is provided, begin a temporary single time command buffer.
 		VkCommandBuffer cmd;
 		if (cmdBuffer == VK_NULL_HANDLE)
@@ -414,13 +422,13 @@ namespace Vulture
 	 *
 	 * @return VkDescriptorBufferInfo of specified offset and range
 	 */
-	VkDescriptorBufferInfo Buffer::DescriptorInfo(VkDeviceSize size, VkDeviceSize offset)
+	VkDescriptorBufferInfo Buffer::DescriptorInfo()
 	{
 		return VkDescriptorBufferInfo
 		{
 			m_BufferHandle,
-			offset,
-			size,
+			0,
+			m_BufferSize,
 		};
 	}
 
