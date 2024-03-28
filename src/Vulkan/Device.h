@@ -33,13 +33,23 @@ namespace Vulture
 	struct Extension
 	{
 		const char* Name;
-		bool supported;
+		bool supported = false;
 	};
 
 	class Device
 	{
 	public:
-		static void Init(Window& window, bool rayTracingSupport);
+		struct CreateInfo
+		{
+			Window* Window;
+			std::vector<const char*> DeviceExtensions;
+			std::vector<const char*> OptionalExtensions;
+			VkPhysicalDeviceFeatures2 Features;
+
+			bool UseRayTracing = false;
+		};
+
+		static void Init(CreateInfo &createInfo);
 		static void Destroy();
 
 		~Device();
@@ -89,7 +99,7 @@ namespace Vulture
 			return integral((x + (integral(a) - 1)) & ~integral(a - 1));
 		}
 
-		static inline bool IsRayTracingSupported() { return s_RayTracingSupport; }
+		static bool inline UseRayTracing() { return s_UseRayTracing; }
 	private:
 		Device() {} // make constructor private
 		static bool s_Initialized;
@@ -124,7 +134,6 @@ namespace Vulture
 
 		static VmaAllocator s_Allocator;
 		static std::unordered_map<uint32_t, VmaPool> s_Pools;
-		static bool s_RayTracingSupport;
 		static VkPhysicalDeviceProperties2 s_Properties;
 		static VkSampleCountFlagBits s_MaxSampleCount;
 		static VkPhysicalDeviceFeatures2 s_Features;
@@ -142,6 +151,7 @@ namespace Vulture
 		static VkCommandPool s_GraphicsCommandPool;
 		static VkCommandPool s_ComputeCommandPool;
 
+		static bool s_UseRayTracing;
 		static std::vector<const char*> s_ValidationLayers;
 		static std::vector<const char*> s_DeviceExtensions;
 		static std::vector<Extension> s_OptionalExtensions;

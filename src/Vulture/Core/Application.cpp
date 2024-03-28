@@ -20,7 +20,14 @@ namespace Vulture
 		winInfo.Name = appInfo.Name;
 		winInfo.Icon = appInfo.Icon;
 		m_Window = std::make_shared<Window>(winInfo);
-		Device::Init(*m_Window, appInfo.RayTracingSupport);
+
+		Device::CreateInfo deviceInfo{};
+		deviceInfo.DeviceExtensions = appInfo.DeviceExtensions;
+		deviceInfo.OptionalExtensions = appInfo.OptionalExtensions;
+		deviceInfo.Features = appInfo.Features;
+		deviceInfo.Window = m_Window.get();
+		deviceInfo.UseRayTracing = appInfo.EnableRayTracingSupport;
+		Device::Init(deviceInfo);
 		Renderer::Init(*m_Window);
 		Input::Init(m_Window->GetGLFWwindow());
 	}

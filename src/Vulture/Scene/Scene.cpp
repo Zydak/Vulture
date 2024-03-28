@@ -62,24 +62,6 @@ namespace Vulture
 		return entity;
 	}
 
-	/*
-	* @brief Creates a static sprite entity by combining a StaticTransformComponent and a SpriteComponent.
-	* The StaticTransformComponent is initialized with the provided 'transform', and the SpriteComponent is
-	* initialized with the texture offset obtained from the entity's 'tileOffset' within the texture atlas.
-	* Static sprites are suitable for objects that do not change their position, optimizing
-	* performance by avoiding unnecessary recalculations.
-	*
-	* @param transform The transformation information for the static sprite.
-	* @param tileOffset The offset within the texture atlas to determine the static sprite's texture.
-	*/
-	void Scene::CreateStaticSprite(const Transform& transform, const glm::vec2& tileOffset)
-	{
-		Entity entity = CreateEntity();
-		entity.AddComponent<StaticTransformComponent>(transform);
-		glm::vec2 offset = glm::vec2(0);//m_Atlas->GetTextureOffset(tileOffset);
-		entity.AddComponent<SpriteComponent>(offset);
-	}
-
 	Vulture::Entity Scene::CreateSkybox(const std::string& filepath)
 	{
 		Entity e = CreateEntity();

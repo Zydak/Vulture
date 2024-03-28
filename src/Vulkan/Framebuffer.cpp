@@ -25,7 +25,6 @@ namespace Vulture
 			Destroy();
 
 		m_Extent = createInfo.Extent;
-		m_DepthFormat = createInfo.DepthFormat;
 
 		m_Images.reserve(createInfo.AttachmentsFormats->size());
 		for (int i = 0; i < createInfo.AttachmentsFormats->size(); i++)
@@ -46,7 +45,9 @@ namespace Vulture
 
 			case FramebufferAttachment::ColorR8: CreateColorAttachment(VK_FORMAT_R8_UNORM, createInfo.Type, createInfo.CustomBits); break;
 
-			case FramebufferAttachment::Depth: CreateDepthAttachment(createInfo.Type, createInfo.CustomBits); break;
+			case FramebufferAttachment::Depth32: CreateDepthAttachment(VK_FORMAT_D32_SFLOAT, createInfo.Type, createInfo.CustomBits); break;
+			case FramebufferAttachment::Depth24: CreateDepthAttachment(VK_FORMAT_D24_UNORM_S8_UINT, createInfo.Type, createInfo.CustomBits); break;
+			case FramebufferAttachment::Depth16: CreateDepthAttachment(VK_FORMAT_D16_UNORM, createInfo.Type, createInfo.CustomBits); break;
 			}
 		}
 
@@ -162,10 +163,9 @@ namespace Vulture
 	}
 
 	/**
-	 * @brief Pushes a color attachment for the framebuffer using the specified format, layers, image type, and custom usage flags to m_ColorAttachments.
+	 * @brief Pushes a color attachment for the framebuffer using the specified format, image type, and custom usage flags to m_ColorAttachments.
 	 *
 	 * @param format - The Vulkan format of the color attachment.
-	 * @param layers - The number of layers in the color attachment.
 	 * @param type - The image type of the color attachment.
 	 * @param customBits - Additional custom Vulkan image usage flags.
 	 */
@@ -187,20 +187,20 @@ namespace Vulture
 	}
 
 	/**
-	 * @brief Pushes a depth attachment for the framebuffer using the specified layers, image type, and custom usage flags to m_DepthAttachments.
+	 * @brief Pushes a depth attachment for the framebuffer using the specified format, image type, and custom usage flags to m_DepthAttachments.
 	 *
 	 * @param format - The Vulkan format of the color attachment.
-	 * @param layers - The number of layers in the color attachment.
 	 * @param type - The image type of the color attachment.
 	 * @param customBits - Additional custom Vulkan image usage flags.
 	 */
-	void Framebuffer::CreateDepthAttachment(Image::ImageType type, VkImageUsageFlags customBits)
+	void Framebuffer::CreateDepthAttachment(VkFormat format, Image::ImageType type, VkImageUsageFlags customBits)
 	{
-		customBits &= ~VK_IMAGE_USAGE_STORAGE_BIT; // Don't use storage bit on depth attachments
+		VkFormat depthFormat = Device::FindSupportedFormat({ format, VK_FORMAT_D16_UNORM, VK_FORMAT_D32_SFLOAT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+		//customBits &= ~VK_IMAGE_USAGE_STORAGE_BIT; // Don't use storage bit on depth attachments
 		Image::CreateInfo imageInfo;
 		imageInfo.Width = m_Extent.width;
 		imageInfo.Height = m_Extent.height;
-		imageInfo.Format = m_DepthFormat;
+		imageInfo.Format = depthFormat;
 		imageInfo.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		imageInfo.Usage = customBits | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		imageInfo.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -258,7 +258,7 @@ namespace Vulture
 			description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 			description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-			if (m_AttachmentFormats[i] == FramebufferAttachment::Depth)
+			if (m_AttachmentFormats[i] == FramebufferAttachment::Depth32 || m_AttachmentFormats[i] == FramebufferAttachment::Depth24 || m_AttachmentFormats[i] == FramebufferAttachment::Depth16)
 			{
 				description.finalLayout = useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 				m_FinalLayouts.push_back(useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
@@ -275,7 +275,7 @@ namespace Vulture
 
 			VkAttachmentReference reference = {};
 			reference.attachment = i;
-			if (m_AttachmentFormats[i] == FramebufferAttachment::Depth)
+			if (m_AttachmentFormats[i] == FramebufferAttachment::Depth32 || m_AttachmentFormats[i] == FramebufferAttachment::Depth24 || m_AttachmentFormats[i] == FramebufferAttachment::Depth16)
 			{
 				reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
@@ -325,7 +325,9 @@ namespace Vulture
 
 		case FramebufferAttachment::ColorR8: return VK_FORMAT_R8_UNORM;
 
-		case FramebufferAttachment::Depth: return m_DepthFormat;
+		case FramebufferAttachment::Depth32: return VK_FORMAT_D32_SFLOAT;
+		case FramebufferAttachment::Depth24: return VK_FORMAT_D24_UNORM_S8_UINT;
+		case FramebufferAttachment::Depth16: return VK_FORMAT_D16_UNORM;
 
 		default:
 			VL_CORE_ASSERT(false, "Format not supported");

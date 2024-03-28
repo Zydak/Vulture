@@ -165,17 +165,17 @@ namespace Vulture
 	 */
 	VkExtent2D Swapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
 	{
-		//if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) { return capabilities.currentExtent; }
-		//else
-		//{
-		//	VkExtent2D actualExtent = glfwGetFramebufferSize();
-		//	actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-		//	actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-		//
-		//	return actualExtent;
-		//}
-
-		return m_WindowExtent;
+// 		if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) { return capabilities.currentExtent; }
+// 		else
+// 		{
+// 			VkExtent2D actualExtent = glfwGetFramebufferSize();
+// 			actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+// 			actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+// 
+// 			return actualExtent;
+// 		}
+// 
+ 		return m_WindowExtent;
 	}
 
 	/*

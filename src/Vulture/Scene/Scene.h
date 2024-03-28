@@ -30,7 +30,6 @@ namespace Vulture
 		Entity CreateCamera();
 
 		Entity CreateSprite(const Transform& transform, const glm::vec2& tileOffset);
-		void CreateStaticSprite(const Transform& transform, const glm::vec2& tileOffset);
 
 		Entity CreateSkybox(const std::string& filepath);
 

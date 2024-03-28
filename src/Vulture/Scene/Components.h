@@ -98,15 +98,6 @@ namespace Vulture
 		TransformComponent(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale);
 	};
 
-	class StaticTransformComponent
-	{
-	public:
-		Transform transform;
-
-		StaticTransformComponent(const Transform& transform);
-		StaticTransformComponent(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale);
-	};
-
 	class CameraComponent
 	{
 	public:

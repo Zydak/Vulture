@@ -15,10 +15,7 @@
 namespace Vulture
 {
 	std::vector<const char*> Device::s_ValidationLayers = { "VK_LAYER_KHRONOS_validation" };
-	std::vector<const char*> Device::s_DeviceExtensions =
-	{
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-	};
+	std::vector<const char*> Device::s_DeviceExtensions;
 	std::vector<Extension> Device::s_OptionalExtensions = {
 		{VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME, false},
 		{VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME, false}
@@ -83,29 +80,22 @@ namespace Vulture
 	 * @param window - window object to associate with the Vulkan device.
 	 * @param rayTracingSupport - Flag indicating whether ray tracing support is enabled.
 	 */
-	void Device::Init(Window& window, bool rayTracingSupport)
+	void Device::Init(CreateInfo& createInfo)
 	{
 		VL_CORE_ASSERT(!s_Initialized, "Device is already initialized!");
 
 		// Associate the provided window with the device
-		Device::s_Window = &window;
-		// Set the flag indicating whether ray tracing support is enabled
-		s_RayTracingSupport = rayTracingSupport;
+		Device::s_Window = createInfo.Window;
 
-		// If ray tracing support is enabled, add required device extensions
-		if (s_RayTracingSupport)
+		s_DeviceExtensions = createInfo.DeviceExtensions;
+		for (int i = 0; i < createInfo.OptionalExtensions.size(); i++)
 		{
-			s_DeviceExtensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
-			s_DeviceExtensions.push_back(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME);
+			s_OptionalExtensions.push_back({ createInfo.OptionalExtensions[i], false });
 		}
 
 		// Perform initialization steps
+		s_Features = createInfo.Features;
+		s_UseRayTracing = createInfo.UseRayTracing;
 
 		// Create Vulkan instance
 		CreateInstance();
@@ -444,9 +434,8 @@ namespace Vulture
 		if (s_OptionalExtensions[1].supported) // Assuming s_OptionalExtensions[1] is set to VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME
 			allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
 
-		// Enable buffer device address feature if ray tracing support is enabled
-		if (s_RayTracingSupport)
-			allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+		// Enable buffer device address feature
+		allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
 		// Create the memory allocator
 		vmaCreateAllocator(&allocatorInfo, &s_Allocator);
@@ -671,9 +660,6 @@ namespace Vulture
 	 */
 	void Device::SetObjectName(VkObjectType type, uint64_t handle, const char* name)
 	{
-		// Check if debug or release mode is enabled (not in distribution mode)
-#ifndef DISTRIBUTION
-
 		// Assert that the device has been initialized before setting the object name
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
@@ -685,8 +671,6 @@ namespace Vulture
 
 		// Set the debug name for the Vulkan object
 		Device::vkSetDebugUtilsObjectNameEXT(Device::GetDevice(), &name_info);
-
-#endif
 	}
 
 	/**
@@ -872,100 +856,6 @@ namespace Vulture
 			queueCreateInfo.pQueuePriorities = queuePriorities.data();
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
-
-		// -----------------------------
-		// Initialize feature structures
-		// -----------------------------
-
-		s_Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-
-		VkPhysicalDeviceMemoryPriorityFeaturesEXT memoryPriorityFeatures{};
-		memoryPriorityFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PRIORITY_FEATURES_EXT;
-
-		VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = {};
-		accelerationStructureFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
-
-		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingFeatures = {};
-		rayTracingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
-
-		VkPhysicalDeviceBufferDeviceAddressFeaturesKHR deviceAddressFeatures = {};
-		deviceAddressFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR;
-
-		VkPhysicalDeviceScalarBlockLayoutFeaturesEXT scalarBlockLayoutFeatures = {};
-		scalarBlockLayoutFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT;
-
-		VkPhysicalDeviceShaderClockFeaturesKHR shaderClockFeatures = {};
-		shaderClockFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR;
-
-		VkPhysicalDeviceHostQueryResetFeaturesEXT hostQueryResetFeatures = {};
-		hostQueryResetFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT;
-
-		VkPhysicalDeviceTimelineSemaphoreFeaturesKHR timelineSemaphoreFeatures = {};
-		timelineSemaphoreFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR;
-
-		VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2Features = {};
-		synchronization2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR;
-
-		VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {};
-		indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
-
-		VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = {};
-		rayQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
-
-		VkPhysicalDeviceRobustness2FeaturesEXT robustFeatures = {};
-		robustFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT;
-
-		// ------------------------
-		// Chain feature structures
-		// ------------------------
-
-		s_Features.pNext = &robustFeatures;
-		robustFeatures.pNext = &indexingFeatures;
-
-		indexingFeatures.pNext = &memoryPriorityFeatures;
-
-		if (s_RayTracingSupport)
-		{
-			memoryPriorityFeatures.pNext = &accelerationStructureFeatures;
-			accelerationStructureFeatures.pNext = &rayTracingFeatures;
-			rayTracingFeatures.pNext = &deviceAddressFeatures;
-			deviceAddressFeatures.pNext = &scalarBlockLayoutFeatures;
-			scalarBlockLayoutFeatures.pNext = &shaderClockFeatures;
-			shaderClockFeatures.pNext = &hostQueryResetFeatures;
-			hostQueryResetFeatures.pNext = &timelineSemaphoreFeatures;
-			timelineSemaphoreFeatures.pNext = &synchronization2Features;
-			synchronization2Features.pNext = &rayQueryFeatures;
-			rayQueryFeatures.pNext = nullptr;
-		}
-
-		// Retrieve physical device features
-		vkGetPhysicalDeviceFeatures2(s_PhysicalDevice, &s_Features);
-
-		// Check if required features are supported
-		if (s_RayTracingSupport)
-		{
-			VL_CORE_CHECK(accelerationStructureFeatures.accelerationStructure, "acceleration structures not supported!");
-
-			VL_CORE_CHECK(rayTracingFeatures.rayTracingPipeline, "Ray Tracing Pipeline not supported!");
-
-			VL_CORE_CHECK(deviceAddressFeatures.bufferDeviceAddress, "Device address not supported!");
-
-			VL_CORE_CHECK(scalarBlockLayoutFeatures.scalarBlockLayout, "Scalar block layout not supported!");
-
-			VL_CORE_CHECK(shaderClockFeatures.shaderDeviceClock, "Shader Clock not supported!");
-
-			VL_CORE_CHECK(hostQueryResetFeatures.hostQueryReset, "Host Query not supported!");
-
-			VL_CORE_CHECK(timelineSemaphoreFeatures.timelineSemaphore, "Timeline semaphore not supported!");
-
-			VL_CORE_CHECK(synchronization2Features.synchronization2, "Synchronization2 not supported!");
-
-			VL_CORE_CHECK(indexingFeatures.runtimeDescriptorArray, "Indexing not supported!");
-
-			VL_CORE_CHECK(rayQueryFeatures.rayQuery, "Ray query not supported!");
-		}
-
-		VL_CORE_CHECK(memoryPriorityFeatures.memoryPriority, "memory priority not supported!");
 
 		// Prepare extensions for the device
 		std::vector<const char*> extensions;
@@ -1306,7 +1196,6 @@ namespace Vulture
 	VkExportMemoryAllocateInfo Device::s_ExportMemoryInfo;
 	VkExternalMemoryBufferCreateInfo Device::s_ExternalMemoryBufferInfo;
 	VkExternalMemoryImageCreateInfo Device::s_ExternalMemoryImageInfo;
-	bool Device::s_RayTracingSupport;
 	VkPhysicalDeviceProperties2 Device::s_Properties = {};
 	VkSampleCountFlagBits Device::s_MaxSampleCount;
 	VkPhysicalDeviceFeatures2 Device::s_Features;
@@ -1321,6 +1210,7 @@ namespace Vulture
 	VkQueue Device::s_ComputeQueue = {};
 	VkCommandPool Device::s_GraphicsCommandPool = {};
 	VkCommandPool Device::s_ComputeCommandPool = {};
+	bool Device::s_UseRayTracing;
 	bool Device::s_Initialized = false;
 
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR Device::s_RayTracingProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };

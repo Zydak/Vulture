@@ -107,4 +107,16 @@
 #else
 #define VL_RETURN_ASSERT(function, value, ...) function
 #endif
+
+#ifndef DISTRIBUTION
+
+#define VL_SET_NAME(objectType, handle, name)\
+		Device::SetObjectName(objectType, handle, name);
+
+#else
+
+#define VL_SET_NAME(objectType, handle, name)
+
+#endif
+
 #pragma warning(pop)

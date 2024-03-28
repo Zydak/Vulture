@@ -10,7 +10,10 @@ namespace Vulture
 {
 	enum class FramebufferAttachment
 	{
-		Depth,
+		Depth32,
+		Depth24,
+		Depth16,
+
 		ColorRGBA8,
 		ColorRGBA16,
 		ColorRGB8,
@@ -41,7 +44,6 @@ namespace Vulture
 			const std::vector<FramebufferAttachment>* AttachmentsFormats;
 			VkRenderPass RenderPass = 0;
 			VkExtent2D Extent = { 0, 0 };
-			VkFormat DepthFormat = VK_FORMAT_MAX_ENUM;
 			Image::ImageType Type = Image::ImageType::Image2D;
 			VkImageUsageFlags CustomBits = 0;
 
@@ -49,7 +51,7 @@ namespace Vulture
 
 			operator bool() const
 			{
-				return (!AttachmentsFormats->empty()) && (Extent.width != 0 || Extent.height != 0) && (DepthFormat != VK_FORMAT_MAX_ENUM);
+				return (!AttachmentsFormats->empty()) && (Extent.width != 0 || Extent.height != 0);
 			}
 		};
 
@@ -81,7 +83,7 @@ namespace Vulture
 
 	private:
 		void CreateColorAttachment(VkFormat format, Image::ImageType type, VkImageUsageFlags customBits);
-		void CreateDepthAttachment(Image::ImageType type, VkImageUsageFlags customBits);
+		void CreateDepthAttachment(VkFormat format, Image::ImageType type, VkImageUsageFlags customBits);
 
 		void CreateRenderPass(RenderPassCreateInfo* renderPassCreateInfo);
 
@@ -93,8 +95,6 @@ namespace Vulture
 		std::vector<FramebufferAttachment> m_AttachmentFormats;
 		VkFramebuffer m_FramebufferHandle = VK_NULL_HANDLE;
 		std::vector<Ref<Image>> m_Images;
-
-		VkFormat m_DepthFormat;
 
 		bool m_Initialized = false;
 

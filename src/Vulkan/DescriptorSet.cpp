@@ -36,7 +36,7 @@ namespace Vulture
 				Binding binding{};
 				binding.m_Type = bindings[i].Type;
 				VL_CORE_ASSERT(bindings[i].Type != VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, "");
-				for (int j = 0; j < bindings[i].DescriptorsCount; j++)
+				for (int j = 0; j < (int)bindings[i].DescriptorsCount; j++)
 				{
 					binding.m_ImageInfo.push_back(emptyInfo);
 				}
@@ -51,7 +51,7 @@ namespace Vulture
 
 				Binding binding{};
 				binding.m_Type = bindings[i].Type;
-				for (int j = 0; j < bindings[i].DescriptorsCount; j++)
+				for (int j = 0; j < (int)bindings[i].DescriptorsCount; j++)
 				{
 					binding.m_BufferInfo.push_back(emptyInfo);
 				}
@@ -67,7 +67,7 @@ namespace Vulture
 
 				Binding binding{};
 				binding.m_Type = bindings[i].Type;
-				for (int j = 0; j < bindings[i].DescriptorsCount; j++)
+				for (int j = 0; j < (int)bindings[i].DescriptorsCount; j++)
 				{
 					binding.m_AccelInfo.push_back(emptyInfo);
 				}

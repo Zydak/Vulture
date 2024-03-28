@@ -66,7 +66,7 @@ namespace Vulture
 		VkGraphicsPipelineCreateInfo graphicsPipelineInfo = {};
 
 		graphicsPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		graphicsPipelineInfo.stageCount = 2;
+		graphicsPipelineInfo.stageCount = (uint32_t)shaderStages.size();
 		graphicsPipelineInfo.pStages = shaderStages.data();
 		graphicsPipelineInfo.pVertexInputState = &vertexInputInfo;
 		graphicsPipelineInfo.pInputAssemblyState = &configInfo.InputAssemblyInfo;
@@ -92,7 +92,7 @@ namespace Vulture
 
 		if (info.debugName != "")
 		{
-			Device::SetObjectName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)m_PipelineHandle, info.debugName);
+			VL_SET_NAME(VK_OBJECT_TYPE_PIPELINE, (uint64_t)m_PipelineHandle, info.debugName);
 		}
 
 		m_Initialized = true;

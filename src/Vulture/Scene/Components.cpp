@@ -83,18 +83,6 @@ namespace Vulture
 
 	}
 
-	StaticTransformComponent::StaticTransformComponent(const Transform& transform)
-		: transform(transform)
-	{
-
-	}
-
-	StaticTransformComponent::StaticTransformComponent(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale)
-		: transform({ translation, rotation, scale })
-	{
-
-	}
-
 	void CameraComponent::Reset()
 	{
 		this->Translation = glm::vec3(0.0f);
