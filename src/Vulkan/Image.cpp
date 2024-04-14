@@ -6,7 +6,6 @@
 
 #include <vulkan/vulkan_core.h>
 
-#define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 #include "Vulture/Math/Defines.h"
@@ -51,7 +50,7 @@ namespace Vulture
 		m_Initialized = true;
 	}
 
-	void Image::Init(const std::string& filepath, SamplerInfo samplerInfo /*= { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST }*/)
+	void Image::Init(const std::string& filepath)
 	{
 		if (m_Initialized)
 			Destroy();
@@ -62,7 +61,7 @@ namespace Vulture
 		if (HDR)
 		{
 			m_Format = VK_FORMAT_R32G32B32A32_SFLOAT;
-			CreateHDRImage(filepath, samplerInfo);
+			CreateHDRImage(filepath);
 			return;
 		}
 
@@ -223,14 +222,14 @@ namespace Vulture
 	void Image::Destroy()
 	{
 		m_ImportanceSmplAccel.reset();
-		vkDestroyImageView(Device::GetDevice(), m_ImageView, nullptr);
-		vmaDestroyImage(Device::GetAllocator(), m_ImageHandle, *m_Allocation);
-		delete m_Allocation;
 
-		for (auto view : m_LayersView)
+		for (auto view : m_ImageViews)
 		{
 			vkDestroyImageView(Device::GetDevice(), view, nullptr);
 		}
+
+		vmaDestroyImage(Device::GetAllocator(), m_ImageHandle, *m_Allocation);
+		delete m_Allocation;
 
 		m_Initialized = false;
 	}
@@ -256,11 +255,21 @@ namespace Vulture
 	 * binds the memory to the image, and sets up the image view and sampler.
 	 *
 	 * @param filepath - The file path of the image.
-	 * @param samplerInfo - The sampler information for the image.
 	 */
-	Image::Image(const std::string& filepath, SamplerInfo samplerInfo)
+	Image::Image(const std::string& filepath)
 	{
-		Init(filepath, samplerInfo);
+		Init(filepath);
+	}
+
+	Image::Image(Image&& other)
+	{
+		Move(std::move(other));
+	}
+
+	Image& Image::operator=(Image&& other)
+	{
+		Move(std::move(other));
+		return *this;
 	}
 
 	Image::~Image()
@@ -268,6 +277,40 @@ namespace Vulture
 		if (m_Initialized)
 		{
 			Destroy();
+		}
+	}
+
+	void Image::WritePixels(void* data, VkCommandBuffer cmd)
+	{
+		bool cmdProvided = cmd != 0;
+
+		if (!cmdProvided)
+		{
+			Device::BeginSingleTimeCommands(cmd, Device::GetGraphicsCommandPool());
+		}
+
+		uint64_t pixelSize = (uint64_t)FormatToSize(m_Format);
+		VkDeviceSize imageSize = (uint64_t)m_Size.width * (uint64_t)m_Size.height * pixelSize;
+
+		Buffer buffer = Buffer();
+		Buffer::CreateInfo BufferInfo{};
+		BufferInfo.InstanceSize = imageSize;
+		BufferInfo.InstanceCount = 1;
+		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		buffer.Init(BufferInfo);
+
+		auto res = buffer.Map(imageSize);
+		buffer.WriteToBuffer((void*)data, (uint32_t)imageSize);
+		buffer.Unmap();
+
+		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height, cmd);
+		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		if (!cmdProvided)
+		{
+			Device::EndSingleTimeCommands(cmd, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 		}
 	}
 
@@ -282,43 +325,23 @@ namespace Vulture
 	 */
 	void Image::CreateImageView(VkFormat format, VkImageAspectFlagBits aspect, int layerCount, VkImageViewType imageType)
 	{
+		m_ImageViews.resize(layerCount);
+		for (int i = 0; i < layerCount; i++)
 		{
 			VkImageViewCreateInfo viewInfo{};
 			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 			viewInfo.image = m_ImageHandle;
-			viewInfo.viewType = imageType;
+			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 			viewInfo.format = format;
 			viewInfo.subresourceRange.aspectMask = aspect;
 			viewInfo.subresourceRange.baseMipLevel = 0;
 			viewInfo.subresourceRange.levelCount = m_MipLevels;
-			viewInfo.subresourceRange.baseArrayLayer = 0;
-			viewInfo.subresourceRange.layerCount = layerCount;
-			VL_CORE_RETURN_ASSERT(vkCreateImageView(Device::GetDevice(), &viewInfo, nullptr, &m_ImageView),
-				VK_SUCCESS, 
-				"failed to create image view!"
+			viewInfo.subresourceRange.baseArrayLayer = i;
+			viewInfo.subresourceRange.layerCount = 1;
+			VL_CORE_RETURN_ASSERT(vkCreateImageView(Device::GetDevice(), &viewInfo, nullptr, &m_ImageViews[i]),
+				VK_SUCCESS,
+				"failed to create image view layer!"
 			);
-		}
-
-		if (layerCount > 1)
-		{
-			m_LayersView.resize(layerCount);
-			for (int i = 0; i < layerCount; i++)
-			{
-				VkImageViewCreateInfo viewInfo{};
-				viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-				viewInfo.image = m_ImageHandle;
-				viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-				viewInfo.format = format;
-				viewInfo.subresourceRange.aspectMask = aspect;
-				viewInfo.subresourceRange.baseMipLevel = 0;
-				viewInfo.subresourceRange.levelCount = m_MipLevels;
-				viewInfo.subresourceRange.baseArrayLayer = i;
-				viewInfo.subresourceRange.layerCount = 1;
-				VL_CORE_RETURN_ASSERT(vkCreateImageView(Device::GetDevice(), &viewInfo, nullptr, &m_LayersView[i]),
-					VK_SUCCESS,
-					"failed to create image view layer!"
-				);
-			}
 		}
 	}
 
@@ -347,7 +370,7 @@ namespace Vulture
 		Device::CreateImage(imageCreateInfo, m_ImageHandle, *m_Allocation, createInfo.Properties);
 	}
 
-	void Image::CreateHDRImage(const std::string& filepath, SamplerInfo samplerInfo)
+	void Image::CreateHDRImage(const std::string& filepath)
 	{
 		m_Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		m_MemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -388,8 +411,7 @@ namespace Vulture
 
 		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		bufferInfo.UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		m_ImportanceSmplAccel = std::make_shared<Buffer>();
-		m_ImportanceSmplAccel->Init(bufferInfo);
+		m_ImportanceSmplAccel = std::make_shared<Buffer>(bufferInfo);
 
 		Buffer::CopyBuffer(stagingBuf.GetBuffer(), m_ImportanceSmplAccel->GetBuffer(), stagingBuf.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 
@@ -665,10 +687,14 @@ namespace Vulture
 	 * @param height - The height of the image region to copy.
 	 * @param offset - The offset in the image to copy the data to.
 	 */
-	void Image::CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkOffset3D offset) 
+	void Image::CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkCommandBuffer cmd, VkOffset3D offset)
 	{
-		VkCommandBuffer commandBuffer;
-		Device::BeginSingleTimeCommands(commandBuffer, Device::GetGraphicsCommandPool());
+		bool cmdProvided = cmd != 0;
+
+		if (!cmdProvided)
+		{
+			Device::BeginSingleTimeCommands(cmd, Device::GetGraphicsCommandPool());
+		}
 
 		VkBufferImageCopy region{};
 		region.bufferOffset = 0;
@@ -683,9 +709,12 @@ namespace Vulture
 		region.imageOffset = offset;
 		region.imageExtent = { width, height, 1 };
 
-		vkCmdCopyBufferToImage(commandBuffer, buffer, m_ImageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+		vkCmdCopyBufferToImage(cmd, buffer, m_ImageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-		Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
+		if (!cmdProvided)
+		{
+			Device::EndSingleTimeCommands(cmd, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
+		}
 	}
 
 	/*
@@ -888,4 +917,105 @@ namespace Vulture
 		return sum;
 	}
 
+	void Image::Move(Image&& other)
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Initialized = true;
+		m_MemoryProperties = other.m_MemoryProperties;
+		m_Format = other.m_Format;
+		m_ImportanceSmplAccel = other.m_ImportanceSmplAccel;
+		m_Layout = other.m_Layout;
+		m_Usage = other.m_Usage;
+
+		m_Aspect = other.m_Aspect;
+		m_Tiling = other.m_Tiling;
+		m_LayerCount = other.m_LayerCount;
+		m_Type = other.m_Type;
+
+		m_ImageHandle = std::move(other.m_ImageHandle);
+		m_ImageViews = std::move(other.m_ImageViews); // view for each layer
+		m_Allocation = other.m_Allocation;
+		m_Size = other.m_Size;
+		m_MipLevels = other.m_MipLevels;
+
+		other.m_Initialized = false;
+	}
+
+	uint32_t Image::FormatToSize(VkFormat format)
+	{
+		switch (format)
+		{
+		case VK_FORMAT_R8_UNORM:
+			return 1 * 1;
+			break;
+		case VK_FORMAT_R8_SRGB:
+			return 1 * 1;
+			break;
+		case VK_FORMAT_R8G8_UNORM:
+			return 2 * 1;
+			break;
+		case VK_FORMAT_R8G8_SRGB:
+			return 2 * 1;
+			break;
+		case VK_FORMAT_R8G8B8_UNORM:
+			return 3 * 1;
+			break;
+		case VK_FORMAT_R8G8B8_SRGB:
+			return 3 * 1;
+			break;
+		case VK_FORMAT_B8G8R8_UNORM:
+			return 3 * 1;
+			break;
+		case VK_FORMAT_R8G8B8A8_UNORM:
+			return 4 * 1;
+			break;
+		case VK_FORMAT_R8G8B8A8_SRGB:
+			return 4 * 1;
+			break;
+		case VK_FORMAT_B8G8R8A8_SRGB:
+			return 4 * 1;
+			break;
+		case VK_FORMAT_R16_UNORM:
+			return 1 * 2;
+			break;
+		case VK_FORMAT_R16_SFLOAT:
+			return 1 * 2;
+			break;
+		case VK_FORMAT_R16G16_UNORM:
+			return 2 * 2;
+			break;
+		case VK_FORMAT_R16G16_SFLOAT:
+			return 2 * 2;
+			break;
+		case VK_FORMAT_R16G16B16_UNORM:
+			return 3 * 2;
+			break;
+		case VK_FORMAT_R16G16B16_SFLOAT:
+			return 3 * 2;
+			break;
+		case VK_FORMAT_R16G16B16A16_UNORM:
+			return 4 * 2;
+			break;
+		case VK_FORMAT_R16G16B16A16_SFLOAT:
+			return 4 * 2;
+			break;
+		case VK_FORMAT_R32_SFLOAT:
+			return 1 * 4;
+			break;
+		case VK_FORMAT_R32G32_SFLOAT:
+			return 2 * 4;
+			break;
+		case VK_FORMAT_R32G32B32_SFLOAT:
+			return 3 * 4;
+			break;
+		case VK_FORMAT_R32G32B32A32_SFLOAT:
+			return 4 * 4;
+			break;
+		default:
+			VL_CORE_ASSERT(false, "Unsupported format! Format: {}", format);
+			break;
+		}
+	}
 }

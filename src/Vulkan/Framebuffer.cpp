@@ -265,8 +265,8 @@ namespace Vulture
 			}
 			else
 			{
-				description.finalLayout = useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				m_FinalLayouts.push_back(useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+				description.finalLayout = useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				m_FinalLayouts.push_back(useFinalLayouts ? renderPassCreateInfo->FinalLayouts[i] : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 			}
 
 			descriptions.push_back(description);

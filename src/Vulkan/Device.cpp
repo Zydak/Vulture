@@ -138,10 +138,13 @@ namespace Vulture
 		// Destroy memory allocator
 		vmaDestroyAllocator(s_Allocator);
 
-		// Destroy graphics command pool
-		vkDestroyCommandPool(s_Device, s_GraphicsCommandPool, nullptr);
-		// Destroy compute command pool
-		vkDestroyCommandPool(s_Device, s_ComputeCommandPool, nullptr);
+		for (auto& pool : s_CommandPools)
+		{
+			// Destroy graphics command pool
+			vkDestroyCommandPool(s_Device, pool.second.GraphicsCommandPool, nullptr);
+			// Destroy compute command pool
+			vkDestroyCommandPool(s_Device, pool.second.ComputeCommandPool, nullptr);
+		}
 		// Destroy Vulkan device
 		vkDestroyDevice(s_Device, nullptr);
 
@@ -744,6 +747,11 @@ namespace Vulture
 #endif
 	}
 
+	void Device::CreateCommandPoolForThread()
+	{
+		CreateCommandPools();
+	}
+
 	/**
 	 * @brief Evaluates the suitability of a physical device for use in the application based on several criteria:
 	 * 1. Availability of required queue families (graphics, compute, etc.).
@@ -1049,6 +1057,8 @@ namespace Vulture
 		// Find queue family indices for graphics and compute queues
 		QueueFamilyIndices queueFamilyIndices = FindPhysicalQueueFamilies();
 
+		s_CommandPools[std::this_thread::get_id()] = CommandPool{};
+
 		// Create command pool for graphics queue
 		{
 			VkCommandPoolCreateInfo poolInfo = {};
@@ -1056,7 +1066,7 @@ namespace Vulture
 			poolInfo.queueFamilyIndex = queueFamilyIndices.GraphicsFamily;
 			poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-			VL_CORE_RETURN_ASSERT(vkCreateCommandPool(s_Device, &poolInfo, nullptr, &s_GraphicsCommandPool),
+			VL_CORE_RETURN_ASSERT(vkCreateCommandPool(s_Device, &poolInfo, nullptr, &GetGraphicsCommandPool()),
 				VK_SUCCESS,
 				"failed to create graphics command pool!"
 			);
@@ -1069,7 +1079,7 @@ namespace Vulture
 			poolInfo.queueFamilyIndex = queueFamilyIndices.ComputeFamily;
 			poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-			VL_CORE_RETURN_ASSERT(vkCreateCommandPool(s_Device, &poolInfo, nullptr, &s_ComputeCommandPool),
+			VL_CORE_RETURN_ASSERT(vkCreateCommandPool(s_Device, &poolInfo, nullptr, &GetComputeCommandPool()),
 				VK_SUCCESS,
 				"failed to create compute command pool!"
 			);
@@ -1143,7 +1153,6 @@ namespace Vulture
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		allocInfo.commandPool = pool;
 		allocInfo.commandBufferCount = 1;
-
 		vkAllocateCommandBuffers(s_Device, &allocInfo, &buffer);
 
 		// Begin recording commands into the allocated command buffer
@@ -1167,6 +1176,16 @@ namespace Vulture
 	{
 		// Ensure that the device is initialized
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
+
+		std::mutex* queueMutex;
+		if (queue == s_GraphicsQueue)
+			queueMutex = &s_GraphicsQueueMutex;
+		else if (queue == s_ComputeQueue)
+			queueMutex = &s_ComputeQueueMutex;
+		else
+			VL_CORE_ASSERT(false, "?????");
+
+		std::unique_lock<std::mutex> queueLock(*queueMutex);
 
 		// End recording of commands in the command buffer
 		vkEndCommandBuffer(commandBuffer);
@@ -1206,10 +1225,11 @@ namespace Vulture
 	VkSurfaceKHR Device::s_Surface = {};
 	Window* Device::s_Window = {};
 	VkQueue Device::s_GraphicsQueue = {};
+	std::mutex Device::s_GraphicsQueueMutex;
 	VkQueue Device::s_PresentQueue = {};
+	std::unordered_map<std::thread::id, Vulture::CommandPool> Device::s_CommandPools;
 	VkQueue Device::s_ComputeQueue = {};
-	VkCommandPool Device::s_GraphicsCommandPool = {};
-	VkCommandPool Device::s_ComputeCommandPool = {};
+	std::mutex Device::s_ComputeQueueMutex;
 	bool Device::s_UseRayTracing;
 	bool Device::s_Initialized = false;
 

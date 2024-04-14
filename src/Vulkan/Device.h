@@ -36,6 +36,12 @@ namespace Vulture
 		bool supported = false;
 	};
 
+	struct CommandPool
+	{
+		VkCommandPool GraphicsCommandPool;
+		VkCommandPool ComputeCommandPool;
+	};
+
 	class Device
 	{
 	public:
@@ -65,8 +71,8 @@ namespace Vulture
 		static inline SwapchainSupportDetails GetSwapchainSupport() { return QuerySwapchainSupport(s_PhysicalDevice); }
 		static inline VkSurfaceKHR GetSurface() { return s_Surface; }
 		static inline QueueFamilyIndices FindPhysicalQueueFamilies() { return FindQueueFamilies(s_PhysicalDevice); }
-		static inline VkCommandPool GetGraphicsCommandPool() { return s_GraphicsCommandPool; }
-		static inline VkCommandPool GetComputeCommandPool() { return s_ComputeCommandPool; }
+		static inline VkCommandPool& GetGraphicsCommandPool() { return s_CommandPools[std::this_thread::get_id()].GraphicsCommandPool; }
+		static inline VkCommandPool& GetComputeCommandPool() { return s_CommandPools[std::this_thread::get_id()].ComputeCommandPool; }
 		static inline VkQueue GetGraphicsQueue() { return s_GraphicsQueue; }
 		static inline VkQueue GetPresentQueue() { return s_PresentQueue; }
 		static inline VkQueue GetComputeQueue() { return s_ComputeQueue; }
@@ -91,6 +97,11 @@ namespace Vulture
 		static void BeginLabel(VkCommandBuffer cmd, const char* name, glm::vec4 color);
 		static void EndLabel(VkCommandBuffer cmd);
 		static void InsertLabel(VkCommandBuffer cmd, const char* name, glm::vec4 color);
+
+		static void CreateCommandPoolForThread();
+
+		inline static std::mutex& GetGraphicsQueueMutex() { return s_GraphicsQueueMutex; };
+		inline static std::mutex& GetComputeQueueMutex() { return s_ComputeQueueMutex; };
 
 		//TODO description
 		template <class integral>
@@ -145,11 +156,13 @@ namespace Vulture
 		static Window* s_Window;
 
 		static VkQueue s_GraphicsQueue;
-		static VkQueue s_PresentQueue;
+		static std::mutex s_GraphicsQueueMutex;
 		static VkQueue s_ComputeQueue;
+		static std::mutex s_ComputeQueueMutex;
 
-		static VkCommandPool s_GraphicsCommandPool;
-		static VkCommandPool s_ComputeCommandPool;
+		static VkQueue s_PresentQueue;
+
+		static std::unordered_map<std::thread::id, CommandPool> s_CommandPools;
 
 		static bool s_UseRayTracing;
 		static std::vector<const char*> s_ValidationLayers;

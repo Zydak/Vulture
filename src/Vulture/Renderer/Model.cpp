@@ -4,7 +4,7 @@
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
-#include "AssetManager.h"
+#include "AssetManagerOld.h"
 #include "Renderer/Renderer.h"
 
 namespace Vulture
@@ -57,6 +57,17 @@ namespace Vulture
 			Destroy();
 
 		Init(filepath);
+	}
+
+	Model::Model(Model&& other)
+	{
+		Move(std::move(other));
+	}
+
+	Model& Model::operator=(Model&& other)
+	{
+		Move(std::move(other));
+		return *this;
 	}
 
 	Model::~Model()
@@ -126,7 +137,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE, i, &str);
-				m_AlbedoTextures.push_back(AssetManager::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_AlbedoTextures.push_back(AssetManagerOld::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -134,7 +145,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_NORMALS, i, &str);
-				m_NormalTextures.push_back(AssetManager::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_NormalTextures.push_back(AssetManagerOld::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -142,7 +153,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, i, &str);
-				m_RoughnessTextures.push_back(AssetManager::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_RoughnessTextures.push_back(AssetManagerOld::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -150,7 +161,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_METALNESS, i, &str);
-				m_MetallnessTextures.push_back(AssetManager::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_MetallnessTextures.push_back(AssetManagerOld::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -167,20 +178,20 @@ namespace Vulture
 			// Create Empty Texture if none are found
 			if (material->GetTextureCount(aiTextureType_DIFFUSE) == 0)
 			{
-				m_AlbedoTextures.push_back(AssetManager::CreateTexture(glm::vec4(1.0f), info));
+				m_AlbedoTextures.push_back(AssetManagerOld::CreateTexture(glm::vec4(1.0f), info));
 			}
 			if (material->GetTextureCount(aiTextureType_NORMALS) == 0)
 			{
-				m_NormalTextures.push_back(AssetManager::CreateTexture(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f), info));
+				m_NormalTextures.push_back(AssetManagerOld::CreateTexture(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f), info));
 			}
 			info.Format = VK_FORMAT_R8_UNORM;
 			if (material->GetTextureCount(aiTextureType_METALNESS) == 0)
 			{
-				m_MetallnessTextures.push_back(AssetManager::CreateTexture(glm::vec4(1.0f), info));
+				m_MetallnessTextures.push_back(AssetManagerOld::CreateTexture(glm::vec4(1.0f), info));
 			}
 			if (material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS) == 0)
 			{
-				m_RoughnessTextures.push_back(AssetManager::CreateTexture(glm::vec4(1.0f), info));
+				m_RoughnessTextures.push_back(AssetManagerOld::CreateTexture(glm::vec4(1.0f), info));
 			}
 
 			m_Materials[index].Color = glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, albedoColor.a);
@@ -238,4 +249,27 @@ namespace Vulture
 
 		m_TextureSets[index]->Build();
 	}
+
+	void Model::Move(Model&& other)
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Initialized = true;
+		m_MeshesNames = std::move(other.m_MeshesNames);
+		m_Meshes = std::move(other.m_Meshes);
+		m_Materials = std::move(other.m_Materials);
+		m_AlbedoTextures = std::move(other.m_AlbedoTextures);
+		m_NormalTextures = std::move(other.m_NormalTextures);
+		m_RoughnessTextures = std::move(other.m_RoughnessTextures);
+		m_MetallnessTextures = std::move(other.m_MetallnessTextures);
+
+		m_TextureSets = std::move(other.m_TextureSets);
+
+		m_VertexCount = other.m_VertexCount;
+		m_IndexCount = other.m_IndexCount;
+
+		other.m_Initialized = false;
+	}
+
 }

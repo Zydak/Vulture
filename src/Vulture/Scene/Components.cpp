@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Components.h"
 #include "Renderer/Renderer.h"
-#include "Renderer/AssetManager.h"
+#include "Renderer/AssetManagerOld.h"
 
 namespace Vulture
 {
@@ -25,7 +25,7 @@ namespace Vulture
 		// 
 		// Renderer::EnvMapToCubemapPass(tempImage, SkyboxImage);
 
-		SkyboxImage = AssetManager::LoadTexture(filepath);
+		SkyboxImage = AssetManagerOld::LoadTexture(filepath);
 	}
 
 	void ScriptComponent::InitializeScripts()
@@ -189,7 +189,7 @@ namespace Vulture
 
 	ModelComponent::ModelComponent(const std::string filepath)
 	{
-		Model = Vulture::AssetManager::LoadModel(filepath);
+		Model = Vulture::AssetManagerOld::LoadModel(filepath);
 	}
 
 }

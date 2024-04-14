@@ -28,7 +28,13 @@ namespace Vulture
 		void Destroy();
 
 		Model() = default;
-		Model(const std::string& filepath);
+		explicit Model(const std::string& filepath);
+		explicit Model(const Model& other) = delete;
+		explicit Model(Model&& other);
+
+		Model& operator=(const Model& other) = delete;
+		Model& operator=(Model&& other);
+
 		~Model();
 
 		void Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance = 0, VkPipelineLayout layout = 0);
@@ -76,6 +82,8 @@ namespace Vulture
 		uint32_t m_IndexCount = 0;
 
 		bool m_Initialized = false;
+
+		void Move(Model&& other);
 	};
 
 }

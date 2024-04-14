@@ -2,7 +2,7 @@
 #include "Renderer.h"
 #include "Scene/Scene.h"
 #include "Scene/Components.h"
-#include "AssetManager.h"
+#include "AssetManagerOld.h"
 
 #include "lodepng.h"
 

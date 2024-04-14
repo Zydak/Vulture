@@ -434,6 +434,7 @@ namespace Vulture
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = &signalSemaphores;
 
+		std::unique_lock<std::mutex> lock(Device::GetGraphicsQueueMutex());
 		vkResetFences(Device::GetDevice(), 1, &m_InFlightFences[m_CurrentFrame]);
 		VL_CORE_RETURN_ASSERT(vkQueueSubmit(Device::GetGraphicsQueue(), 1, &submitInfo, m_InFlightFences[m_CurrentFrame]),
 			VK_SUCCESS,

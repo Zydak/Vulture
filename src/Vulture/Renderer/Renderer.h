@@ -76,6 +76,7 @@ namespace Vulture
 		static uint32_t s_CurrentImageIndex;
 		static uint32_t s_CurrentFrameIndex;
 
+		// TODO: delete this from here
 		static Scene* s_CurrentSceneRendered;
 
 		static bool s_IsInitialized;

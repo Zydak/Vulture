@@ -33,6 +33,8 @@ namespace Vulture
 			int LayerCount = 1;
 			ImageType Type = ImageType::Image2D;
 
+			void* Data = nullptr;
+
 			const char* DebugName = "";
 
 			operator bool() const
@@ -46,26 +48,32 @@ namespace Vulture
 		};
 
 		void Init(const CreateInfo& createInfo);
-		void Init(const std::string& filepath, SamplerInfo samplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR });
+		void Init(const std::string& filepath);
 		void Init(const glm::vec4& color, const CreateInfo& createInfo);
 		void Destroy();
 		Image() = default;
-		Image(const CreateInfo& createInfo);
-		Image(const std::string& filepath, SamplerInfo samplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR });
-		Image(const glm::vec4& color, const CreateInfo& createInfo);
+		explicit Image(const CreateInfo& createInfo);
+		explicit Image(const std::string& filepath);
+		explicit Image(const glm::vec4& color, const CreateInfo& createInfo);
+
+		explicit Image(const Image& other) = delete;
+		Image& operator=(const Image& other) = delete;
+		explicit Image(Image&& other);
+		Image& operator=(Image&& other);
+
 		~Image();
 		void TransitionImageLayout(const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer = 0, VkAccessFlags srcAccess = 0, VkAccessFlags dstAccess = 0, VkPipelineStageFlags srcStage = 0, VkPipelineStageFlags dstStage = 0, VkImageSubresourceRange subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 		static void TransitionImageLayout(const VkImage& image, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkCommandBuffer cmdBuffer = 0, const VkImageSubresourceRange& subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-		void CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkOffset3D offset = {0, 0, 0});
+		void CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkCommandBuffer cmd = 0, VkOffset3D offset = {0, 0, 0});
 		void CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkImageLayout layout, VkCommandBuffer cmd, VkOffset3D srcOffset = { 0, 0, 0 }, VkOffset3D dstOffset = {0, 0, 0});
 
+		void WritePixels(void* data, VkCommandBuffer cmd = 0);
 	public:
 
 		inline VkImage GetImage() const { return m_ImageHandle; }
-		inline VkImageView GetImageView() const { return m_ImageView; }
+		inline VkImageView GetImageView(int layer = 0) const { return m_ImageViews[layer]; }
 		inline VmaAllocationInfo GetAllocationInfo() const { VmaAllocationInfo info{}; vmaGetAllocationInfo(Device::GetAllocator(), *m_Allocation, &info); return info; }
 		inline VkExtent2D GetImageSize() const { return m_Size; }
-		inline VkImageView GetLayerView(int layer) const { return m_LayersView[layer]; }
 		inline VkImageUsageFlags GetUsageFlags() const { return m_Usage; }
 		inline VkMemoryPropertyFlags GetMemoryProperties() const { return m_MemoryProperties; }
 		inline VkImageLayout GetLayout() const { return m_Layout; }
@@ -73,18 +81,14 @@ namespace Vulture
 		inline Ref<Buffer> GetAccelBuffer() { return m_ImportanceSmplAccel; }
 
 	private:
+		uint32_t FormatToSize(VkFormat format);
 		void CreateImageView(VkFormat format, VkImageAspectFlagBits aspect, int layerCount = 1, VkImageViewType imageType = VK_IMAGE_VIEW_TYPE_2D);
 		void CreateImage(const CreateInfo& createInfo);
 		void GenerateMipmaps();
 		
 		float GetLuminance(glm::vec3 color);
 
-		enum class EnvMethod
-		{
-			InverseTransformSampling,
-			ImportanceSampling
-		};
-		void CreateHDRImage(const std::string& filepath, SamplerInfo samplerInfo);
+		void CreateHDRImage(const std::string& filepath);
 		struct EnvAccel
 		{
 			uint32_t Alias;
@@ -102,8 +106,7 @@ namespace Vulture
 		ImageType m_Type = ImageType::Image2D;
 
 		VkImage m_ImageHandle;
-		VkImageView m_ImageView;
-		std::vector<VkImageView> m_LayersView; // only for layered images
+		std::vector<VkImageView> m_ImageViews; // view for each layer
 		VmaAllocation* m_Allocation;
 		VkExtent2D m_Size;
 		uint32_t m_MipLevels = 1;
@@ -117,6 +120,8 @@ namespace Vulture
 
 		// HDR only
 		Ref<Buffer> m_ImportanceSmplAccel;
+
+		void Move(Image&& other);
 	};
 
 }

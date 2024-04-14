@@ -1,6 +1,6 @@
 #include "pch.h"
 
-#include "AssetManager.h"
+#include "AssetManagerOld.h"
 #include "Vulkan/Swapchain.h"
 #include <string>
 #include <unordered_map>
@@ -13,7 +13,7 @@ namespace Vulture
 	static std::mt19937_64 s_Engine(s_RandomDevice());
 	static std::uniform_int_distribution<uint64_t> s_Distribution;
 
-	void AssetManager::Destroy()
+	void AssetManagerOld::Destroy()
 	{
 		for (auto& image : s_Textures)
 		{
@@ -29,7 +29,7 @@ namespace Vulture
 		s_DestroyQueue.clear();
 	}
 
-	Ref<Image> AssetManager::LoadTexture(const std::string& filepath)
+	Ref<Image> AssetManagerOld::LoadTexture(const std::string& filepath)
 	{
 		uint64_t hash = std::hash<std::string>{}(filepath);
 		if (s_Textures.find(hash) != s_Textures.end())
@@ -48,7 +48,7 @@ namespace Vulture
 		}
 	}
 
-	Ref<Image> AssetManager::CreateTexture(const glm::vec4& color, const Image::CreateInfo& info)
+	Ref<Image> AssetManagerOld::CreateTexture(const glm::vec4& color, const Image::CreateInfo& info)
 	{
 		uint64_t uuid = s_Distribution(s_Engine);
 
@@ -57,7 +57,7 @@ namespace Vulture
 		return image;
 	}
 
-	Ref<Image> AssetManager::CreateTexture(const Image::CreateInfo& info)
+	Ref<Image> AssetManagerOld::CreateTexture(const Image::CreateInfo& info)
 	{
 		uint64_t uuid = s_Distribution(s_Engine);
 
@@ -66,7 +66,7 @@ namespace Vulture
 		return image;
 	}
 
-	Ref<Model> AssetManager::LoadModel(const std::string& filepath)
+	Ref<Model> AssetManagerOld::LoadModel(const std::string& filepath)
 	{
 		uint64_t hash = std::hash<std::string>{}(filepath);
 		if (s_Models.find(hash) != s_Models.end())
@@ -85,7 +85,7 @@ namespace Vulture
 		}
 	}
 
-	void AssetManager::ProgressDestroyQueue()
+	void AssetManagerOld::ProgressDestroyQueue()
 	{
 		for (int i = 0; i < s_DestroyQueue.size(); i++)
 		{
@@ -97,7 +97,7 @@ namespace Vulture
 		}
 	}
 
-	void AssetManager::Cleanup()
+	void AssetManagerOld::Cleanup()
 	{
 		int i = 0;
 		for (auto image : s_Textures)
@@ -105,7 +105,7 @@ namespace Vulture
 			i++;
 			if (image.second.use_count() == 1)
 			{
-				AssetManager::Resource res;
+				AssetManagerOld::Resource res;
 				res.FramesToDelete = MAX_FRAMES_IN_FLIGHT;
 				res.ImagePtr = image.second;
 				s_DestroyQueue.push_back(res);
@@ -118,7 +118,7 @@ namespace Vulture
 		{
 			if (model.second.use_count() == 1)
 			{
-				AssetManager::Resource res;
+				AssetManagerOld::Resource res;
 				res.FramesToDelete = MAX_FRAMES_IN_FLIGHT;
 				res.ModelPtr = model.second;
 				s_DestroyQueue.push_back(res);
@@ -128,9 +128,9 @@ namespace Vulture
 		}
 	}
 
-	std::unordered_map<uint64_t, Ref<Image>> AssetManager::s_Textures;
-	std::unordered_map<uint64_t, Ref<Model>> AssetManager::s_Models;
+	std::unordered_map<uint64_t, Ref<Image>> AssetManagerOld::s_Textures;
+	std::unordered_map<uint64_t, Ref<Model>> AssetManagerOld::s_Models;
 
-	std::vector<AssetManager::Resource> AssetManager::s_DestroyQueue;
+	std::vector<AssetManagerOld::Resource> AssetManagerOld::s_DestroyQueue;
 
 }

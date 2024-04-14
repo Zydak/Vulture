@@ -27,5 +27,7 @@
 #include "Vulture/src/Vulture/Effects/Effect.h"
 #include "Vulture/src/Vulture/Math/Math.h"
 
+#include "Vulture/src/Vulture/Asset/AssetManager.h"
+
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>

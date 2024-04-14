@@ -6,11 +6,11 @@
 
 namespace Vulture
 {
-	class AssetManager
+	class AssetManagerOld
 	{
 	public:
-		AssetManager() = delete;
-		AssetManager(const AssetManager&) = delete;
+		AssetManagerOld() = delete;
+		AssetManagerOld(const AssetManagerOld&) = delete;
 
 		static void Destroy();
 
