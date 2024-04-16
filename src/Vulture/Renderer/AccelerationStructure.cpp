@@ -315,7 +315,7 @@ namespace Vulture
 		{
 			const auto& [modelComponent, transformComponent] = view.get<ModelComponent, TransformComponent>(entity);
 
-			for (int i = 0; i < (int)modelComponent.Model->GetMeshCount(); i++)
+			for (int i = 0; i < (int)modelComponent.ModelHandle.GetModel()->GetMeshCount(); i++)
 			{
 				VkAccelerationStructureInstanceKHR instance{};
 				instance.transform = transformComponent.transform.GetKhrMat();
@@ -386,9 +386,9 @@ namespace Vulture
 		{
 			const ModelComponent& modelComponent = view.get<ModelComponent>(entity);
 
-			for (int i = 0; i < (int)modelComponent.Model->GetMeshCount(); i++)
+			for (int i = 0; i < (int)modelComponent.ModelHandle.GetModel()->GetMeshCount(); i++)
 			{
-				BlasInput blas = MeshToGeometry(modelComponent.Model->GetMesh(i));
+				BlasInput blas = MeshToGeometry(modelComponent.ModelHandle.GetModel()->GetMesh(i));
 
 				blases.emplace_back(blas);
 			}

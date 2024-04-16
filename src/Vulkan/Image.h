@@ -34,6 +34,7 @@ namespace Vulture
 			ImageType Type = ImageType::Image2D;
 
 			void* Data = nullptr;
+			bool HDR = false;
 
 			const char* DebugName = "";
 
@@ -48,13 +49,9 @@ namespace Vulture
 		};
 
 		void Init(const CreateInfo& createInfo);
-		void Init(const std::string& filepath);
-		void Init(const glm::vec4& color, const CreateInfo& createInfo);
 		void Destroy();
 		Image() = default;
 		explicit Image(const CreateInfo& createInfo);
-		explicit Image(const std::string& filepath);
-		explicit Image(const glm::vec4& color, const CreateInfo& createInfo);
 
 		explicit Image(const Image& other) = delete;
 		Image& operator=(const Image& other) = delete;
@@ -88,14 +85,14 @@ namespace Vulture
 		
 		float GetLuminance(glm::vec3 color);
 
-		void CreateHDRImage(const std::string& filepath);
+		void CreateHDRSamplingBuffer(void* pixels);
 		struct EnvAccel
 		{
 			uint32_t Alias;
 			float Importance;
 		}; 
 		
-		std::vector<EnvAccel> CreateEnvAccel(float*& pixels, uint32_t width, uint32_t height, float& average, float& integral);
+		std::vector<EnvAccel> CreateEnvAccel(float* pixels, uint32_t width, uint32_t height, float& average, float& integral);
 		float BuildAliasMap(const std::vector<float>& data, std::vector<EnvAccel>& accel);
 
 

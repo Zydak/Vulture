@@ -13,15 +13,16 @@ namespace Vulture
 	class AccelerationStructure;
 	class CameraComponent;
 	class SkyboxComponent;
+	class AssetManager;
 
 	class Scene
 	{
 	public:
-		void Init(Ref<Window> window);
+		void Init(Ref<Window> window, AssetManager* manager);
 		void Destroy();
 
 		Scene() = default;
-		Scene(Ref<Window> window);
+		Scene(Ref<Window> window, AssetManager* manager);
 		~Scene();
 
 		// TODO add more creates, like skybox for example just don't use CreateEntity for everything
@@ -61,28 +62,17 @@ namespace Vulture
 		Ref<Window> GetWindow() const { return m_Window; }
 		CameraComponent* GetMainCamera(Entity* entity = nullptr);
 
-		inline uint32_t GetMeshCount() const { return m_MeshCount; }
 		inline uint32_t GetModelCount() const { return m_ModelCount; }
-		inline void ResetMeshCount() { m_MeshCount = 0; }
 		inline void ResetModelCount() { m_ModelCount = 0; }
 
-		inline uint32_t GetVertexCount() const { return m_VertexCount; }
-		inline uint32_t GetIndexCount() const { return m_IndexCount; }
-		inline void ResetVertexCount() { m_VertexCount = 0; }
-		inline void ResetIndexCount() { m_IndexCount = 0; }
-
 	private:
+		AssetManager* m_AssetManager;
 		Ref<AccelerationStructure> m_AccelerationStructure = nullptr;
 		Ref<Window> m_Window;
 		Ref<entt::registry> m_Registry;
 		std::vector<SystemInterface*> m_Systems;
 		std::unordered_map<std::string, Ref<FontAtlas>> m_FontAtlases;
-		uint32_t m_MeshCount = 0;
 		uint32_t m_ModelCount = 0;
-
-		// Just for fun
-		uint32_t m_VertexCount = 0;
-		uint32_t m_IndexCount = 0;
 
 		bool m_Initialized = false;
 	};

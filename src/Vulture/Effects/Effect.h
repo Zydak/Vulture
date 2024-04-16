@@ -16,10 +16,10 @@ namespace Vulture
 		{
 			std::string ShaderPath;
 
-			std::vector<Ref<Image>> InputImages;
-			std::vector<Ref<Image>> OutputImages;
+			std::vector<Image*> InputImages;
+			std::vector<Image*> OutputImages;
 
-			std::vector<Ref<Image>> AdditionalTextures;
+			std::vector<Image*> AdditionalTextures;
 
 			std::vector<std::string> Defines;
 
@@ -191,9 +191,9 @@ namespace Vulture
 		std::string m_ShaderPath;
 		std::vector<Vulture::DescriptorSetLayout::Binding> m_Bindings;
 
-		std::vector<Ref<Image>> m_InputImages;
-		std::vector<Ref<Image>> m_OutputImages;
-		std::vector<Ref<Image>> m_AdditionalImages;
+		std::vector<Image*> m_InputImages;
+		std::vector<Image*> m_OutputImages;
+		std::vector<Image*> m_AdditionalImages;
 		VkExtent2D m_ImageSize;
 		std::string m_DebugName;
 

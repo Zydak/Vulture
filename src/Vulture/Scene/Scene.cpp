@@ -2,17 +2,19 @@
 #include "Scene.h"
 #include "Entity.h"
 #include "Components.h"
+#include "Asset/AssetManager.h"
 
 #include "../Renderer/AccelerationStructure.h"
 
 namespace Vulture
 {
 
-	void Scene::Init(Ref<Window> window)
+	void Scene::Init(Ref<Window> window, AssetManager* manager)
 	{
 		if (m_Initialized)
 			Destroy();
 
+		m_AssetManager = manager;
 		m_Registry = std::make_shared<entt::registry>();
 		m_Window = window;
 		m_Initialized = true;
@@ -27,9 +29,9 @@ namespace Vulture
 		m_Initialized = false;
 	}
 
-	Scene::Scene(Ref<Window> window)
+	Scene::Scene(Ref<Window> window, AssetManager* manager)
 	{
-		Init(window);
+		Init(window, manager);
 	}
 
 	Scene::~Scene()
@@ -65,20 +67,18 @@ namespace Vulture
 	Vulture::Entity Scene::CreateSkybox(const std::string& filepath)
 	{
 		Entity e = CreateEntity();
-		e.AddComponent<SkyboxComponent>(filepath);
+		AssetHandle handle = m_AssetManager->LoadAsset(filepath);
+		e.AddComponent<SkyboxComponent>(handle);
 		return e;
 	}
 
 	Vulture::Entity Scene::CreateModel(std::string filepath, Transform transform)
 	{
 		auto entity = CreateEntity();
-		auto& mesh = entity.AddComponent<ModelComponent>(filepath);
+		AssetHandle handle = m_AssetManager->LoadAsset(filepath);
+		entity.AddComponent<ModelComponent>(handle);
 		m_ModelCount++;
-		m_MeshCount += mesh.Model->GetMeshCount();
-		m_VertexCount += mesh.Model->GetVertexCount();
-		m_IndexCount += mesh.Model->GetIndexCount();
 
-		VL_CORE_INFO("Loaded model: {0} with {1} vertices", filepath, mesh.Model->GetVertexCount());
 		auto& transformComp = entity.AddComponent<TransformComponent>(transform);
 		return entity;
 	}

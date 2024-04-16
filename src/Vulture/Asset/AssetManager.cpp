@@ -55,43 +55,41 @@ namespace Vulture
 		m_Initialized = false;
 	}
 
-	Ref<Asset> AssetManager::GetAsset(const AssetHandle& handle)
+	Asset* AssetManager::GetAsset(const AssetHandle& handle)
 	{
 		auto iter = m_Assets.find(handle);
 		VL_CORE_ASSERT(iter != m_Assets.end(), "There is no such handle!");
 
-		return iter->second.get();
+		return iter->second.Asset.get();
 	}
 
 	bool AssetManager::IsAssetValid(const AssetHandle& handle) const
 	{
 		auto iter = m_Assets.find(handle);
 		VL_CORE_ASSERT(iter != m_Assets.end(), "There is no such handle!");
-		const std::shared_future<Ref<Asset>>& future = iter->second;
 
-		return future.get()->m_Valid;
+		return iter->second.Asset->IsValid();
 	}
 
 	void AssetManager::WaitToLoad(const AssetHandle& handle) const
 	{
 		auto iter = m_Assets.find(handle);
 		VL_CORE_ASSERT(iter != m_Assets.end(), "There is no such handle!");
-		const std::shared_future<Ref<Asset>>& future = iter->second;
 
-		future.wait();
+		iter->second.Future.wait();
 	}
 
 	bool AssetManager::IsAssetLoaded(const AssetHandle& handle) const
 	{
 		auto iter = m_Assets.find(handle);
 		VL_CORE_ASSERT(iter != m_Assets.end(), "There is no such handle!");
-		const std::shared_future<Ref<Asset>>& future = iter->second;
 
-		return future.wait_for(std::chrono::duration<float>(0)) == std::future_status::ready;
+		return iter->second.Future.wait_for(std::chrono::duration<float>(0)) == std::future_status::ready;
 	}
 
 	AssetHandle AssetManager::LoadAsset(const std::string& path)
 	{
+		VL_CORE_TRACE("Loading asset: {}", path);
 		std::hash<std::string> hash;
 		AssetHandle handle(AssetHandle::CreateInfo{hash(path), this});
 		if (m_Assets.contains(handle))
@@ -104,26 +102,53 @@ namespace Vulture
 		VL_CORE_ASSERT(dotPos != std::string::npos, "Failed to get file extension! Path: {}", path);
 		std::string extension = path.substr(dotPos, path.size() - dotPos);
 
-		std::shared_ptr<std::promise<Ref<Asset>>> promise = std::make_shared<std::promise<Ref<Asset>>>();
+		std::shared_ptr<std::promise<void>> promise = std::make_shared<std::promise<void>>();
 
-		m_Assets[handle] = promise->get_future();
+		m_Assets[handle] = { promise->get_future(), nullptr };
 		if (extension == ".png" || extension == ".jpg")
 		{
-			m_ThreadPool.PushTask([](const std::string& path, std::shared_ptr<std::promise<Ref<Asset>>> promise)
+			m_ThreadPool.PushTask([this](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
 				{
-					Ref<Asset> asset = std::make_shared<TextureAsset>(std::move(AssetImporter::ImportTexture(path, false)));
+					Scope<Asset> asset = std::make_unique<TextureAsset>(std::move(AssetImporter::ImportTexture(path, false)));
 					asset->SetValid(true);
-					promise->set_value(asset);
-				}, path, promise);
+					asset->SetPath(path);
+
+					std::unique_lock<std::mutex> lock(m_AssetsMutex);
+					m_Assets[handle].Asset = std::move(asset);
+					lock.unlock();
+
+					promise->set_value();
+				}, path, promise, handle);
 		}
 		else if (extension == ".gltf" || extension == ".obj")
 		{
-			m_ThreadPool.PushTask([](const std::string& path, std::shared_ptr<std::promise<Ref<Asset>>> promise)
+			m_ThreadPool.PushTask([this](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
 				{
-					Ref<Asset> asset = std::make_shared<ModelAsset>(std::move(AssetImporter::ImportModel(path)));
+					Scope<Asset> asset = std::make_unique<ModelAsset>(std::move(AssetImporter::ImportModel(path, this)));
 					asset->SetValid(true);
-					promise->set_value(asset);
-				}, path, promise);
+					asset->SetPath(path);
+
+					std::unique_lock<std::mutex> lock(m_AssetsMutex);
+					m_Assets[handle].Asset = std::move(asset);
+					lock.unlock();
+
+					promise->set_value();
+				}, path, promise, handle);
+		}
+		else if (extension == ".hdr")
+		{
+			m_ThreadPool.PushTask([this](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
+				{
+					Scope<Asset> asset = std::make_unique<TextureAsset>(std::move(AssetImporter::ImportTexture(path, true)));
+					asset->SetValid(true);
+					asset->SetPath(path);
+
+					std::unique_lock<std::mutex> lock(m_AssetsMutex);
+					m_Assets[handle].Asset = std::move(asset);
+					lock.unlock();
+
+					promise->set_value();
+				}, path, promise, handle);
 		}
 		else { VL_CORE_ASSERT(false, "Extension not supported! Extension: {}", extension); }
 
@@ -132,7 +157,11 @@ namespace Vulture
 
 	void AssetManager::UnloadAsset(const AssetHandle& handle)
 	{
-
+		VL_CORE_TRACE("Unloading asset: {}", handle.GetAsset()->GetPath());
+		m_ThreadPool.PushTask([this](const AssetHandle& handle)
+			{
+				std::unique_lock<std::mutex> lock(m_AssetsMutex);
+				m_Assets.erase(handle);
+			}, handle);
 	}
-
 }

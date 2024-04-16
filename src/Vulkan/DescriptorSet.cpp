@@ -2,6 +2,7 @@
 #include "Utility/Utility.h"
 
 #include "DescriptorSet.h"
+#include "Sampler.h"
 
 namespace Vulture
 {
@@ -11,7 +12,7 @@ namespace Vulture
 	 * @param pool - Pointer to the descriptor pool to allocate the descriptor set from.
 	 * @param bindings - Descriptor bindings specifying the layout of the descriptor set.
 	 */
-	void DescriptorSet::Init(DescriptorPool* pool, const std::vector<DescriptorSetLayout::Binding>& bindings)
+	void DescriptorSet::Init(DescriptorPool* pool, const std::vector<DescriptorSetLayout::Binding>& bindings, Sampler* samplerForEmptyBindings)
 	{
 		// Check if the descriptor set has already been initialized.
 		if (m_Initialized)
@@ -31,7 +32,7 @@ namespace Vulture
 				VkDescriptorImageInfo emptyInfo{};
 				emptyInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 				emptyInfo.imageView = VK_NULL_HANDLE;
-				emptyInfo.sampler = VK_NULL_HANDLE;
+				emptyInfo.sampler = samplerForEmptyBindings == nullptr ? VK_NULL_HANDLE : samplerForEmptyBindings->GetSamplerHandle();
 
 				Binding binding{};
 				binding.m_Type = bindings[i].Type;

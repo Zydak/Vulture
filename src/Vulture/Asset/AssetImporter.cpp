@@ -4,12 +4,14 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#include "AssetManager.h"
+
 namespace Vulture
 {
 	Image AssetImporter::ImportTexture(const std::string& path, bool HDR)
 	{
 		int texChannels;
-		stbi_set_flip_vertically_on_load(true);
+		stbi_set_flip_vertically_on_load(!HDR);
 		int sizeX, sizeY;
 		void* pixels;
 		if (HDR)
@@ -36,6 +38,7 @@ namespace Vulture
 		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		info.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		info.Data = (void*)pixels;
+		info.HDR = HDR;
 		Image image(info);
 
 		stbi_image_free(pixels);
@@ -43,9 +46,9 @@ namespace Vulture
 		return Image(std::move(image));
 	}
 
-	Model AssetImporter::ImportModel(const std::string& path)
+	Model AssetImporter::ImportModel(const std::string& path, AssetManager* assetManager)
 	{
-		return Model(path);
+		return Model(path, assetManager);
 	}
 
 }

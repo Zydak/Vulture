@@ -47,173 +47,11 @@ namespace Vulture
 			Device::SetObjectName(VK_OBJECT_TYPE_IMAGE, (uint64_t)m_ImageHandle, createInfo.DebugName);
 		}
 
-		m_Initialized = true;
-	}
-
-	void Image::Init(const std::string& filepath)
-	{
-		if (m_Initialized)
-			Destroy();
-
-		m_Format = VK_FORMAT_R8G8B8A8_UNORM;
-		m_Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-		bool HDR = filepath.find(".hdr") != std::string::npos;
-		if (HDR)
+		if (createInfo.Data != nullptr)
 		{
-			m_Format = VK_FORMAT_R32G32B32A32_SFLOAT;
-			CreateHDRImage(filepath);
-			return;
-		}
-
-		m_Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		m_MemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		m_Allocation = new VmaAllocation();
-		int texChannels;
-		stbi_set_flip_vertically_on_load(true);
-		int sizeX = (int)m_Size.width, sizeY = (int)m_Size.height;
-		void* pixels;
-		if (HDR)
-		{
-			pixels = stbi_loadf(filepath.c_str(), &sizeX, &sizeY, &texChannels, STBI_rgb_alpha);
-		}
-		else
-		{
-			pixels = stbi_load(filepath.c_str(), &sizeX, &sizeY, &texChannels, STBI_rgb_alpha);
-		}
-
-		std::filesystem::path cwd = std::filesystem::current_path();
-		VL_CORE_ASSERT(pixels, "failed to load texture image! Path: {0}, Current working directory: {1}", filepath, cwd.string());
-		m_Size.width = (uint32_t)sizeX;
-		m_Size.height = (uint32_t)sizeY;
-		//m_MipLevels = uint32_t(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
-		uint64_t sizeOfPixel = HDR ? sizeof(float) * 4 : sizeof(uint8_t) * 4;
-		VkDeviceSize imageSize = (uint64_t)m_Size.width * (uint64_t)m_Size.height * sizeOfPixel;
-
-		Buffer buffer = Buffer();
-		Buffer::CreateInfo BufferInfo{};
-		BufferInfo.InstanceSize = imageSize;
-		BufferInfo.InstanceCount = 1;
-		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-		buffer.Init(BufferInfo);
-
-		auto res = buffer.Map(imageSize);
-		buffer.WriteToBuffer((void*)pixels, (uint32_t)imageSize);
-		buffer.Unmap();
-
-		stbi_image_free(pixels);
-
-		CreateInfo info;
-		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-
-		if (HDR)
-		{
-			info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
-		}
-		else
-		{
-			info.Format = VK_FORMAT_R8G8B8A8_UNORM;
-		}
-
-		info.Height = (uint32_t)m_Size.height;
-		info.Width = (uint32_t)m_Size.width;
-		info.LayerCount = 1;
-		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
-		info.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		CreateImage(info);
-
-		VkImageSubresourceRange range{};
-		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		range.baseMipLevel = 0;
-		//range.levelCount = m_MipLevels;
-		range.levelCount = 1;
-		range.baseArrayLayer = 0;
-		range.layerCount = 1;
-
-		TransitionImageLayout(
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			0,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			0,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			0,
-			range
-		);
-
-		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height);
-
-		TransitionImageLayout(
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			0
-		);
-
-		CreateImageView(info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
-
-		Device::SetObjectName(VK_OBJECT_TYPE_IMAGE, (uint64_t)m_ImageHandle, filepath.c_str());
-
-		m_Initialized = true;
-	}
-
-	void Image::Init(const glm::vec4& color, const CreateInfo& createInfo)
-	{
-		if (m_Initialized)
-			Destroy();
-
-		VL_CORE_ASSERT(createInfo, "Incorectly initialized image create info! Values");
-		m_Usage = createInfo.Usage;
-		m_MemoryProperties = createInfo.Properties;
-		m_Allocation = new VmaAllocation();
-		m_Size.width = (uint32_t)createInfo.Width;
-		m_Size.height = (uint32_t)createInfo.Height;
-
-		m_Format = createInfo.Format;
-		m_Aspect = createInfo.Aspect;
-
-		CreateImage(createInfo);
-
-		if (createInfo.Type == ImageType::Cubemap)
-		{
-			CreateImageView(createInfo.Format, createInfo.Aspect, createInfo.LayerCount, VK_IMAGE_VIEW_TYPE_CUBE_ARRAY);
-		}
-		else if (createInfo.LayerCount > 1 || createInfo.Type == ImageType::Image2DArray)
-		{
-			CreateImageView(createInfo.Format, createInfo.Aspect, createInfo.LayerCount, VK_IMAGE_VIEW_TYPE_2D_ARRAY);
-		}
-		else
-		{
-			CreateImageView(createInfo.Format, createInfo.Aspect, createInfo.LayerCount, VK_IMAGE_VIEW_TYPE_2D);
-		}
-
-		uint32_t size = createInfo.Width * createInfo.Height * sizeof(float);
-
-		uint32_t* pixels = new uint32_t[size];
-		for (int i = 0; i < (int)size; i++)
-		{
-			uint8_t r = (uint8_t)(color.r * 255.0f);
-			uint8_t g = (uint8_t)(color.g * 255.0f);
-			uint8_t b = (uint8_t)(color.b * 255.0f);
-			uint8_t a = (uint8_t)(color.a * 255.0f);
-			pixels[i] = (a << 24) | (b << 16) | (g << 8) | r;
-		}
-		Buffer::CreateInfo bufferCreateInfo{};
-		bufferCreateInfo.InstanceSize = size;
-		bufferCreateInfo.InstanceCount = 1;
-		bufferCreateInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		bufferCreateInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-		Buffer buffer;
-		buffer.Init(bufferCreateInfo);
-		buffer.Map(size);
-		buffer.WriteToBuffer((void*)pixels, size);
-		buffer.Unmap();
-
-		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height);
-		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-		if (createInfo.DebugName != "")
-		{
-			Device::SetObjectName(VK_OBJECT_TYPE_IMAGE, (uint64_t)m_ImageHandle, createInfo.DebugName);
+			if (createInfo.HDR)
+				CreateHDRSamplingBuffer(createInfo.Data);
+			WritePixels(createInfo.Data);
 		}
 
 		m_Initialized = true;
@@ -243,22 +81,6 @@ namespace Vulture
 	Image::Image(const CreateInfo& createInfo)
 	{
 		Init(createInfo);
-	}
-
-	Image::Image(const glm::vec4& color, const CreateInfo& createInfo)
-	{
-		Init(color, createInfo);
-	}
-
-	/*
-	 * @brief Loads an image from the specified file, creates an image, allocates memory for it,
-	 * binds the memory to the image, and sets up the image view and sampler.
-	 *
-	 * @param filepath - The file path of the image.
-	 */
-	Image::Image(const std::string& filepath)
-	{
-		Init(filepath);
 	}
 
 	Image::Image(Image&& other)
@@ -304,9 +126,9 @@ namespace Vulture
 		buffer.WriteToBuffer((void*)data, (uint32_t)imageSize);
 		buffer.Unmap();
 
-		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmd);
 		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height, cmd);
-		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd);
 
 		if (!cmdProvided)
 		{
@@ -370,33 +192,11 @@ namespace Vulture
 		Device::CreateImage(imageCreateInfo, m_ImageHandle, *m_Allocation, createInfo.Properties);
 	}
 
-	void Image::CreateHDRImage(const std::string& filepath)
+	void Image::CreateHDRSamplingBuffer(void* pixels)
 	{
-		m_Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		m_MemoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		m_Allocation = new VmaAllocation();
-		int texChannels;
-		stbi_set_flip_vertically_on_load(false);
-		int sizeX = (int)m_Size.width, sizeY = (int)m_Size.height;
-		float* pixels;
-
-		pixels = stbi_loadf(filepath.c_str(), &sizeX, &sizeY, &texChannels, STBI_rgb_alpha);
-		std::filesystem::path cwd = std::filesystem::current_path();
-		VL_CORE_ASSERT(pixels, "failed to load texture image! Path: {0}, Current working directory: {1}", filepath, cwd.string());
-		m_Size.width = (uint32_t)sizeX;
-		m_Size.height = (uint32_t)sizeY;
-
 		// TODO: add ability to not create importance sampling buffer?
 		float average, integral;
-		std::vector<EnvAccel> envAccel;
-		if (sizeX == 1 && sizeY == 1) // dummy file loaded
-		{
-			envAccel.push_back({ 0, 0 });
-		}
-		else
-		{
-			envAccel = CreateEnvAccel(pixels, sizeX, sizeY, average, integral);
-		}
+		std::vector<EnvAccel> envAccel = CreateEnvAccel((float*)pixels, m_Size.width, m_Size.height, average, integral);
 
 		Buffer::CreateInfo bufferInfo{};
 		bufferInfo.InstanceCount = 1;
@@ -414,63 +214,6 @@ namespace Vulture
 		m_ImportanceSmplAccel = std::make_shared<Buffer>(bufferInfo);
 
 		Buffer::CopyBuffer(stagingBuf.GetBuffer(), m_ImportanceSmplAccel->GetBuffer(), stagingBuf.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
-
-		//m_MipLevels = uint32_t(floor(log2(std::max(m_Size.Width, m_Size.Height)))) + 1;
-		uint64_t sizeOfPixel = sizeof(float) * 4;
-		VkDeviceSize imageSize = (uint64_t)m_Size.width * (uint64_t)m_Size.height * sizeOfPixel;
-
-		Buffer buffer = Buffer();
-		Buffer::CreateInfo BufferInfo{};
-		BufferInfo.InstanceSize = imageSize;
-		BufferInfo.InstanceCount = 1;
-		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-		buffer.Init(BufferInfo);
-
-		auto res = buffer.Map(imageSize);
-		buffer.WriteToBuffer((void*)pixels, (uint32_t)imageSize);
-		buffer.Unmap();
-
-		stbi_image_free(pixels);
-
-		CreateInfo info;
-		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-
-		info.Format = VK_FORMAT_R32G32B32A32_SFLOAT;
-
-		info.Height = (uint32_t)m_Size.height;
-		info.Width = (uint32_t)m_Size.width;
-		info.LayerCount = 1;
-		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
-		info.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		CreateImage(info);
-
-		VkImageSubresourceRange range{};
-		range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		range.baseMipLevel = 0;
-		//range.levelCount = m_MipLevels;
-		range.levelCount = 1;
-		range.baseArrayLayer = 0;
-		range.layerCount = 1;
-
-		TransitionImageLayout(
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			0,
-			VK_ACCESS_TRANSFER_WRITE_BIT,
-			0,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			0,
-			range
-		);
-
-		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height);
-
-		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-		CreateImageView(info.Format, VK_IMAGE_ASPECT_COLOR_BIT);
-
-		m_Initialized = true;
 	}
 
 	/*
@@ -767,7 +510,7 @@ namespace Vulture
 
 	// Create acceleration data for importance sampling
 	// And store the PDF into the ALPHA channel of pixels
-	std::vector<Image::EnvAccel> Image::CreateEnvAccel(float*& pixels, uint32_t width, uint32_t height, float& average, float& integral)
+	std::vector<Image::EnvAccel> Image::CreateEnvAccel(float* pixels, uint32_t width, uint32_t height, float& average, float& integral)
 	{
 		VL_CORE_INFO("Creating Env Accel Structure...");
 		const uint32_t rx = width;

@@ -41,8 +41,6 @@ namespace Vulture
 		static void RenderImGui(std::function<void()> fn);
 		static void RayTrace(VkCommandBuffer cmdBuf, SBT* sbt, VkExtent2D imageSize, uint32_t depth = 1);
 
-		static inline Image* GetEnv() { return &m_EnvMap; }
-
 		static VkCommandBuffer GetCurrentCommandBuffer();
 		static int GetFrameIndex();
 
@@ -88,8 +86,6 @@ namespace Vulture
 		static Ref<DescriptorSet> s_EnvToCubemapDescriptorSet;
 
 		static Pipeline s_HDRToPresentablePipeline;
-
-		static Image m_EnvMap;
 
 		static Pipeline s_EnvToCubemapPipeline;
 

@@ -2,7 +2,6 @@
 #include "Renderer.h"
 #include "Scene/Scene.h"
 #include "Scene/Components.h"
-#include "AssetManagerOld.h"
 
 #include "lodepng.h"
 
@@ -34,7 +33,6 @@ namespace Vulture
 
 		s_QuadMesh.Destroy();
 		s_Pool.reset();
-		m_EnvMap.Destroy();
 
 #ifdef VL_IMGUI
 		ImGui_ImplVulkan_DestroyDeviceObjects();
@@ -53,8 +51,6 @@ namespace Vulture
 	{
 		CreatePool();
 		s_RendererSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR));
-		
-		m_EnvMap.Init("assets/black.hdr");
 
 		s_IsInitialized = true;
 		s_Window = &window;
@@ -762,7 +758,6 @@ namespace Vulture
 	Scene* Renderer::s_CurrentSceneRendered;
 	bool Renderer::s_IsInitialized = true;
 	Pipeline Renderer::s_HDRToPresentablePipeline;
-	Image Renderer::m_EnvMap;
 	Vulture::Pipeline Renderer::s_EnvToCubemapPipeline;
 	std::vector<Ref<Image>> Renderer::s_BloomImages;
 	Mesh Renderer::s_QuadMesh;

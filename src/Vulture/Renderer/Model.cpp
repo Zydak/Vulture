@@ -4,16 +4,16 @@
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
-#include "AssetManagerOld.h"
 #include "Renderer/Renderer.h"
+
+#include "Asset/AssetManager.h"
 
 namespace Vulture
 {
-
-	void Model::Init(const std::string& filepath)
+	void Model::Init(const std::string& filepath, AssetManager* assetManager)
 	{
-		VL_CORE_INFO("Loading Model... {0}", filepath);
 		Assimp::Importer importer;
+		m_AssetManager = assetManager;
 		const aiScene* scene = importer.ReadFile(filepath,
 			aiProcess_CalcTangentSpace |
 			aiProcess_GenSmoothNormals |
@@ -34,6 +34,12 @@ namespace Vulture
 		int x = 0;
 		ProcessNode(scene->mRootNode, scene, x);
 
+
+		for (int index = 0; index < m_AlbedoTextures.size(); index++)
+		{
+			CreateTextureSet(index);
+		}
+
 		m_Initialized = true;
 	}
 
@@ -51,12 +57,12 @@ namespace Vulture
 		m_Initialized = false;
 	}
 
-	Model::Model(const std::string& filepath)
+	Model::Model(const std::string& filepath, AssetManager* assetManager)
 	{
 		if (m_Initialized)
 			Destroy();
 
-		Init(filepath);
+		Init(filepath, assetManager);
 	}
 
 	Model::Model(Model&& other)
@@ -115,8 +121,6 @@ namespace Vulture
 			m_VertexCount += m_Meshes[index]->GetVertexCount();
 			m_IndexCount += m_Meshes[index]->GetIndexCount();
 
-			VL_CORE_INFO("Loaded mesh: with {0} vertices", m_Meshes[index]->GetVertexCount());
-
 			m_Materials.push_back(Material());
 			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 			aiColor4D emissiveColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -137,7 +141,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE, i, &str);
-				m_AlbedoTextures.push_back(AssetManagerOld::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_AlbedoTextures.push_back(m_AssetManager->LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -145,7 +149,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_NORMALS, i, &str);
-				m_NormalTextures.push_back(AssetManagerOld::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_NormalTextures.push_back(m_AssetManager->LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -153,7 +157,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, i, &str);
-				m_RoughnessTextures.push_back(AssetManagerOld::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_RoughnessTextures.push_back(m_AssetManager->LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -161,45 +165,33 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_METALNESS, i, &str);
-				m_MetallnessTextures.push_back(AssetManagerOld::LoadTexture(std::string("assets/") + std::string(str.C_Str())));
+				m_MetallnessTextures.push_back(m_AssetManager->LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
-
-			Image::CreateInfo info{};
-			info.Width = 1;
-			info.Height = 1;
-			info.Format = VK_FORMAT_R8G8B8A8_UNORM;
-			info.Usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-			info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-			info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
-			info.Tiling = VK_IMAGE_TILING_OPTIMAL;
-			info.SamplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR };
 
 			// Create Empty Texture if none are found
 			if (material->GetTextureCount(aiTextureType_DIFFUSE) == 0)
 			{
-				m_AlbedoTextures.push_back(AssetManagerOld::CreateTexture(glm::vec4(1.0f), info));
+				m_AlbedoTextures.push_back(m_AssetManager->LoadAsset("assets/white.png"));
 			}
 			if (material->GetTextureCount(aiTextureType_NORMALS) == 0)
 			{
-				m_NormalTextures.push_back(AssetManagerOld::CreateTexture(glm::vec4(0.5f, 0.5f, 1.0f, 1.0f), info));
+				m_NormalTextures.push_back(m_AssetManager->LoadAsset("assets/empty_normal.png"));
 			}
-			info.Format = VK_FORMAT_R8_UNORM;
+			// TODO: specify format when loading texture
 			if (material->GetTextureCount(aiTextureType_METALNESS) == 0)
 			{
-				m_MetallnessTextures.push_back(AssetManagerOld::CreateTexture(glm::vec4(1.0f), info));
+				m_MetallnessTextures.push_back(m_AssetManager->LoadAsset("assets/white.png"));
 			}
 			if (material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS) == 0)
 			{
-				m_RoughnessTextures.push_back(AssetManagerOld::CreateTexture(glm::vec4(1.0f), info));
+				m_RoughnessTextures.push_back(m_AssetManager->LoadAsset("assets/white.png"));
 			}
 
 			m_Materials[index].Color = glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, albedoColor.a);
 			m_Materials[index].Metallic = metallic;
 			m_Materials[index].Roughness = roughness;
 			m_Materials[index].Emissive = glm::vec4(emissiveColor.r, emissiveColor.g, emissiveColor.b, emissiveColor.a);
-
-			CreateTextureSet(index);
 
 			index++;
 		}
@@ -222,28 +214,32 @@ namespace Vulture
 		m_TextureSets.push_back(std::make_shared<Vulture::DescriptorSet>());
 		m_TextureSets[index]->Init(&Vulture::Renderer::GetDescriptorPool(), { bin1, bin2, bin3, bin4 });
 
+		m_AlbedoTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			0,
 			{ Vulture::Renderer::GetSamplerHandle(),
-			m_AlbedoTextures[index]->GetImageView(),
+			m_AlbedoTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
+		m_NormalTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			1,
 			{ Vulture::Renderer::GetSamplerHandle(),
-			m_NormalTextures[index]->GetImageView(),
+			m_NormalTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
+		m_RoughnessTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			2,
 			{ Vulture::Renderer::GetSamplerHandle(),
-			m_RoughnessTextures[index]->GetImageView(),
+			m_RoughnessTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
+		m_MetallnessTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			3,
 			{ Vulture::Renderer::GetSamplerHandle(),
-			m_MetallnessTextures[index]->GetImageView(),
+			m_MetallnessTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
 

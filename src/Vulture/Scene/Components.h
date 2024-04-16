@@ -12,7 +12,7 @@
 #include "Math/Quaternion.h"
 
 #include "Entity.h"
-
+#include "Asset/Asset.h"
 
 namespace Vulture
 {
@@ -154,9 +154,9 @@ namespace Vulture
 	class ModelComponent
 	{
 	public:
-		Ref<Vulture::Model> Model; // todo: don't use Ref here
+		AssetHandle ModelHandle;
 
-		ModelComponent(const std::string filepath);
+		ModelComponent(const AssetHandle& modelHandle) { ModelHandle = modelHandle; };
 
 		~ModelComponent() = default;
 
@@ -166,9 +166,9 @@ namespace Vulture
 	class SkyboxComponent
 	{
 	public:
-		Ref<Vulture::Image> SkyboxImage; // todo: don't use Ref here
+		AssetHandle ImageHandle;
 
-		SkyboxComponent(const std::string& filepath);
+		SkyboxComponent(const AssetHandle& handle) { ImageHandle = handle; };
 
 		~SkyboxComponent() = default;
 	};

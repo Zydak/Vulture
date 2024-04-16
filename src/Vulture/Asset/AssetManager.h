@@ -9,6 +9,12 @@
 
 namespace Vulture
 {
+	struct AssetWithFuture
+	{
+		std::shared_future<void> Future;
+		Scope<Asset> Asset;
+	};
+
 	class AssetManager
 	{
 	public:
@@ -29,7 +35,7 @@ namespace Vulture
 		AssetManager& operator=(const AssetManager& other);
 		AssetManager& operator=(AssetManager&& other) noexcept;
 
-		Ref<Asset> GetAsset(const AssetHandle& handle);
+		Asset* GetAsset(const AssetHandle& handle);
 		bool IsAssetValid(const AssetHandle& handle) const;
 
 		void WaitToLoad(const AssetHandle& handle) const;
@@ -38,8 +44,9 @@ namespace Vulture
 		AssetHandle LoadAsset(const std::string& path);
 		void UnloadAsset(const AssetHandle& handle);
 	private:
-		std::unordered_map<AssetHandle, std::shared_future<Ref<Asset>>> m_Assets;
+		std::unordered_map<AssetHandle, AssetWithFuture> m_Assets;
 		ThreadPool m_ThreadPool;
+		std::mutex m_AssetsMutex;
 
 		bool m_Initialized = false;
 	};

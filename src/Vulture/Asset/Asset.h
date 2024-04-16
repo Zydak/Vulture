@@ -1,11 +1,12 @@
 #pragma once
 #include "Utility/Utility.h"
-#include "Renderer/Model.h"
 #include <future>
+#include "Vulkan/Image.h"
 
 namespace Vulture
 {
 	class AssetManager;
+	class Model;
 
 	enum class AssetType
 	{
@@ -20,10 +21,13 @@ namespace Vulture
 
 		virtual AssetType GetAssetType() = 0;
 
-		inline void SetValid(bool val) { m_Valid = val; }
-		inline bool IsValid() const { return m_Valid; }
+		inline void SetValid(bool val) { Valid = val; }
+		inline bool IsValid() const { return Valid; }
+		inline void SetPath(const std::string& path) { Path = path; }
+		inline std::string GetPath() { return Path; }
 	protected:
-		bool m_Valid = false;
+		bool Valid = false;
+		std::string Path = "";
 
 		friend AssetManager;
 	};
@@ -40,20 +44,6 @@ namespace Vulture
 
 		virtual AssetType GetAssetType() { return AssetType::Texture; }
 		Image Image;
-	};
-
-	class ModelAsset : public Asset
-	{
-	public:
-		ModelAsset(Model&& model) { Model = std::move(model); };
-
-		explicit ModelAsset(const ModelAsset& other) = delete;
-		explicit ModelAsset(ModelAsset&& other) noexcept { Model = std::move(other.Model); };
-		ModelAsset& operator=(const ModelAsset& other) = delete;
-		ModelAsset& operator=(ModelAsset&& other) noexcept { Model = std::move(other.Model); return *this; };
-
-		virtual AssetType GetAssetType() { return AssetType::Model; }
-		Vulture::Model Model;
 	};
 
 	class AssetHandle
@@ -73,17 +63,18 @@ namespace Vulture
 		void Destroy();
 
 		explicit AssetHandle(const AssetHandle& other);
-		explicit AssetHandle(const AssetHandle&& other) noexcept = delete;
+		explicit AssetHandle(AssetHandle&& other) noexcept;
 		AssetHandle& operator=(const AssetHandle& other);
-		AssetHandle& operator=(const AssetHandle&& other) noexcept = delete;
+		AssetHandle& operator=(AssetHandle&& other) noexcept;
 
-		Ref<Asset> GetAsset() const;
+		Asset* GetAsset() const;
 		AssetType GetAssetType() const;
 		Model* GetModel() const;
 		Image* GetImage() const;
 		bool IsAssetValid() const;
 		bool IsAssetLoaded() const;
 
+		void Unload() const;
 		void WaitToLoad() const;
 
 		bool operator==(const AssetHandle& other) const;

@@ -2,6 +2,7 @@
 #include "pch.h"
 #include "Mesh.h"
 #include "Vulkan/Image.h"
+#include "Asset/Asset.h"
 
 namespace Vulture
 {
@@ -21,14 +22,16 @@ namespace Vulture
 		float ay = 0.0f;
 	};
 
+	class AssetManager;
+
 	class Model
 	{
 	public:
-		void Init(const std::string& filepath);
+		void Init(const std::string& filepath, AssetManager* assetManager);
 		void Destroy();
 
 		Model() = default;
-		explicit Model(const std::string& filepath);
+		explicit Model(const std::string& filepath, AssetManager* assetManager);
 		explicit Model(const Model& other) = delete;
 		explicit Model(Model&& other);
 
@@ -40,16 +43,16 @@ namespace Vulture
 		void Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance = 0, VkPipelineLayout layout = 0);
 
 		inline uint32_t GetAlbedoTextureCount() const { return (uint32_t)m_AlbedoTextures.size(); }
-		inline Ref<Image> GetAlbedoTexture(int index) const { return m_AlbedoTextures[index]; }
+		inline Image* GetAlbedoTexture(int index) const { return m_AlbedoTextures[index].GetImage(); }
 
 		inline uint32_t GetNormalTextureCount() const { return (uint32_t)m_NormalTextures.size(); }
-		inline Ref<Image> GetNormalTexture(int index) const { return m_NormalTextures[index]; }
+		inline Image* GetNormalTexture(int index) const { return m_NormalTextures[index].GetImage(); }
 
 		inline uint32_t GetRoughnessTextureCount() const { return (uint32_t)m_RoughnessTextures.size(); }
-		inline Ref<Image> GetRoughnessTexture(int index) const { return m_RoughnessTextures[index]; }
+		inline Image* GetRoughnessTexture(int index) const { return m_RoughnessTextures[index].GetImage(); }
 
 		inline uint32_t GetMetallnessTextureCount() const { return (uint32_t)m_MetallnessTextures.size(); }
-		inline Ref<Image> GetMetallnessTexture(int index) const { return m_MetallnessTextures[index]; }
+		inline Image* GetMetallnessTexture(int index) const { return m_MetallnessTextures[index].GetImage(); }
 
 		inline uint32_t GetVertexCount() const { return m_VertexCount; }
 		inline uint32_t GetIndexCount() const { return m_IndexCount; }
@@ -68,13 +71,15 @@ namespace Vulture
 		void ProcessNode(aiNode* node, const aiScene* scene, int& index);
 		void CreateTextureSet(uint32_t index);
 
+		AssetManager* m_AssetManager;
+
 		std::vector<std::string> m_MeshesNames;
 		std::vector<Ref<Mesh>> m_Meshes;
 		std::vector<Material> m_Materials;
-		std::vector<Ref<Image>> m_AlbedoTextures;
-		std::vector<Ref<Image>> m_NormalTextures;
-		std::vector<Ref<Image>> m_RoughnessTextures;
-		std::vector<Ref<Image>> m_MetallnessTextures;
+		std::vector<AssetHandle> m_AlbedoTextures;
+		std::vector<AssetHandle> m_NormalTextures;
+		std::vector<AssetHandle> m_RoughnessTextures;
+		std::vector<AssetHandle> m_MetallnessTextures;
 
 		std::vector<Ref<Vulture::DescriptorSet>> m_TextureSets;
 
@@ -85,5 +90,19 @@ namespace Vulture
 
 		void Move(Model&& other);
 	};
+	
 
+	class ModelAsset : public Asset
+	{
+	public:
+		ModelAsset(Model&& model) { Model = std::move(model); };
+
+		explicit ModelAsset(const ModelAsset& other) = delete;
+		explicit ModelAsset(ModelAsset&& other) noexcept { Model = std::move(other.Model); };
+		ModelAsset& operator=(const ModelAsset& other) = delete;
+		ModelAsset& operator=(ModelAsset&& other) noexcept { Model = std::move(other.Model); return *this; };
+
+		virtual AssetType GetAssetType() { return AssetType::Model; }
+		Vulture::Model Model;
+	};
 }

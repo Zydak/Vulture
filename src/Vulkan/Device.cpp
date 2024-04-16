@@ -59,7 +59,7 @@ namespace Vulture
 	 */
 	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger)
 	{
-		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+		static auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 		if (func != nullptr) { return func(instance, pCreateInfo, pAllocator, pDebugMessenger); }
 		else { return VK_ERROR_EXTENSION_NOT_PRESENT; }
 	}
@@ -70,7 +70,7 @@ namespace Vulture
 	 */
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator)
 	{
-		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+		static auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
 		if (func != nullptr) { func(instance, debugMessenger, pAllocator); }
 	}
 
@@ -1245,7 +1245,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCreateAccelerationStructureKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCreateAccelerationStructureKHR");
+		static auto func = (PFN_vkCreateAccelerationStructureKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCreateAccelerationStructureKHR");
 		if (func != nullptr) { return func(device, createInfo, nullptr, structure); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
@@ -1254,7 +1254,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkDestroyAccelerationStructureKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkDestroyAccelerationStructureKHR");
+		static auto func = (PFN_vkDestroyAccelerationStructureKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkDestroyAccelerationStructureKHR");
 		if (func != nullptr) { return func(device, structure, nullptr); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
@@ -1263,7 +1263,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCmdBuildAccelerationStructuresKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdBuildAccelerationStructuresKHR");
+		static auto func = (PFN_vkCmdBuildAccelerationStructuresKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdBuildAccelerationStructuresKHR");
 		if (func != nullptr) { return func(commandBuffer, infoCount, pInfos, ppBuildRangeInfos); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
@@ -1272,7 +1272,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCmdWriteAccelerationStructuresPropertiesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdWriteAccelerationStructuresPropertiesKHR");
+		static auto func = (PFN_vkCmdWriteAccelerationStructuresPropertiesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdWriteAccelerationStructuresPropertiesKHR");
 		if (func != nullptr) { return func(commandBuffer, accelerationStructureCount, pAccelerationStructures, queryType, queryPool, firstQuery); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
@@ -1281,7 +1281,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCmdCopyAccelerationStructureKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdCopyAccelerationStructureKHR");
+		static auto func = (PFN_vkCmdCopyAccelerationStructureKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdCopyAccelerationStructureKHR");
 		if (func != nullptr) { return func(commandBuffer, pInfo); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
@@ -1290,7 +1290,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetAccelerationStructureBuildSizesKHR");
+		static auto func = (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetAccelerationStructureBuildSizesKHR");
 		if (func != nullptr) { return func(device, buildType, pBuildInfo, pMaxPrimitiveCounts, pSizeInfo); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
@@ -1299,7 +1299,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCreateRayTracingPipelinesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCreateRayTracingPipelinesKHR");
+		static auto func = (PFN_vkCreateRayTracingPipelinesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCreateRayTracingPipelinesKHR");
 		if (func != nullptr) { return func(device, deferredOperation, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
@@ -1308,7 +1308,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetAccelerationStructureDeviceAddressKHR");
+		static auto func = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetAccelerationStructureDeviceAddressKHR");
 		if (func != nullptr) { return func(device, pInfo); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
@@ -1317,7 +1317,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkGetRayTracingShaderGroupHandlesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetRayTracingShaderGroupHandlesKHR");
+		static auto func = (PFN_vkGetRayTracingShaderGroupHandlesKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetRayTracingShaderGroupHandlesKHR");
 		if (func != nullptr) { return func(device, pipeline, firstGroup, groupCount, dataSize, pData); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
@@ -1326,7 +1326,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCmdTraceRaysKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdTraceRaysKHR");
+		static auto func = (PFN_vkCmdTraceRaysKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdTraceRaysKHR");
 		if (func != nullptr) { return func(commandBuffer, pRaygenShaderBindingTable, pMissShaderBindingTable, pHitShaderBindingTable, pCallableShaderBindingTable, width, height, depth); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
@@ -1335,7 +1335,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCmdPushDescriptorSetKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdPushDescriptorSetKHR");
+		static auto func = (PFN_vkCmdPushDescriptorSetKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdPushDescriptorSetKHR");
 		if (func != nullptr) { return func(commandBuffer, pipelineBindPoint, layout, set, descriptorWriteCount, pDescriptorWrites); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
@@ -1344,7 +1344,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkGetMemoryWin32HandleKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetMemoryWin32HandleKHR");
+		static auto func = (PFN_vkGetMemoryWin32HandleKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetMemoryWin32HandleKHR");
 		if (func != nullptr) { return func(device, pGetWin32HandleInfo, pHandle); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
@@ -1353,7 +1353,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkGetSemaphoreWin32HandleKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetSemaphoreWin32HandleKHR");
+		static auto func = (PFN_vkGetSemaphoreWin32HandleKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkGetSemaphoreWin32HandleKHR");
 		if (func != nullptr) { return func(device, pGetWin32HandleInfo, pHandle); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
@@ -1362,7 +1362,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkSetDebugUtilsObjectNameEXT");
+		static auto func = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkSetDebugUtilsObjectNameEXT");
 		if (func != nullptr) { return func(device, pNameInfo); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); return VK_RESULT_MAX_ENUM; }
 	}
@@ -1371,7 +1371,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCmdInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdInsertDebugUtilsLabelEXT");
+		static auto func = (PFN_vkCmdInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdInsertDebugUtilsLabelEXT");
 		if (func != nullptr) { return func(commandBuffer, pLabelInfo); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
@@ -1380,7 +1380,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdEndDebugUtilsLabelEXT");
+		static auto func = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdEndDebugUtilsLabelEXT");
 		if (func != nullptr) { return func(commandBuffer); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
@@ -1389,7 +1389,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdBeginDebugUtilsLabelEXT");
+		static auto func = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdBeginDebugUtilsLabelEXT");
 		if (func != nullptr) { return func(commandBuffer, pLabelInfo); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
@@ -1398,7 +1398,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCmdBeginRenderingKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdBeginRenderingKHR");
+		static auto func = (PFN_vkCmdBeginRenderingKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdBeginRenderingKHR");
 		if (func != nullptr) { return func(commandBuffer, pRenderingInfo); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}
@@ -1407,7 +1407,7 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		auto func = (PFN_vkCmdEndRenderingKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdEndRenderingKHR");
+		static auto func = (PFN_vkCmdEndRenderingKHR)vkGetInstanceProcAddr(Device::GetInstance(), "vkCmdEndRenderingKHR");
 		if (func != nullptr) { return func(commandBuffer); }
 		else { VL_CORE_ASSERT(false, "VK_ERROR_EXTENSION_NOT_PRESENT"); }
 	}

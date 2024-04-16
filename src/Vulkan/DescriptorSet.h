@@ -8,11 +8,13 @@
 
 namespace Vulture
 {
+	class Sampler;
+
 	class DescriptorSet
 	{
 	public:
 
-		void Init(DescriptorPool* pool, const std::vector<DescriptorSetLayout::Binding>& bindings);
+		void Init(DescriptorPool* pool, const std::vector<DescriptorSetLayout::Binding>& bindings, Sampler* samplerForEmptyBindings = nullptr);
 		void Destroy();
 
 		DescriptorSet() = default;

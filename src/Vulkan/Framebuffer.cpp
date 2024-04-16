@@ -171,7 +171,7 @@ namespace Vulture
 	 */
 	void Framebuffer::CreateColorAttachment(VkFormat format, Image::ImageType type, VkImageUsageFlags customBits)
 	{
-		Image::CreateInfo imageInfo;
+		Image::CreateInfo imageInfo{};
 		imageInfo.Width = m_Extent.width;
 		imageInfo.Height = m_Extent.height;
 		imageInfo.Format = format;
@@ -197,7 +197,7 @@ namespace Vulture
 	{
 		VkFormat depthFormat = Device::FindSupportedFormat({ format, VK_FORMAT_D16_UNORM, VK_FORMAT_D32_SFLOAT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 		//customBits &= ~VK_IMAGE_USAGE_STORAGE_BIT; // Don't use storage bit on depth attachments
-		Image::CreateInfo imageInfo;
+		Image::CreateInfo imageInfo{};
 		imageInfo.Width = m_Extent.width;
 		imageInfo.Height = m_Extent.height;
 		imageInfo.Format = depthFormat;
