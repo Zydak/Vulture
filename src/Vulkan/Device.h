@@ -51,7 +51,8 @@ namespace Vulture
 			std::vector<const char*> DeviceExtensions;
 			std::vector<const char*> OptionalExtensions;
 			VkPhysicalDeviceFeatures2 Features;
-
+			
+			bool UseMemoryAddress = true;
 			bool UseRayTracing = false;
 		};
 
@@ -90,7 +91,7 @@ namespace Vulture
 		static void BeginSingleTimeCommands(VkCommandBuffer& buffer, VkCommandPool pool);
 		static uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
-		static void CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0, VmaPool* poolOut = nullptr, bool noPool = false);
+		static void CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0, VmaPool* poolOut = nullptr, bool noPool = false, VkDeviceSize minAlignment = 1);
 		static void CreateImage(VkImageCreateInfo& createInfo, VkImage& image, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags = 0);
 
 		static void SetObjectName(VkObjectType type, uint64_t handle, const char* name);
@@ -138,7 +139,6 @@ namespace Vulture
 		static bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
 		static SwapchainSupportDetails QuerySwapchainSupport(VkPhysicalDevice device);
 
-		static VkMemoryAllocateInfo s_MemoryAllocateInfo;
 		static VkExportMemoryAllocateInfo s_ExportMemoryInfo;
 		static VkExternalMemoryBufferCreateInfo s_ExternalMemoryBufferInfo;
 		static VkExternalMemoryImageCreateInfo s_ExternalMemoryImageInfo;
@@ -154,6 +154,7 @@ namespace Vulture
 		static VkDevice s_Device;
 		static VkSurfaceKHR s_Surface;
 		static Window* s_Window;
+		static bool s_UseMemoryAddressFeature;
 
 		static VkQueue s_GraphicsQueue;
 		static std::mutex s_GraphicsQueueMutex;

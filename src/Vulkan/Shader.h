@@ -10,12 +10,17 @@ namespace Vulture
 	class Shader
 	{
 	public:
+		struct Define
+		{
+			std::string Name;
+			std::string Value;
+		};
 		struct CreateInfo
 		{
 			std::string Filepath;
 			VkShaderStageFlagBits Type;
 
-			std::vector<std::string> Defines;
+			std::vector<Define> Defines;
 		};
 
 		void Init(const CreateInfo& info);
@@ -32,7 +37,7 @@ namespace Vulture
 
 		std::string ReadShaderFile(const std::string& filepath);
 		void CreateCacheDir();
-		std::vector<uint32_t> CompileSource(const std::string& filepath, std::vector<std::string> defines);
+		std::vector<uint32_t> CompileSource(const std::string& filepath, std::vector<Define> defines);
 		shaderc_shader_kind VkStageToScStage(VkShaderStageFlagBits stage);
 
 		VkShaderModule m_ModuleHandle;

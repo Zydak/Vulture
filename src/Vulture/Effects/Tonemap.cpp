@@ -50,7 +50,7 @@ namespace Vulture
 			std::string currentTonemapper = GetTonemapperMacroDefinition(info.Tonemapper);
 
 			Pipeline::ComputeCreateInfo info{};
-			Shader shader({ "../Vulture/src/Vulture/Shaders/Tonemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT, { currentTonemapper } });
+			Shader shader({ "../Vulture/src/Vulture/Shaders/Tonemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT, { {currentTonemapper, ""} } });
 			info.Shader = &shader;
 
 			// Descriptor set layouts for the pipeline
@@ -93,9 +93,9 @@ namespace Vulture
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
 			std::string currentTonemapper = GetTonemapperMacroDefinition(tonemapper);
-			std::vector<std::string> defines = { currentTonemapper };
+			std::vector<Shader::Define> defines = { {currentTonemapper, ""} };
 			if (chromaticAberration)
-				defines.push_back("USE_CHROMATIC_ABERRATION");
+				defines.push_back({ "USE_CHROMATIC_ABERRATION", ""});
 
 			Pipeline::ComputeCreateInfo info{};
 			Shader shader({ "../Vulture/src/Vulture/Shaders/Tonemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT, defines });

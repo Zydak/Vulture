@@ -201,6 +201,7 @@ namespace Vulture
 		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		BufferInfo.MinMemoryAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
 		scratchBuffer->Init(BufferInfo);
 
 		// Update build information
@@ -242,7 +243,7 @@ namespace Vulture
 
 	/**
 	 * @brief Destroys non-compacted Acceleration Structures (AS) with provided indices.
-	 * 
+	 *
 	 * @param indices - Vector of indices specifying the non-compacted Acceleration Structures to destroy.
 	 * @param buildAs - Vector of BuildAccelerationStructure objects containing build information.
 	 */
@@ -424,9 +425,9 @@ namespace Vulture
 			}
 
 			Device::vkGetAccelerationStructureBuildSizesKHR(
-				Device::GetDevice(), 
+				Device::GetDevice(),
 				VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-				&buildAs[i].BuildInfo, 
+				&buildAs[i].BuildInfo,
 				trianglesCount.data(),
 				&buildAs[i].SizeInfo
 			);
@@ -447,7 +448,7 @@ namespace Vulture
 		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		BufferInfo.MinOffsetAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
+		BufferInfo.MinMemoryAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
 		scratchBuffer.Init(BufferInfo);
 		VkDeviceAddress scratchAddress = scratchBuffer.GetDeviceAddress();
 

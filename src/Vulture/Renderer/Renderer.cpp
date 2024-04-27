@@ -20,7 +20,7 @@ namespace Vulture
 		s_IsInitialized = false;
 		vkDeviceWaitIdle(Device::GetDevice());
 		vkFreeCommandBuffers(Device::GetDevice(), Device::GetGraphicsCommandPool(), (uint32_t)s_CommandBuffers.size(), s_CommandBuffers.data());
-		
+
 		s_Swapchain.reset();
 
 		s_EnvToCubemapDescriptorSet.reset();
@@ -59,7 +59,7 @@ namespace Vulture
 		CreateCommandBuffers();
 
 		// Vertices for a simple quad
-		const std::vector<Mesh::Vertex> vertices = 
+		const std::vector<Mesh::Vertex> vertices =
 		{
 			Mesh::Vertex(glm::vec3(-1.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 1.0f)),  // Vertex 1 Bottom Left
 			Mesh::Vertex(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 0.0f)), // Vertex 2 Top Left
@@ -67,7 +67,7 @@ namespace Vulture
 			Mesh::Vertex(glm::vec3(1.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(1.0f, 1.0f))    // Vertex 4 Bottom Right
 		};
 
-		const std::vector<uint32_t> indices = 
+		const std::vector<uint32_t> indices =
 		{
 			0, 1, 2,  // First triangle
 			0, 2, 3   // Second triangle
@@ -120,7 +120,7 @@ namespace Vulture
 	}
 
 	/*
-	 * @brief Acquires the next swap chain image and begins recording a command buffer for rendering. 
+	 * @brief Acquires the next swap chain image and begins recording a command buffer for rendering.
 	 * If the swap chain is out of date, it may trigger swap chain recreation.
 	 *
 	 * @return True if the frame started successfully; false if the swap chain needs recreation.
@@ -152,9 +152,9 @@ namespace Vulture
 	}
 
 	/*
-	 * @brief Finalizes the recorded command buffer, submits it for execution, and presents the swap chain image. 
+	 * @brief Finalizes the recorded command buffer, submits it for execution, and presents the swap chain image.
 	 * If the swap chain is out of date, it triggers swap chain recreation and returns false.
-	 * 
+	 *
 	 * @return True if the frame ended successfully; false if the swap chain needs recreation.
 	 */
 	bool Renderer::EndFrameInternal()
@@ -188,7 +188,7 @@ namespace Vulture
 	}
 
 	/*
-	 * @brief Sets up the rendering viewport, scissor, and begins the specified render pass on the given framebuffer. 
+	 * @brief Sets up the rendering viewport, scissor, and begins the specified render pass on the given framebuffer.
 	 * It also clears the specified colors in the render pass.
 	 *
 	 * @param clearColors - A vector of clear values for the attachments in the render pass.
@@ -234,7 +234,7 @@ namespace Vulture
 	}
 
 	/**
-	 * @brief Ends the current render pass in progress. 
+	 * @brief Ends the current render pass in progress.
 	 * It should be called after rendering commands within a render pass have been recorded.
 	 */
 	void Renderer::EndRenderPass()
@@ -271,8 +271,8 @@ namespace Vulture
 		image8Bit.TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmd);
 
 		VkImageBlit blitRegion{};
-		blitRegion.dstOffsets[0] = {0, 0, 0};
-		blitRegion.dstOffsets[1] = { width, height, 1};
+		blitRegion.dstOffsets[0] = { 0, 0, 0 };
+		blitRegion.dstOffsets[1] = { width, height, 1 };
 		blitRegion.srcOffsets[0] = { 0, 0, 0 };
 		blitRegion.srcOffsets[1] = { width, height, 1 };
 		blitRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
@@ -290,7 +290,7 @@ namespace Vulture
 
 		VkBufferImageCopy region{};
 		region.bufferOffset = 0;
-		region.imageExtent = {image->GetImageSize().width, image->GetImageSize().height, 1};
+		region.imageExtent = { image->GetImageSize().width, image->GetImageSize().height, 1 };
 		region.imageOffset = { 0, 0, 0 };
 		region.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 		tempBuffer.Map();
@@ -307,8 +307,11 @@ namespace Vulture
 
 		if (filepath == "")
 		{
-			uint32_t imagesCount = 0;
 			std::string path = "Rendered_Images/";
+			if (!std::filesystem::exists(path))
+				std::filesystem::create_directory(path);
+
+			uint32_t imagesCount = 0;
 			for (const auto& entry : std::filesystem::directory_iterator(path))
 			{
 				if (std::filesystem::is_regular_file(entry.status()))
@@ -327,7 +330,7 @@ namespace Vulture
 	/**
 	 * @brief Takes descriptor set with single combined image sampler descriptor and copies data
 	 * from the image onto presentable swapchain framebuffer
-	 * 
+	 *
 	 * @param descriptorWithImageSampler - descriptor set with single image sampler
 	 */
 	void Renderer::FramebufferCopyPassImGui(DescriptorSet* descriptorWithImageSampler)
@@ -381,17 +384,19 @@ namespace Vulture
 	// TODO description, note that image has to be in transfer src optimal layout
 	void Renderer::FramebufferCopyPassBlit(Ref<Image> image)
 	{
+		image->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, GetCurrentCommandBuffer());
+
 		Image::TransitionImageLayout(
-			s_Swapchain->GetPresentableImage(GetCurrentFrameIndex()),
+			s_Swapchain->GetPresentableImage(s_CurrentImageIndex),
 			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			0,
 			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_TRANSFER_READ_BIT,
 			GetCurrentCommandBuffer()
 		);
-		 
+
 		VkImageBlit blit{};
 		blit.srcOffsets[0] = { 0, 0, 0 };
 		blit.srcOffsets[1] = { (int32_t)image->GetImageSize().width, (int32_t)image->GetImageSize().height, 1 };
@@ -406,7 +411,7 @@ namespace Vulture
 			GetCurrentCommandBuffer(),
 			image->GetImage(),
 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			s_Swapchain->GetPresentableImage(GetCurrentFrameIndex()),
+			s_Swapchain->GetPresentableImage(s_CurrentImageIndex),
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1,
 			&blit,
@@ -414,13 +419,13 @@ namespace Vulture
 		);
 
 		Image::TransitionImageLayout(
-			s_Swapchain->GetPresentableImage(GetCurrentFrameIndex()),
+			s_Swapchain->GetPresentableImage(s_CurrentImageIndex),
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			VK_PIPELINE_STAGE_TRANSFER_BIT,
-			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VK_ACCESS_TRANSFER_WRITE_BIT,
-			VK_ACCESS_TRANSFER_READ_BIT,
+			0,
 			GetCurrentCommandBuffer()
 		);
 	}
@@ -529,7 +534,8 @@ namespace Vulture
 		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (MAX_FRAMES_IN_FLIGHT) * 10000 });
 		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, (MAX_FRAMES_IN_FLIGHT) * 100 });
 		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, (MAX_FRAMES_IN_FLIGHT) * 100 });
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, (MAX_FRAMES_IN_FLIGHT) * 100 });
+		if (Device::UseRayTracing())
+			poolSizes.push_back({ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, (MAX_FRAMES_IN_FLIGHT) * 100 });
 		s_Pool = std::make_unique<DescriptorPool>(poolSizes, (MAX_FRAMES_IN_FLIGHT) * 10000, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 	}
 
@@ -544,7 +550,7 @@ namespace Vulture
 
 		{
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
-			DescriptorSetLayout imageLayout({bin});
+			DescriptorSetLayout imageLayout({ bin });
 
 			Pipeline::GraphicsCreateInfo info{};
 			info.AttributeDesc = Mesh::Vertex::GetAttributeDescriptions();

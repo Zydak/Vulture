@@ -25,9 +25,9 @@ namespace Vulture
 			static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
 		};
 
-		void Init(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
-		void Init(aiMesh* mesh, const aiScene* scene, glm::mat4 mat = glm::mat4(1.0f));
-		void Init(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags);
+		void Init(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, VkBufferUsageFlags customUsageFlags = 0);
+		void Init(aiMesh* mesh, const aiScene* scene, glm::mat4 mat = glm::mat4(1.0f), VkBufferUsageFlags customUsageFlags = 0);
+		void Init(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags, VkBufferUsageFlags customUsageFlags = 0);
 		void Destroy();
 
 		Mesh() = default;
@@ -52,12 +52,12 @@ namespace Vulture
 
 		inline bool& HasIndexBuffer() { return m_HasIndexBuffer; }
 	private:
-		void CreateMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
-		void CreateMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 mat = glm::mat4(1.0f));
+		void CreateMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, VkBufferUsageFlags customUsageFlags = 0);
+		void CreateMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 mat = glm::mat4(1.0f), VkBufferUsageFlags customUsageFlags = 0);
 
-		void CreateVertexBuffer(const std::vector<Vertex>& vertices);
-		void CreateIndexBuffer(const std::vector<uint32_t>& indices);
-		void CreateEmptyBuffers(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags);
+		void CreateVertexBuffer(const std::vector<Vertex>& vertices, VkBufferUsageFlags customUsageFlags = 0);
+		void CreateIndexBuffer(const std::vector<uint32_t>& indices, VkBufferUsageFlags customUsageFlags = 0);
+		void CreateEmptyBuffers(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags, VkBufferUsageFlags customUsageFlags = 0);
 
 		Buffer m_VertexBuffer;
 		uint32_t m_VertexCount = 0;

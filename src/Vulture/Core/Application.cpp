@@ -26,6 +26,7 @@ namespace Vulture
 		deviceInfo.Features = appInfo.Features;
 		deviceInfo.Window = m_Window.get();
 		deviceInfo.UseRayTracing = appInfo.EnableRayTracingSupport;
+		deviceInfo.UseMemoryAddress = appInfo.UseMemoryAddress;
 		Device::Init(deviceInfo);
 		Renderer::Init(*m_Window);
 		Input::Init(m_Window->GetGLFWwindow());

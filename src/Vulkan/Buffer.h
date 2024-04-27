@@ -17,6 +17,7 @@ namespace Vulture
 			VkBufferUsageFlags UsageFlags = 0;
 			VkMemoryPropertyFlags MemoryPropertyFlags = 0;
 			VkDeviceSize MinOffsetAlignment = 1;
+			VkDeviceSize MinMemoryAlignment = 1;
 			bool NoPool = false;
 
 			operator bool() const

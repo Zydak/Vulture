@@ -26,11 +26,11 @@ namespace Vulture
 
 		m_Extent = createInfo.Extent;
 
-		m_Images.reserve(createInfo.AttachmentsFormats->size());
-		for (int i = 0; i < createInfo.AttachmentsFormats->size(); i++)
+		m_Images.reserve(createInfo.AttachmentsFormats.size());
+		for (int i = 0; i < createInfo.AttachmentsFormats.size(); i++)
 		{
-			m_AttachmentFormats.push_back((*createInfo.AttachmentsFormats)[i]);
-			switch ((*createInfo.AttachmentsFormats)[i])
+			m_AttachmentFormats.push_back((createInfo.AttachmentsFormats)[i]);
+			switch ((createInfo.AttachmentsFormats)[i])
 			{
 			case FramebufferAttachment::ColorRGBA32: CreateColorAttachment(VK_FORMAT_R32G32B32A32_SFLOAT, createInfo.Type, createInfo.CustomBits); break;
 			case FramebufferAttachment::ColorRGBA16: CreateColorAttachment(VK_FORMAT_R16G16B16A16_UNORM, createInfo.Type, createInfo.CustomBits); break;
@@ -182,6 +182,7 @@ namespace Vulture
 		imageInfo.SamplerInfo = SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR);
 		imageInfo.LayerCount = 1;
 		imageInfo.Type = type;
+		imageInfo.DebugName = "Framebuffer Image";
 
 		m_Images.emplace_back(std::make_shared<Image>(imageInfo));
 	}

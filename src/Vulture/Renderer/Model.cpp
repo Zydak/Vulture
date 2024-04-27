@@ -31,6 +31,8 @@ namespace Vulture
 			return;
 		}
 
+		Timer timer;
+
 		int x = 0;
 		ProcessNode(scene->mRootNode, scene, x);
 
@@ -41,6 +43,7 @@ namespace Vulture
 		}
 
 		m_Initialized = true;
+		VL_CORE_TRACE("Loading model took: {}ms", timer.ElapsedMillis());
 	}
 
 	void Model::Destroy()
@@ -134,6 +137,7 @@ namespace Vulture
 			material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
 			material->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
 			material->Get(AI_MATKEY_REFRACTI, m_Materials[index].Ior);
+			m_Materials[index].Ior = glm::max(m_Materials[index].Ior, 1.001f);
 			material->Get(AI_MATKEY_CLEARCOAT_FACTOR, m_Materials[index].Clearcoat);
 			material->Get(AI_MATKEY_CLEARCOAT_ROUGHNESS_FACTOR, m_Materials[index].ClearcoatRoughness);
 

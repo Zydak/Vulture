@@ -59,7 +59,7 @@ namespace Vulture
 
 	/**
 	 * @brief Initializes the buffer with the specified creation information.
-	 * 
+	 *
 	 * @param createInfo - creation information for the buffer.
 	 */
 	void Buffer::Init(const Buffer::CreateInfo& createInfo)
@@ -104,7 +104,7 @@ namespace Vulture
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 		// Create the Vulkan buffer and allocate memory for it.
-		Device::CreateBuffer(bufferInfo, m_BufferHandle, *m_Allocation, m_MemoryPropertyFlags, &*m_Pool, m_NoPool);
+		Device::CreateBuffer(bufferInfo, m_BufferHandle, *m_Allocation, m_MemoryPropertyFlags, &*m_Pool, m_NoPool, createInfo.MinMemoryAlignment);
 	}
 
 	/**
@@ -239,7 +239,7 @@ namespace Vulture
 
 	/**
 	 * @brief Constructor for the Buffer class.
-	 * 
+	 *
 	 * @param createInfo - Creation information for the buffer.
 	 */
 	Buffer::Buffer(const Buffer::CreateInfo& createInfo)
@@ -358,11 +358,11 @@ namespace Vulture
 			char* memOffset = reinterpret_cast<char*>(m_Mapped) + offset;
 
 			// Copy data to the buffer.
-			if (size == VK_WHOLE_SIZE) 
+			if (size == VK_WHOLE_SIZE)
 			{
 				memcpy(m_Mapped, data, m_BufferSize);
 			}
-			else 
+			else
 			{
 				memcpy(memOffset, data, size);
 			}

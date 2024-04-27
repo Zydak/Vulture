@@ -89,14 +89,15 @@ namespace Vulture
 
 	AssetHandle AssetManager::LoadAsset(const std::string& path)
 	{
-		VL_CORE_TRACE("Loading asset: {}", path);
 		std::hash<std::string> hash;
-		AssetHandle handle(AssetHandle::CreateInfo{hash(path), this});
+		AssetHandle handle(AssetHandle::CreateInfo{ hash(path), this });
 		if (m_Assets.contains(handle))
 		{
 			// Asset with this path is already loaded
 			return AssetHandle(handle);
 		}
+
+		VL_CORE_TRACE("Loading asset: {}", path);
 
 		size_t dotPos = path.find_last_of('.');
 		VL_CORE_ASSERT(dotPos != std::string::npos, "Failed to get file extension! Path: {}", path);

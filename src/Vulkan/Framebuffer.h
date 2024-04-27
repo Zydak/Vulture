@@ -41,7 +41,7 @@ namespace Vulture
 
 		struct CreateInfo
 		{
-			const std::vector<FramebufferAttachment>* AttachmentsFormats;
+			std::vector<FramebufferAttachment> AttachmentsFormats;
 			VkRenderPass RenderPass = 0;
 			VkExtent2D Extent = { 0, 0 };
 			Image::ImageType Type = Image::ImageType::Image2D;
@@ -51,7 +51,7 @@ namespace Vulture
 
 			operator bool() const
 			{
-				return (!AttachmentsFormats->empty()) && (Extent.width != 0 || Extent.height != 0);
+				return (!AttachmentsFormats.empty()) && (Extent.width != 0 || Extent.height != 0);
 			}
 		};
 

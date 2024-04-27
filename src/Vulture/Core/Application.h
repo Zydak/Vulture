@@ -12,9 +12,10 @@ namespace Vulture
 		std::string Name = "";
 		std::string Icon = "";
 		bool EnableRayTracingSupport = false;
+		bool UseMemoryAddress = true;
 		std::vector<const char*> DeviceExtensions;
 		std::vector<const char*> OptionalExtensions;
-		VkPhysicalDeviceFeatures2 Features;
+		VkPhysicalDeviceFeatures2 Features = VkPhysicalDeviceFeatures2();
 	};
 
 	class Application

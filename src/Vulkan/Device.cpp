@@ -433,12 +433,22 @@ namespace Vulture
 		allocatorInfo.physicalDevice = s_PhysicalDevice;
 		allocatorInfo.device = s_Device;
 
-		// Check if the optional memory priority extension is supported
-		if (s_OptionalExtensions[1].supported) // Assuming s_OptionalExtensions[1] is set to VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME
-			allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+		// Check if the memory priority extension is present
+		for (Vulture::Extension& ext : s_OptionalExtensions)
+		{
+			if (std::string(ext.Name) == std::string(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME))
+				if (ext.supported)
+					allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+		}
+		for (auto ext : s_DeviceExtensions)
+		{
+			if (std::string(ext) == std::string(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME))
+				allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_EXT_MEMORY_PRIORITY_BIT;
+		}
 
 		// Enable buffer device address feature
-		allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+		if (s_UseMemoryAddressFeature)
+			allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
 		// Create the memory allocator
 		vmaCreateAllocator(&allocatorInfo, &s_Allocator);
@@ -475,12 +485,15 @@ namespace Vulture
 		// Set pool priority
 		poolInfo.priority = 0.5f;
 
-		// Set export memory information
-		s_ExportMemoryInfo = {};
-		s_ExportMemoryInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
-		s_ExportMemoryInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+		if (std::find(s_DeviceExtensions.begin(), s_DeviceExtensions.end(), VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME) != s_DeviceExtensions.end())
+		{
+			// Set export memory information
+			s_ExportMemoryInfo = {};
+			s_ExportMemoryInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
+			s_ExportMemoryInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
 
-		poolInfo.pMemoryAllocateNext = &s_ExportMemoryInfo;
+			poolInfo.pMemoryAllocateNext = &s_ExportMemoryInfo;
+		}
 
 		// Create the memory pool
 		vmaCreatePool(s_Allocator, &poolInfo, &pool);
@@ -552,15 +565,19 @@ namespace Vulture
 	 * @param customFlags - Custom memory property flags for the buffer's memory (optional).
 	 * @param noPool - Flag indicating whether to create a dedicated memory pool for the buffer (optional).
 	 */
-	void Device::CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags, VmaPool* poolOut, bool noPool)
+	void Device::CreateBuffer(VkBufferCreateInfo& createInfo, VkBuffer& buffer, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags, VmaPool* poolOut, bool noPool, VkDeviceSize minAlignment)
 	{
 		// Assert that the device has been initialized before creating the buffer
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 		// Find the memory type index suitable for the buffer
 		uint32_t memoryIndex = 0;
-		s_ExternalMemoryBufferInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
-		s_ExternalMemoryBufferInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO;
-		createInfo.pNext = &s_ExternalMemoryBufferInfo;
+		if (std::find(s_DeviceExtensions.begin(), s_DeviceExtensions.end(), VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME) != s_DeviceExtensions.end())
+		{
+			s_ExternalMemoryBufferInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+			s_ExternalMemoryBufferInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO;
+			createInfo.pNext = &s_ExternalMemoryBufferInfo;
+		}
+
 		FindMemoryTypeIndexForBuffer(createInfo, memoryIndex, customFlags);
 
 		// Create buffer without using memory pool
@@ -572,7 +589,7 @@ namespace Vulture
 			allocCreateInfo.priority = 0.5f;
 			allocCreateInfo.pool = *poolOut;
 
-			VkResult res = vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr);
+			VkResult res = vmaCreateBufferWithAlignment(s_Allocator, &createInfo, &allocCreateInfo, minAlignment, &buffer, &alloc, nullptr);
 			return;
 		}
 
@@ -586,13 +603,13 @@ namespace Vulture
 			allocCreateInfo.priority = 0.5f;
 
 			// Attempt to create buffer using the existing pool
-			if (vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr) < 0)
+			if (vmaCreateBufferWithAlignment(s_Allocator, &createInfo, &allocCreateInfo, minAlignment, &buffer, &alloc, nullptr) < 0)
 			{
 				// TODO: recreate pool when it fills up instead of just not using one
 				// If creation fails, try again without specifying the pool
 				allocCreateInfo.pool = nullptr;
 				allocCreateInfo.requiredFlags = customFlags;
-				if (vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr) < 0)
+				if (vmaCreateBufferWithAlignment(s_Allocator, &createInfo, &allocCreateInfo, minAlignment, &buffer, &alloc, nullptr) < 0)
 				{
 					VL_CORE_ASSERT(false, "Couldn't create a buffer!");
 				}
@@ -609,13 +626,13 @@ namespace Vulture
 			allocCreateInfo.priority = 0.5f;
 
 			// Attempt to create buffer using the newly created pool
-			if (vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr) < 0)
+			if (vmaCreateBufferWithAlignment(s_Allocator, &createInfo, &allocCreateInfo, minAlignment, &buffer, &alloc, nullptr) < 0)
 			{
 				// TODO: recreate pool when it fills up instead of just not using one
 				// If creation fails, try again without specifying the pool
 				allocCreateInfo.pool = nullptr;
 				allocCreateInfo.requiredFlags = customFlags;
-				if (vmaCreateBuffer(s_Allocator, &createInfo, &allocCreateInfo, &buffer, &alloc, nullptr) < 0)
+				if (vmaCreateBufferWithAlignment(s_Allocator, &createInfo, &allocCreateInfo, minAlignment, &buffer, &alloc, nullptr) < 0)
 				{
 					VL_CORE_ASSERT(false, "Couldn't create a buffer!");
 				}
@@ -882,6 +899,7 @@ namespace Vulture
 		createInfo.pEnabledFeatures = nullptr;
 		createInfo.enabledExtensionCount = (uint32_t)extensions.size();
 		createInfo.ppEnabledExtensionNames = extensions.data();
+		s_Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 		createInfo.pNext = &s_Features;
 
 		// Enable validation layers if required
@@ -1211,7 +1229,6 @@ namespace Vulture
 
 	VmaAllocator Device::s_Allocator;
 	std::unordered_map<uint32_t, VmaPool> Device::s_Pools;
-	VkMemoryAllocateInfo Device::s_MemoryAllocateInfo;
 	VkExportMemoryAllocateInfo Device::s_ExportMemoryInfo;
 	VkExternalMemoryBufferCreateInfo Device::s_ExternalMemoryBufferInfo;
 	VkExternalMemoryImageCreateInfo Device::s_ExternalMemoryImageInfo;
@@ -1224,6 +1241,7 @@ namespace Vulture
 	VkDevice Device::s_Device = {};
 	VkSurfaceKHR Device::s_Surface = {};
 	Window* Device::s_Window = {};
+	bool Device::s_UseMemoryAddressFeature;
 	VkQueue Device::s_GraphicsQueue = {};
 	std::mutex Device::s_GraphicsQueueMutex;
 	VkQueue Device::s_PresentQueue = {};

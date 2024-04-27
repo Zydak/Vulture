@@ -331,6 +331,10 @@ namespace Vulture
 
 		switch (m_Layout)
 		{
+		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+			srcAccess |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			srcStage |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+			break;
 		case VK_IMAGE_LAYOUT_GENERAL:
 			srcAccess |= VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
 			srcStage |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
@@ -760,5 +764,7 @@ namespace Vulture
 			VL_CORE_ASSERT(false, "Unsupported format! Format: {}", format);
 			break;
 		}
+
+		return 0; // just to get rid of the warning
 	}
 }

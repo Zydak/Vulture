@@ -60,14 +60,14 @@ namespace Vulture
 		return str; // Return the original string if no slash is found or if the last character is a slash
 	}
 
-	std::vector<uint32_t> Shader::CompileSource(const std::string& filepath, std::vector<std::string> defines)
+	std::vector<uint32_t> Shader::CompileSource(const std::string& filepath, std::vector<Define> defines)
 	{
 		CreateCacheDir();
 		std::string sourceToCache = ReadShaderFile(filepath);
 
 		for (int i = 0; i < defines.size(); i++)
 		{
-			sourceToCache += (defines[i]);
+			sourceToCache += (defines[i].Name + defines[i].Value);
 		}
 
 		std::string shaderName = GetLastPartAfterLastSlash(filepath);
@@ -90,7 +90,7 @@ namespace Vulture
 				options.SetOptimizationLevel(shaderc_optimization_level_performance);
 				for (int i = 0; i < defines.size(); i++)
 				{
-					options.AddMacroDefinition(defines[i]);
+					options.AddMacroDefinition(defines[i].Name, defines[i].Value);
 				}
 				shaderc_util::FileFinder fileFinder;
 				options.SetIncluder(std::make_unique<glslc::FileIncluder>(&fileFinder));
@@ -118,7 +118,7 @@ namespace Vulture
 			options.SetOptimizationLevel(shaderc_optimization_level_performance);
 			for (int i = 0; i < defines.size(); i++)
 			{
-				options.AddMacroDefinition(defines[i]);
+				options.AddMacroDefinition(defines[i].Name, defines[i].Value);
 			}
 			shaderc_util::FileFinder fileFinder;
 			options.SetIncluder(std::make_unique<glslc::FileIncluder>(&fileFinder));
