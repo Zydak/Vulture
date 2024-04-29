@@ -50,7 +50,7 @@ namespace Vulture
 		return tex;
 	}
 
-	void FontAtlas::Init(const std::string& filepath, const std::string& fontName)
+	void FontAtlas::Init(const std::string& filepath, const std::string& fontName, float fontSize, glm::vec2 atlasSize)
 	{
 		if (m_Initialized)
 			Destroy();
@@ -84,15 +84,13 @@ namespace Vulture
 		m_FontGeometry = msdf_atlas::FontGeometry(&m_Glyphs);
 		m_FontGeometry.loadCharset(font, 1.0, charset);
 
-		float fontSize = 32.0f;
-
 		// This class computes the layout of a static atlas
 		msdf_atlas::TightAtlasPacker atlasPacker;
 		atlasPacker.setPixelRange(2.0f);
 		atlasPacker.setMiterLimit(1.0f);
 		atlasPacker.setPadding(0);
 		atlasPacker.setScale(fontSize);
-		atlasPacker.setDimensions(512, 512);
+		atlasPacker.setDimensions(atlasSize.x, atlasSize.y);
 		uint32_t remaining = atlasPacker.pack(m_Glyphs.data(), (int)m_Glyphs.size());
 		VL_CORE_ASSERT(remaining == 0, "Failed to pack atlas");
 
@@ -132,10 +130,10 @@ namespace Vulture
 		m_Initialized = false;
 	}
 
-	FontAtlas::FontAtlas(const std::string& filepath, const std::string& fontName)
+	FontAtlas::FontAtlas(const std::string& filepath, const std::string& fontName, float fontSize, glm::vec2 atlasSize)
 		: m_FontName(fontName), m_Sampler({})
 	{
-		Init(filepath, fontName);
+		Init(filepath, fontName, fontSize, atlasSize);
 	}
 
 	FontAtlas::~FontAtlas()

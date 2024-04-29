@@ -15,32 +15,24 @@ namespace Vulture
 		m_Resizable = createInfo.Resizable;
 		m_KerningOffset = createInfo.KerningOffset;
 		m_FontAtlas = createInfo.FontAtlas;
-		for (int i = 0; i < (int)m_Changed.size(); i++)
-		{
-			m_Changed[i] = false;
-		}
 		if (createInfo.Resizable)
 		{
 			int vertexCount = createInfo.MaxLettersCount * 4;
 			int indexCount = createInfo.MaxLettersCount * 6;
-			ChangeText(createInfo.Text);
 			for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 			{
-				m_TextMeshes.emplace_back(std::make_shared<Mesh>());
-				m_TextMeshes[i]->Init(vertexCount, indexCount, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+				m_TextMesh.Init(vertexCount, indexCount, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 			}
+			ChangeText(createInfo.Text);
 		}
 		else
 		{
-			m_TextMeshes.emplace_back(std::make_shared<Mesh>());
-			m_Text = createInfo.Text;
-
 			std::vector<Mesh::Vertex> vertices;
 			std::vector<uint32_t> indices;
 
 			GetTextVertices(vertices, indices);
 
-			m_TextMeshes[0]->Init(vertices, indices);
+			m_TextMesh.Init(vertices, indices);
 		}
 
 		m_Initialized = true;
@@ -48,8 +40,7 @@ namespace Vulture
 
 	void Text::Destroy()
 	{
-		m_FontAtlas.reset();
-		m_TextMeshes.clear();
+		m_TextMesh.Destroy();
 		m_Initialized = false;
 	}
 
@@ -64,47 +55,26 @@ namespace Vulture
 			Destroy();
 	}
 
-	void Text::ChangeText(const std::string& text, float kerningOffset)
+	void Text::ChangeText(const std::string& text, float kerningOffset, VkCommandBuffer cmdBuffer)
 	{
 		VL_CORE_ASSERT(m_Resizable, "You have to set resizable flag in constructor!");
 		m_Text = text;
 		m_KerningOffset = kerningOffset;
-		for (int i = 0; i < (int)m_Changed.size(); i++)
-		{
-			m_Changed[i] = true;
-		}
-	}
 
-	/*
-		@return false when buffer was not updated.
-		@return true when buffer was updated.
-	*/
-	bool Text::UploadToBuffer(int frameIndex, VkCommandBuffer cmdBuffer)
-	{
-		VL_CORE_ASSERT(m_Resizable, "Can't upload to buffer that is not resizable! Set the resizable flag on creation");
-
-		if (m_Changed[frameIndex] == false)
-		{
-			return false;
-		}
-		m_Changed[frameIndex] = false;
-		
 		std::vector<Mesh::Vertex> vertices;
 		std::vector<uint32_t> indices;
 
 		GetTextVertices(vertices, indices);
 
-		m_TextMeshes[frameIndex]->HasIndexBuffer() = true;
+		m_TextMesh.HasIndexBuffer() = true;
 		if (!vertices.empty())
 		{
 			// Update Device local memory using vkCmdUpdateBuffer
-			m_TextMeshes[frameIndex]->GetVertexBuffer()->WriteToBuffer(vertices.data(), vertices.size() * sizeof(Mesh::Vertex), 0, cmdBuffer);
-			m_TextMeshes[frameIndex]->GetIndexBuffer()->WriteToBuffer(indices.data(), indices.size() * sizeof(uint32_t), 0, cmdBuffer);
+			m_TextMesh.GetVertexBuffer()->WriteToBuffer(vertices.data(), vertices.size() * sizeof(Mesh::Vertex), 0, cmdBuffer);
+			m_TextMesh.GetIndexBuffer()->WriteToBuffer(indices.data(), indices.size() * sizeof(uint32_t), 0, cmdBuffer);
 		}
-		m_TextMeshes[frameIndex]->GetVertexCount() = (uint32_t)vertices.size();
-		m_TextMeshes[frameIndex]->GetIndexCount() = (uint32_t)indices.size();
-
-		return true;
+		m_TextMesh.GetVertexCount() = (uint32_t)vertices.size();
+		m_TextMesh.GetIndexCount() = (uint32_t)indices.size();
 	}
 
 	void Text::GetTextVertices(std::vector<Mesh::Vertex>& vertices, std::vector<uint32_t>& indices)

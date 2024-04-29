@@ -173,7 +173,7 @@ namespace Vulture
 	void Scene::AddFont(const std::string& fontFilepath, const std::string& fontName)
 	{
 		VL_CORE_ASSERT(m_FontAtlases.find(fontName) == m_FontAtlases.end(), "Font with this name already exists");
-		m_FontAtlases[fontName] = std::make_shared<FontAtlas>(fontFilepath, fontName);
+		m_FontAtlases[fontName] = std::make_shared<FontAtlas>(fontFilepath, fontName, 32, glm::vec2(512, 512));
 	}
 
 	Ref<FontAtlas> Scene::GetFontAtlas(const std::string& fontName)

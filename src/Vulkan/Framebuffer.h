@@ -32,11 +32,11 @@ namespace Vulture
 
 		struct RenderPassCreateInfo
 		{
-			std::vector<VkSubpassDependency> Dependencies{};
+			std::vector<VkSubpassDependency> Dependencies = {};
 
-			std::vector<VkAttachmentLoadOp> LoadOP{};
-			std::vector<VkAttachmentStoreOp> StoreOP{};
-			std::vector<VkImageLayout> FinalLayouts{};
+			std::vector<VkAttachmentLoadOp> LoadOP = {};
+			std::vector<VkAttachmentStoreOp> StoreOP = {};
+			std::vector<VkImageLayout> FinalLayouts = {};
 		};
 
 		struct CreateInfo

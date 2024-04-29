@@ -192,7 +192,7 @@ namespace Vulture
 		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
 
 		// Check if the binding number is valid.
-		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() >= binding, "There is no such binding: {0}");
+		VL_CORE_ASSERT(m_DescriptorSetLayout.GetDescriptorSetLayoutBindings().size() > binding, "There is no such binding: {0}", binding);
 
 		// Check if the binding type in the descriptor set layout matches VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER or VK_DESCRIPTOR_TYPE_STORAGE_BUFFER.
 		VL_CORE_ASSERT(

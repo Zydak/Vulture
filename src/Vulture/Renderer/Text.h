@@ -12,7 +12,7 @@ namespace Vulture
 		struct CreateInfo
 		{
 			std::string Text = "";
-			Ref<FontAtlas> FontAtlas = nullptr;
+			Vulture::FontAtlas* FontAtlas = nullptr;
 			glm::vec4 Color = { -1.0f, -1.0f, -1.0f, -1.0f };
 			float KerningOffset = 0.0f;
 			int MaxLettersCount = 0;
@@ -31,37 +31,26 @@ namespace Vulture
 		Text(const CreateInfo& createInfo);
 		~Text();
 
-		void ChangeText(const std::string& text, float kerningOffset = 0.0f);
+		void ChangeText(const std::string& text, float kerningOffset = 0.0f, VkCommandBuffer cmdBuffer = 0);
 
 		std::string GetTextString() const { return m_Text; }
 		inline bool IsResizable() const { return m_Resizable; }
 		inline float GetMaxHeight() const { return m_Height; }
 		inline float GetMaxWidth() const { return m_Width; }
-		Mesh& GetTextMesh(int frameIndex)
-		{
-			if (m_Resizable)
-			{
-				return *m_TextMeshes[frameIndex];
-			}
-			else
-			{
-				return *m_TextMeshes[0];
-			}
-		}
-		glm::vec4 GetTextColor() const { return m_Color; }
-		Ref<FontAtlas> GetFontAtlas() const { return m_FontAtlas; }
+		inline const Mesh* GetTextMesh() const { return &m_TextMesh; }
+		inline Mesh* GetTextMesh() { return &m_TextMesh; }
 
-		bool UploadToBuffer(int frameIndex, VkCommandBuffer cmdBuffer);
+		glm::vec4 GetTextColor() const { return m_Color; }
+		Vulture::FontAtlas* GetFontAtlas() const { return m_FontAtlas; }
 	private:
 		void GetTextVertices(std::vector<Mesh::Vertex>& vertices, std::vector<uint32_t>& indices);
 
 		float m_Width = 0;
 		float m_Height = 0;
-		Ref<FontAtlas> m_FontAtlas;
+		Vulture::FontAtlas* m_FontAtlas;
 		float m_KerningOffset = 0.0f;
-		std::array<bool, MAX_FRAMES_IN_FLIGHT> m_Changed;
 		std::string m_Text;
-		std::vector<std::shared_ptr<Mesh>> m_TextMeshes;
+		Mesh m_TextMesh;
 		glm::vec4 m_Color;
 		bool m_Resizable;
 

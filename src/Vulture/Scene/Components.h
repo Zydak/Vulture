@@ -112,7 +112,7 @@ namespace Vulture
 
 		void Reset();
 
-		void SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far, float aspectRatio);
+		void SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far);
 		void SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far);
 		void SetZoom(float zoom);
 

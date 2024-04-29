@@ -79,9 +79,17 @@ namespace Vulture
 
 	void Framebuffer::Destroy()
 	{
+		m_Images.clear();
+		m_AttachmentFormats.clear();
+		m_Extent = { 0, 0 };
+		m_FinalLayouts.clear();
+		m_Views.clear();
 		vkDestroyFramebuffer(Device::GetDevice(), m_FramebufferHandle, nullptr);
 
 		vkDestroyRenderPass(Device::GetDevice(), m_RenderPass, nullptr);
+		m_RenderPass = VK_NULL_HANDLE;
+		m_FramebufferHandle = VK_NULL_HANDLE;
+		m_Initialized = false;
 	}
 
 	void Framebuffer::Bind(VkCommandBuffer cmd, const std::vector<VkClearValue>& clearColors)

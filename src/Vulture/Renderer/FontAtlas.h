@@ -15,11 +15,11 @@ namespace Vulture
 	class FontAtlas
 	{
 	public:
-		void Init(const std::string& filepath, const std::string& fontName);
+		void Init(const std::string& filepath, const std::string& fontName, float fontSize, glm::vec2 atlasSize);
 		void Destroy();
 
 		FontAtlas() = default;
-		FontAtlas(const std::string& filepath, const std::string& fontName);
+		FontAtlas(const std::string& filepath, const std::string& fontName, float fontSize, glm::vec2 atlasSize);
 		~FontAtlas();
 
 		Ref<Image> GetAtlasTexture() const { return m_AtlasTexture; }
