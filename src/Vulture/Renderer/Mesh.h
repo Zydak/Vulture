@@ -35,6 +35,8 @@ namespace Vulture
 
 		Mesh(const Mesh&) = delete;
 		Mesh& operator=(const Mesh&) = delete;
+		Mesh(Mesh&& other) noexcept;
+		Mesh& operator=(Mesh&& other) noexcept;
 
 		void Bind(VkCommandBuffer commandBuffer);
 		void Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance = 0);

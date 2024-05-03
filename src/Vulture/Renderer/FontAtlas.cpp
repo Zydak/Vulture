@@ -90,7 +90,7 @@ namespace Vulture
 		atlasPacker.setMiterLimit(1.0f);
 		atlasPacker.setPadding(0);
 		atlasPacker.setScale(fontSize);
-		atlasPacker.setDimensions(atlasSize.x, atlasSize.y);
+		atlasPacker.setDimensions((int)atlasSize.x, (int)atlasSize.y);
 		uint32_t remaining = atlasPacker.pack(m_Glyphs.data(), (int)m_Glyphs.size());
 		VL_CORE_ASSERT(remaining == 0, "Failed to pack atlas");
 

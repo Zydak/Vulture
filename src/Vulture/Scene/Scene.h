@@ -60,7 +60,8 @@ namespace Vulture
 
 		inline entt::registry& GetRegistry() { return *m_Registry; }
 		Ref<Window> GetWindow() const { return m_Window; }
-		CameraComponent* GetMainCamera(Entity* entity = nullptr);
+		CameraComponent* GetMainCamera();
+		Vulture::Entity GetMainCameraEntity();
 
 		inline uint32_t GetModelCount() const { return m_ModelCount; }
 		inline void ResetModelCount() { m_ModelCount = 0; }

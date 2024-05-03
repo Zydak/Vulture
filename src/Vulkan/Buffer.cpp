@@ -73,8 +73,6 @@ namespace Vulture
 		// Assert the validity of the provided creation information.
 		VL_CORE_ASSERT(createInfo, "Incorrectly Initialized Buffer::CreateInfo! Values: InstanceCount: {0}, InstanceSize: {1}, UsageFlags: {2}, MemoryPropertyFlags: {3}", createInfo.InstanceCount, createInfo.InstanceSize, createInfo.UsageFlags, createInfo.MemoryPropertyFlags);
 
-
-		m_CreateInfo = createInfo;
 		// Mark the buffer as initialized.
 		m_Initialized = true;
 
@@ -135,8 +133,6 @@ namespace Vulture
 
 		// Mark the buffer as uninitialized.
 		m_Initialized = false;
-
-		m_CreateInfo = {};
 	}
 
 	/**
@@ -217,26 +213,6 @@ namespace Vulture
 		return vkGetBufferDeviceAddress(Device::GetDevice(), &info);
 	}
 
-	Buffer& Buffer::operator=(const Buffer& other)
-	{
-		if (other)
-		{
-			VL_CORE_ASSERT(false, R"(Can't Use Assignment Operator On Initialized Buffer!
-				This function exists only to be able to put Buffer into structures like maps, it should never be used!)");
-		}
-
-		return *this;
-	}
-
-	Buffer::Buffer(const Buffer& other)
-	{
-		if (other)
-		{
-			VL_CORE_ASSERT(false, R"(Can't Use Copy Constructor On Initialized Buffer!
-				This function exists only to be able to put Buffer into structures like maps, it should never be used!)");
-		}
-	}
-
 	/**
 	 * @brief Constructor for the Buffer class.
 	 *
@@ -246,6 +222,55 @@ namespace Vulture
 	{
 		// Initialize the Buffer with the provided creation information.
 		Init(createInfo);
+	}
+
+	Buffer::Buffer(Buffer&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Mapped = std::move(other.m_Mapped);
+		m_BufferHandle = std::move(other.m_BufferHandle);
+		m_Allocation = std::move(other.m_Allocation);
+		m_Pool = std::move(other.m_Pool); // only for buffers that are allocated on their own pools
+
+		m_BufferSize = std::move(other.m_BufferSize);
+		m_InstanceCount = std::move(other.m_InstanceCount);
+		m_InstanceSize = std::move(other.m_InstanceSize);
+		m_AlignmentSize = std::move(other.m_AlignmentSize);
+		m_UsageFlags = std::move(other.m_UsageFlags);
+		m_MemoryPropertyFlags = std::move(other.m_MemoryPropertyFlags);
+		m_MinOffsetAlignment = std::move(other.m_MinOffsetAlignment); // Stored only for copies of the buffer
+		m_NoPool = std::move(other.m_NoPool);
+
+		other.m_Initialized = false;
+
+		m_Initialized = true;
+	}
+
+	Buffer& Buffer::operator=(Buffer&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Mapped = std::move(other.m_Mapped);
+		m_BufferHandle = std::move(other.m_BufferHandle);
+		m_Allocation = std::move(other.m_Allocation);
+		m_Pool = std::move(other.m_Pool); // only for buffers that are allocated on their own pools
+
+		m_BufferSize = std::move(other.m_BufferSize);
+		m_InstanceCount = std::move(other.m_InstanceCount);
+		m_InstanceSize = std::move(other.m_InstanceSize);
+		m_AlignmentSize = std::move(other.m_AlignmentSize);
+		m_UsageFlags = std::move(other.m_UsageFlags);
+		m_MemoryPropertyFlags = std::move(other.m_MemoryPropertyFlags);
+		m_MinOffsetAlignment = std::move(other.m_MinOffsetAlignment); // Stored only for copies of the buffer
+		m_NoPool = std::move(other.m_NoPool);
+
+		other.m_Initialized = false;
+
+		m_Initialized = true;
+		return *this;
 	}
 
 	/**

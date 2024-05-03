@@ -34,11 +34,13 @@ namespace Vulture
 		static inline VkSampler GetSamplerHandle() { return s_RendererSampler->GetSamplerHandle(); }
 		static inline uint32_t& GetCurrentFrameIndex() { return s_CurrentFrameIndex; }
 		static inline Mesh& GetQuadMesh() { return s_QuadMesh; }
+		static inline float GetAspectRatio() { return s_Swapchain->GetExtentAspectRatio(); }
+		static inline VkExtent2D GetExtent() { return s_Swapchain->GetSwapchainExtent(); }
 
 		static bool BeginFrame();
 		static bool EndFrame();
 
-		static void RenderImGui(std::function<void()> fn);
+		static void SetImGuiFunction(std::function<void()> fn);
 		static void RayTrace(VkCommandBuffer cmdBuf, SBT* sbt, VkExtent2D imageSize, uint32_t depth = 1);
 
 		static VkCommandBuffer GetCurrentCommandBuffer();

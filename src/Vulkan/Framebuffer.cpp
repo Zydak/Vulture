@@ -228,21 +228,21 @@ namespace Vulture
 		bool useStoreOps = false;
 		if (!renderPassCreateInfo->FinalLayouts.empty())
 		{
-			VL_CORE_ASSERT(renderPassCreateInfo->FinalLayouts.size() < m_AttachmentFormats.size(),
+			VL_CORE_ASSERT(renderPassCreateInfo->FinalLayouts.size() == m_AttachmentFormats.size(),
 				"You have to specify final layout for all attachments"
 			);
 			useFinalLayouts = true;
 		}
 		if (!renderPassCreateInfo->LoadOP.empty())
 		{
-			VL_CORE_ASSERT(renderPassCreateInfo->LoadOP.size() < m_AttachmentFormats.size(),
+			VL_CORE_ASSERT(renderPassCreateInfo->LoadOP.size() == m_AttachmentFormats.size(),
 				"You have to specify LoadOp for all attachments"
 			);
 			useLoadOps = true;
 		}
 		if (!renderPassCreateInfo->StoreOP.empty())
 		{
-			VL_CORE_ASSERT(renderPassCreateInfo->StoreOP.size() < m_AttachmentFormats.size(),
+			VL_CORE_ASSERT(renderPassCreateInfo->StoreOP.size() == m_AttachmentFormats.size(),
 				"You have to specify StoreOp for all attachments"
 			);
 			useStoreOps = true;

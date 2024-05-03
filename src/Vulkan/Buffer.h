@@ -32,8 +32,10 @@ namespace Vulture
 		Buffer(const Buffer::CreateInfo& createInfo);
 		~Buffer();
 
-		Buffer(const Buffer& other);
-		Buffer& operator=(const Buffer& other);
+		Buffer(const Buffer& other) = delete;
+		Buffer& operator=(const Buffer& other) = delete;
+		Buffer(Buffer&& other) noexcept;
+		Buffer& operator=(Buffer&& other) noexcept;
 
 		VkResult Map(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 		void Unmap();
@@ -43,8 +45,6 @@ namespace Vulture
 		VkDescriptorBufferInfo DescriptorInfo();
 		VkResult Invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 		static void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDeviceSize srcOffset = 0, VkDeviceSize dstOffset = 0, VkQueue queue = 0, VkCommandBuffer cmd = 0, VkCommandPool pool = 0);
-
-		inline CreateInfo GetCreateInfo() const { return m_CreateInfo; }
 
 		operator bool() const
 		{
@@ -85,8 +85,6 @@ namespace Vulture
 		VkMemoryPropertyFlags m_MemoryPropertyFlags = 0;
 		VkDeviceSize m_MinOffsetAlignment = 1; // Stored only for copies of the buffer
 		bool m_NoPool = false;
-
-		CreateInfo m_CreateInfo;
 
 		bool m_Initialized = false;
 	};

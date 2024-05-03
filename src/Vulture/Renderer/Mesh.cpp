@@ -219,6 +219,42 @@ namespace Vulture
 		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_IndexBuffer.GetBuffer(), bufferSize, 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 	}
 
+	Mesh::Mesh(Mesh&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_VertexBuffer = std::move(other.m_VertexBuffer);
+		m_VertexCount = std::move(other.m_VertexCount);
+
+		m_HasIndexBuffer = std::move(other.m_HasIndexBuffer);
+		m_IndexBuffer = std::move(other.m_IndexBuffer);
+		m_IndexCount = std::move(other.m_IndexCount);
+
+		other.m_Initialized = false;
+
+		m_Initialized = true;
+	}
+
+	Mesh& Mesh::operator=(Mesh&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_VertexBuffer = std::move(other.m_VertexBuffer);
+		m_VertexCount = std::move(other.m_VertexCount);
+
+		m_HasIndexBuffer = std::move(other.m_HasIndexBuffer);
+		m_IndexBuffer = std::move(other.m_IndexBuffer);
+		m_IndexCount = std::move(other.m_IndexCount);
+
+		other.m_Initialized = false;
+
+		m_Initialized = true;
+
+		return *this;
+	}
+
 	/**
 		@brief Binds vertex and index buffers
 	*/

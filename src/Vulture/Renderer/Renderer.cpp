@@ -100,7 +100,7 @@ namespace Vulture
 		return EndFrameInternal();
 	}
 
-	void Renderer::RenderImGui(std::function<void()> fn)
+	void Renderer::SetImGuiFunction(std::function<void()> fn)
 	{
 		s_ImGuiFunction = fn;
 	}
@@ -327,6 +327,7 @@ namespace Vulture
 		}
 	}
 
+	// TODO: delete this?
 	/**
 	 * @brief Takes descriptor set with single combined image sampler descriptor and copies data
 	 * from the image onto presentable swapchain framebuffer
@@ -358,7 +359,14 @@ namespace Vulture
 		s_QuadMesh.Draw(GetCurrentCommandBuffer(), 1);
 
 #ifdef VL_IMGUI
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
 		s_ImGuiFunction();
+
+		ImGui::Render();
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), Vulture::Renderer::GetCurrentCommandBuffer());
 #endif
 		// End the render pass
 		EndRenderPass();
@@ -376,7 +384,14 @@ namespace Vulture
 			glm::vec2(s_Swapchain->GetSwapchainExtent().width, s_Swapchain->GetSwapchainExtent().height)
 		);
 
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
 		s_ImGuiFunction();
+
+		ImGui::Render();
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), Vulture::Renderer::GetCurrentCommandBuffer());
 		EndRenderPass();
 #endif
 	}

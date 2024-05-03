@@ -1,7 +1,9 @@
 #pragma once
 
+#include <vector>
+
 #ifndef MAX_FRAMES_IN_FLIGHT
-#define MAX_FRAMES_IN_FLIGHT 1
+#define MAX_FRAMES_IN_FLIGHT 2
 #endif
 
 // These message IDs will be ignored by layers
