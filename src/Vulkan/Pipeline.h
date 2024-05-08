@@ -42,6 +42,7 @@ namespace Vulture
 			std::vector<Shader*> Shaders;
 			std::vector<VkVertexInputBindingDescription> BindingDesc;
 			std::vector<VkVertexInputAttributeDescription> AttributeDesc;
+			VkPolygonMode PolygonMode = VK_POLYGON_MODE_FILL;
 			uint32_t Width;
 			uint32_t Height;
 			VkPrimitiveTopology Topology;
@@ -94,7 +95,7 @@ namespace Vulture
 			bool DepthClamp = false;
 		};
 
-		void CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable, int colorAttachmentCount = 1);
+		void CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPolygonMode polyMode, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable, int colorAttachmentCount = 1);
 		static std::vector<char> ReadFile(const std::string& filepath);
 
 		void CreateShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);

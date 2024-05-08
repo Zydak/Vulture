@@ -24,6 +24,7 @@ namespace Vulture
 		m_Size.width = createInfo.Width;
 		m_Size.height = createInfo.Height;
 
+		m_MipLevels = createInfo.MipMapCount + 1;
 		m_Format = createInfo.Format;
 		m_Aspect = createInfo.Aspect;
 
@@ -52,6 +53,8 @@ namespace Vulture
 			if (createInfo.HDR)
 				CreateHDRSamplingBuffer(createInfo.Data);
 			WritePixels(createInfo.Data);
+
+			GenerateMipmaps();
 		}
 
 		m_Initialized = true;
@@ -83,12 +86,12 @@ namespace Vulture
 		Init(createInfo);
 	}
 
-	Image::Image(Image&& other)
+	Image::Image(Image&& other) noexcept
 	{
 		Move(std::move(other));
 	}
 
-	Image& Image::operator=(Image&& other)
+	Image& Image::operator=(Image&& other) noexcept
 	{
 		Move(std::move(other));
 		return *this;
@@ -128,7 +131,8 @@ namespace Vulture
 
 		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmd);
 		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height, cmd);
-		TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd);
+		if (m_Initialized)
+			TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd); // Keep the image layout for mip mapping later on
 
 		if (!cmdProvided)
 		{
@@ -178,7 +182,7 @@ namespace Vulture
 		imageCreateInfo.extent.width = createInfo.Width;
 		imageCreateInfo.extent.height = createInfo.Height;
 		imageCreateInfo.extent.depth = 1;
-		imageCreateInfo.mipLevels = 1;
+		imageCreateInfo.mipLevels = m_MipLevels;
 		imageCreateInfo.arrayLayers = createInfo.LayerCount;
 		imageCreateInfo.format = createInfo.Format;
 		imageCreateInfo.tiling = createInfo.Tiling;
@@ -221,8 +225,14 @@ namespace Vulture
 	 */
 	void Image::GenerateMipmaps()
 	{
+		if (m_MipLevels <= 1)
+			return;
+
 		VkCommandBuffer commandBuffer;
 		Device::BeginSingleTimeCommands(commandBuffer, Device::GetGraphicsCommandPool());
+
+		if (m_Layout != VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+			TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, commandBuffer);
 
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -315,13 +325,9 @@ namespace Vulture
 	 * @param oldLayout - The old layout of the image.
 	 * @param newLayout - The new layout to transition the image to.
 	 * @param cmdBuffer - Optional command buffer for the transition (useful for custom command buffer recording).
-	 * @param subresourceRange - Optional subresource range for the transition.
 	 */
-	void Image::TransitionImageLayout(const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkImageSubresourceRange subresourceRange)
+	void Image::TransitionImageLayout(const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
 	{
-		if (m_Type == ImageType::Cubemap)
-			subresourceRange.layerCount = 6;
-
 		VkCommandBuffer commandBuffer;
 
 		if (!cmdBuffer)
@@ -384,8 +390,13 @@ namespace Vulture
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_EXTERNAL;
 		barrier.image = m_ImageHandle;
-		subresourceRange.aspectMask = m_Aspect;
-		barrier.subresourceRange = subresourceRange;
+		VkImageSubresourceRange range{};
+		range.aspectMask = m_Aspect;
+		range.baseArrayLayer = 0;
+		range.baseMipLevel = 0;
+		range.layerCount = 1;
+		range.levelCount = m_MipLevels;
+		barrier.subresourceRange = range;
 		barrier.srcAccessMask = srcAccess;
 		barrier.dstAccessMask = dstAccess;
 		VkPipelineStageFlags srcStageMask = srcStage;

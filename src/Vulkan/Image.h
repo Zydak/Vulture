@@ -32,6 +32,7 @@ namespace Vulture
 			Vulture::SamplerInfo SamplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR };
 			int LayerCount = 1;
 			ImageType Type = ImageType::Image2D;
+			int MipMapCount = 0;
 
 			void* Data = nullptr;
 			bool HDR = false;
@@ -55,16 +56,17 @@ namespace Vulture
 
 		explicit Image(const Image& other) = delete;
 		Image& operator=(const Image& other) = delete;
-		explicit Image(Image&& other);
-		Image& operator=(Image&& other);
+		explicit Image(Image&& other) noexcept;
+		Image& operator=(Image&& other) noexcept;
 
 		~Image();
-		void TransitionImageLayout(const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer = 0, VkAccessFlags srcAccess = 0, VkAccessFlags dstAccess = 0, VkPipelineStageFlags srcStage = 0, VkPipelineStageFlags dstStage = 0, VkImageSubresourceRange subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+		void TransitionImageLayout(const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer = 0, VkAccessFlags srcAccess = 0, VkAccessFlags dstAccess = 0, VkPipelineStageFlags srcStage = 0, VkPipelineStageFlags dstStage = 0);
 		static void TransitionImageLayout(const VkImage& image, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkCommandBuffer cmdBuffer = 0, const VkImageSubresourceRange& subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 		void CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkCommandBuffer cmd = 0, VkOffset3D offset = {0, 0, 0});
 		void CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkImageLayout layout, VkCommandBuffer cmd, VkOffset3D srcOffset = { 0, 0, 0 }, VkOffset3D dstOffset = {0, 0, 0});
 
 		void WritePixels(void* data, VkCommandBuffer cmd = 0);
+		void GenerateMipmaps();
 	public:
 
 		inline VkImage GetImage() const { return m_ImageHandle; }
@@ -81,7 +83,6 @@ namespace Vulture
 		uint32_t FormatToSize(VkFormat format);
 		void CreateImageView(VkFormat format, VkImageAspectFlagBits aspect, int layerCount = 1, VkImageViewType imageType = VK_IMAGE_VIEW_TYPE_2D);
 		void CreateImage(const CreateInfo& createInfo);
-		void GenerateMipmaps();
 		
 		float GetLuminance(glm::vec3 color);
 

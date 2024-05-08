@@ -29,7 +29,7 @@ namespace Vulture
 		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
 		PipelineConfigInfo configInfo{};
 		configInfo.DepthClamp = info.DepthClamp;
-		CreatePipelineConfigInfo(configInfo, info.Width, info.Height, info.Topology, info.CullMode, info.DepthTestEnable, info.BlendingEnable, info.ColorAttachmentCount);
+		CreatePipelineConfigInfo(configInfo, info.Width, info.Height, info.PolygonMode, info.Topology, info.CullMode, info.DepthTestEnable, info.BlendingEnable, info.ColorAttachmentCount);
 
 		std::vector<ShaderModule> shaderModules;
 		shaderModules.resize(info.Shaders.size());
@@ -341,7 +341,7 @@ namespace Vulture
 	 * @param depthTestEnable - Flag indicating whether depth testing is enabled.
 	 * @param blendingEnable - Flag indicating whether blending is enabled.
 	 */
-	void Pipeline::CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable, int colorAttachmentCount)
+	void Pipeline::CreatePipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height, VkPolygonMode polyMode, VkPrimitiveTopology topology, VkCullModeFlags cullMode, bool depthTestEnable, bool blendingEnable, int colorAttachmentCount)
 	{
 		configInfo.InputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		configInfo.InputAssemblyInfo.topology = topology;
@@ -361,7 +361,7 @@ namespace Vulture
 		configInfo.RasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 		configInfo.RasterizationInfo.depthClampEnable = configInfo.DepthClamp;
 		configInfo.RasterizationInfo.rasterizerDiscardEnable = VK_FALSE;
-		configInfo.RasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;
+		configInfo.RasterizationInfo.polygonMode = polyMode;
 		configInfo.RasterizationInfo.lineWidth = 1.0f;
 		configInfo.RasterizationInfo.cullMode = cullMode;
 		configInfo.RasterizationInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;

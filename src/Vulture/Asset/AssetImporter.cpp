@@ -39,6 +39,7 @@ namespace Vulture
 		info.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		info.Data = (void*)pixels;
 		info.HDR = HDR;
+		info.MipMapCount = 5;
 		Image image(info);
 
 		stbi_image_free(pixels);

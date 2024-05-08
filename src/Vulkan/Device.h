@@ -78,6 +78,7 @@ namespace Vulture
 		static inline VkQueue GetPresentQueue() { return s_PresentQueue; }
 		static inline VkQueue GetComputeQueue() { return s_ComputeQueue; }
 		static inline VkPhysicalDeviceAccelerationStructurePropertiesKHR GetAccelerationProperties() { return s_AccelerationStructureProperties; }
+		static inline void WaitIdle() { vkDeviceWaitIdle(s_Device); }
 
 		static inline VmaAllocator GetAllocator() { return s_Allocator; }
 
