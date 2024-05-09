@@ -58,13 +58,13 @@ namespace Vulture
 				m_Descriptor[i].Init(&Vulture::Renderer::GetDescriptorPool(), m_Bindings);
 				m_Descriptor[i].AddImageSampler(
 					0,
-					{ Vulture::Renderer::GetSamplerHandle(),
+					{ Vulture::Renderer::GetLinearSamplerHandle(),
 					createInfo.InputImages[i]->GetImageView(),
 					inputLayout }
 				);
 				m_Descriptor[i].AddImageSampler(
 					1,
-					{ Vulture::Renderer::GetSamplerHandle(),
+					{ Vulture::Renderer::GetLinearSamplerHandle(),
 					createInfo.OutputImages[i]->GetImageView(),
 					VK_IMAGE_LAYOUT_GENERAL }
 				);
@@ -73,7 +73,7 @@ namespace Vulture
 				{
 					m_Descriptor[i].AddImageSampler(
 						j + 2,
-						{ Vulture::Renderer::GetSamplerHandle(),
+						{ Vulture::Renderer::GetLinearSamplerHandle(),
 						createInfo.AdditionalTextures[j]->GetImageView(),
 						VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 					);

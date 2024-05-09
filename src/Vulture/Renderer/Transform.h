@@ -14,8 +14,17 @@ namespace Vulture
 	class Transform
 	{
 	public:
+		Transform() = default;
 		Transform(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale);
+
+		void Init(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale);
+		void Destroy();
+
 		~Transform();
+		Transform(const Transform& other);
+		Transform(Transform&& other) noexcept;
+		Transform& operator=(const Transform& other);
+		Transform& operator=(Transform&& other) noexcept;
 
 		VkTransformMatrixKHR GetKhrMat();
 		// Maybe add ComputeMat4() function and make getters const?
@@ -36,11 +45,14 @@ namespace Vulture
 		void AddScale(const glm::vec3& vec);
 
 	private:
-		glm::mat4 ModelMatrix{1.0f};
-		glm::vec3 m_Translation;
-		glm::vec3 m_Scale;
+		glm::mat4 m_ModelMatrix{1.0f};
+		glm::vec3 m_Translation{};
+		glm::vec3 m_Scale{};
 
 		Quaternion m_Rotation{};
+
+		bool m_Initialized = false;
+		void Reset();
 	};
 
 }

@@ -5,16 +5,73 @@ namespace Vulture
 {
 
 	Transform::Transform(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale)
-		: m_Translation(translation), m_Rotation(rotation), m_Scale(scale)
 	{
-		//SetTranslation(m_Translation); ?????
-		//SetRotation(m_Rotation);
-		//SetScale(m_Scale);
+		Init(translation, rotation, scale);
+	}
+
+	Transform::Transform(const Transform& other)
+	{
+		m_ModelMatrix = other.m_ModelMatrix;
+		m_Rotation = other.m_Rotation;
+		m_Scale = other.m_Scale;
+		m_Translation = other.m_Translation;
+		m_Initialized = other.m_Initialized;
+	}
+
+	Transform::Transform(Transform&& other) noexcept
+	{
+		m_ModelMatrix = other.m_ModelMatrix;
+		m_Rotation = other.m_Rotation;
+		m_Scale = other.m_Scale;
+		m_Translation = other.m_Translation;
+		m_Initialized = other.m_Initialized;
+
+		other.Reset();
+	}
+
+	void Transform::Init(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale)
+	{
+		m_Translation = translation;
+		m_Rotation = rotation;
+		m_Scale = scale;
+
+		m_Initialized = true;
+	}
+
+	void Transform::Destroy()
+	{
+		Reset();
+		m_Initialized = true;
 	}
 
 	Transform::~Transform()
 	{
+		if (m_Initialized)
+			Destroy();
+	}
 
+	Transform& Transform::operator=(const Transform& other)
+	{
+		m_ModelMatrix = other.m_ModelMatrix;
+		m_Rotation = other.m_Rotation;
+		m_Scale = other.m_Scale;
+		m_Translation = other.m_Translation;
+		m_Initialized = other.m_Initialized;
+
+		return *this;
+	}
+
+	Transform& Transform::operator=(Transform&& other) noexcept
+	{
+		m_ModelMatrix = other.m_ModelMatrix;
+		m_Rotation = other.m_Rotation;
+		m_Scale = other.m_Scale;
+		m_Translation = other.m_Translation;
+		m_Initialized = other.m_Initialized;
+
+		other.Reset();
+
+		return *this;
 	}
 
 	VkTransformMatrixKHR Transform::GetKhrMat()
@@ -34,25 +91,25 @@ namespace Vulture
 			glm::mat4 rotationMat = m_Rotation.GetMat4();
 			glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), m_Scale);
 
-			ModelMatrix = translationMat * rotationMat * scaleMat;
+			m_ModelMatrix = translationMat * rotationMat * scaleMat;
 
 			changed = true;
 		}
-		return ModelMatrix;
+		return m_ModelMatrix;
 	}
 
 	glm::mat4 Transform::GetMat4(const glm::mat4& compareMat)
 	{
-		if (ModelMatrix != compareMat)
+		if (m_ModelMatrix != compareMat)
 		{
 			glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), m_Translation);
 			glm::mat4 rotationMat = m_Rotation.GetMat4();
 			glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), m_Scale);
 
-			ModelMatrix = translationMat * rotationMat * scaleMat;
+			m_ModelMatrix = translationMat * rotationMat * scaleMat;
 		}
 
-		return ModelMatrix;
+		return m_ModelMatrix;
 	}
 
 	glm::mat4 Transform::GetMat4()
@@ -61,9 +118,9 @@ namespace Vulture
 		glm::mat4 rotationMat = m_Rotation.GetMat4();
 		glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), m_Scale);
 
-		ModelMatrix = translationMat * rotationMat * scaleMat;
+		m_ModelMatrix = translationMat * rotationMat * scaleMat;
 
-		return ModelMatrix;
+		return m_ModelMatrix;
 	}
 
 	void Transform::SetTranslation(const glm::vec3& vec)
@@ -94,6 +151,16 @@ namespace Vulture
 	void Transform::AddScale(const glm::vec3& vec)
 	{
 		m_Scale += vec;
+	}
+
+	void Transform::Reset()
+	{
+		m_ModelMatrix = glm::mat4(0.0f);
+		m_Translation = glm::vec3(0.0f);
+		m_Scale = glm::vec3(0.0f);
+		m_Initialized = false;
+
+		m_Rotation = {};
 	}
 
 }

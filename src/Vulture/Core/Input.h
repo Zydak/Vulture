@@ -136,6 +136,8 @@ namespace Vulture
 		static bool IsKeyPressed(int keyCode);
 		static bool IsMousePressed(int mouseButton);
 		static glm::vec2 GetMousePosition();
+		static float GetScrollValue();
+		static void SetScrollValue(float x);
 
 	private:
 		static GLFWwindow* s_Window;

@@ -221,28 +221,28 @@ namespace Vulture
 		m_AlbedoTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			0,
-			{ Vulture::Renderer::GetSamplerHandle(),
+			{ Vulture::Renderer::GetLinearSamplerHandle(),
 			m_AlbedoTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
 		m_NormalTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			1,
-			{ Vulture::Renderer::GetSamplerHandle(),
+			{ Vulture::Renderer::GetLinearSamplerHandle(),
 			m_NormalTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
 		m_RoughnessTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			2,
-			{ Vulture::Renderer::GetSamplerHandle(),
+			{ Vulture::Renderer::GetLinearSamplerHandle(),
 			m_RoughnessTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
 		m_MetallnessTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			3,
-			{ Vulture::Renderer::GetSamplerHandle(),
+			{ Vulture::Renderer::GetLinearSamplerHandle(),
 			m_MetallnessTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);

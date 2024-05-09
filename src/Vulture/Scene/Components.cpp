@@ -106,7 +106,18 @@ namespace Vulture
 
 	void CameraComponent::SetZoom(float zoom)
 	{
+		float prefZoom = Zoom;
 		Zoom = zoom;
+
+		// Revert previous zoom
+		ProjMat[0][0] /= prefZoom;
+		ProjMat[1][1] /= prefZoom;
+		ProjMat[2][2] /= prefZoom;
+
+		// Apply zoom
+		ProjMat[0][0] *= Zoom;
+		ProjMat[1][1] *= Zoom;
+		ProjMat[2][2] *= Zoom;
 	}
 
 	void CameraComponent::UpdateViewMatrix()
@@ -123,7 +134,7 @@ namespace Vulture
 		ViewMat = mat;
 	}
 
-	glm::mat4 CameraComponent::GetViewProj()
+	glm::mat4 CameraComponent::GetProjView()
 	{
 		return ProjMat * ViewMat;
 	}

@@ -26,7 +26,8 @@ namespace Vulture
 		s_EnvToCubemapDescriptorSet.reset();
 
 		s_BloomImages.clear();
-		s_RendererSampler.reset();
+		s_RendererLinearSampler.reset();
+		s_RendererNearestSampler.reset();
 
 		s_HDRToPresentablePipeline.Destroy();
 		s_EnvToCubemapPipeline.Destroy();
@@ -50,7 +51,8 @@ namespace Vulture
 	void Renderer::Init(Window& window)
 	{
 		CreatePool();
-		s_RendererSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR));
+		s_RendererLinearSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR));
+		s_RendererNearestSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST));
 
 		s_IsInitialized = true;
 		s_Window = &window;
@@ -452,10 +454,8 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			s_EnvToCubemapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 			s_EnvToCubemapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			s_EnvToCubemapDescriptorSet->AddImageSampler(0, { GetSamplerHandle(), envMap->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
-			);
-			s_EnvToCubemapDescriptorSet->AddImageSampler(1, { GetSamplerHandle(), cubemap->GetImageView(), VK_IMAGE_LAYOUT_GENERAL }
-			);
+			s_EnvToCubemapDescriptorSet->AddImageSampler(0, { GetLinearSamplerHandle(), envMap->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+			s_EnvToCubemapDescriptorSet->AddImageSampler(1, { GetLinearSamplerHandle(), cubemap->GetImageView(), VK_IMAGE_LAYOUT_GENERAL });
 			s_EnvToCubemapDescriptorSet->Build();
 		}
 
@@ -782,7 +782,8 @@ namespace Vulture
 	Vulture::Pipeline Renderer::s_EnvToCubemapPipeline;
 	std::vector<Ref<Image>> Renderer::s_BloomImages;
 	Mesh Renderer::s_QuadMesh;
-	Scope<Sampler> Renderer::s_RendererSampler;
+	Scope<Sampler> Renderer::s_RendererLinearSampler;
+	Scope<Sampler> Renderer::s_RendererNearestSampler;
 	Ref<Vulture::DescriptorSet> Renderer::s_EnvToCubemapDescriptorSet;
 	VkExtent2D Renderer::s_MipSize = { 0, 0 };
 	int Renderer::m_MipsCount = 0;

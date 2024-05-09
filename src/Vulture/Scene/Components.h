@@ -124,7 +124,7 @@ namespace Vulture
 		void AddYaw(float yaw);
 		void AddRoll(float roll);
 
-		glm::mat4 GetViewProj();
+		glm::mat4 GetProjView();
 		inline const glm::vec3 GetFrontVec() const { return Rotation.GetFrontVec(); }
 		inline const glm::vec3 GetRightVec() const { return Rotation.GetRightVec(); }
 		inline const glm::vec3 GetUpVec() const { return Rotation.GetUpVec(); }

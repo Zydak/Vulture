@@ -30,8 +30,10 @@ namespace Vulture
 		
 		static inline Swapchain& GetSwapchain() { return *s_Swapchain; }
 		static inline DescriptorPool& GetDescriptorPool() { return *s_Pool; }
-		static inline Sampler& GetSampler() { return *s_RendererSampler; }
-		static inline VkSampler GetSamplerHandle() { return s_RendererSampler->GetSamplerHandle(); }
+		static inline Sampler& GetLinearSampler() { return *s_RendererLinearSampler; }
+		static inline Sampler& GetNearestSampler() { return *s_RendererNearestSampler; }
+		static inline VkSampler GetLinearSamplerHandle() { return s_RendererLinearSampler->GetLinearSamplerHandle(); }
+		static inline VkSampler GetNearestSamplerHandle() { return s_RendererNearestSampler->GetLinearSamplerHandle(); }
 		static inline uint32_t& GetCurrentFrameIndex() { return s_CurrentFrameIndex; }
 		static inline Mesh& GetQuadMesh() { return s_QuadMesh; }
 		static inline float GetAspectRatio() { return s_Swapchain->GetExtentAspectRatio(); }
@@ -83,7 +85,8 @@ namespace Vulture
 	private:
 
 		static Mesh s_QuadMesh;
-		static Scope<Sampler> s_RendererSampler;
+		static Scope<Sampler> s_RendererLinearSampler;
+		static Scope<Sampler> s_RendererNearestSampler;
 
 		static Ref<DescriptorSet> s_EnvToCubemapDescriptorSet;
 

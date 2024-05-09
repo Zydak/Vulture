@@ -94,7 +94,8 @@ namespace Vulture
 
 	bool AssetHandle::IsAssetValid() const
 	{
-		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
+		if (!m_Initialized)
+			return false;
 
 		return m_Manager->IsAssetValid(*this);
 	}
