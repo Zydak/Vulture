@@ -1,13 +1,21 @@
 #include "pch.h"
 #include "Input.h"
 
+#include "imgui.h"
+
 namespace Vulture
 {
 	static float scrollValue = 0.0f;
 
 	static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 	{
-		scrollValue += yoffset;
+		scrollValue += (float)yoffset;
+
+		ImGuiIO* io = &ImGui::GetIO();
+		if (io != nullptr)
+		{
+			io->MouseWheel += (float)yoffset;
+		}
 	}
 
 	void Input::Init(GLFWwindow* window)

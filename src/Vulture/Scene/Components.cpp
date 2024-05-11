@@ -94,7 +94,9 @@ namespace Vulture
 
 	void CameraComponent::SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far)
 	{
-		ProjMat = glm::ortho(leftRightBottomTop.x * Zoom, leftRightBottomTop.y * Zoom, leftRightBottomTop.z * Zoom, leftRightBottomTop.w * Zoom, _near, _far);
+		m_LeftRightBottomTopOrtho = leftRightBottomTop;
+		m_NearFar = { _near, _far };
+		ProjMat = glm::ortho(m_LeftRightBottomTopOrtho.x * Zoom, m_LeftRightBottomTopOrtho.y * Zoom, m_LeftRightBottomTopOrtho.z * Zoom, m_LeftRightBottomTopOrtho.w * Zoom, _near, _far);
 	}
 
 	void CameraComponent::SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far)
@@ -106,18 +108,10 @@ namespace Vulture
 
 	void CameraComponent::SetZoom(float zoom)
 	{
-		float prefZoom = Zoom;
+		// Revert previous zoom
 		Zoom = zoom;
 
-		// Revert previous zoom
-		ProjMat[0][0] /= prefZoom;
-		ProjMat[1][1] /= prefZoom;
-		ProjMat[2][2] /= prefZoom;
-
-		// Apply zoom
-		ProjMat[0][0] *= Zoom;
-		ProjMat[1][1] *= Zoom;
-		ProjMat[2][2] *= Zoom;
+		ProjMat = glm::ortho(m_LeftRightBottomTopOrtho.x * Zoom, m_LeftRightBottomTopOrtho.y * Zoom, m_LeftRightBottomTopOrtho.z * Zoom, m_LeftRightBottomTopOrtho.w * Zoom, m_NearFar.x, m_NearFar.y);
 	}
 
 	void CameraComponent::UpdateViewMatrix()

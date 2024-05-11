@@ -4,6 +4,7 @@ include "lib/spdlog"
 include "lib/msdf-atlas-gen"
 include "lib/assimp"
 include "lib/lodepng"
+include "lib/imNodeFlow"
 
 project "Vulture"
 	architecture "x86_64"
@@ -53,6 +54,7 @@ project "Vulture"
         "assimp",
         "lib/cuda/*.lib",
         "lodepng",
+        "imNodeFlow",
     }
 
     defines { "_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS" }

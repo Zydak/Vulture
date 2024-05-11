@@ -105,6 +105,9 @@ namespace Vulture
 		glm::vec3 Translation{ 0.0f };
 		glm::mat4 ProjMat{1.0f};
 		glm::mat4 ViewMat{1.0f};
+		glm::vec4 m_LeftRightBottomTopOrtho;
+		glm::vec2 m_NearFar;
+
 		bool Main = false;
 		float Zoom = 1.0f;
 		float FOV = 45.0f;
