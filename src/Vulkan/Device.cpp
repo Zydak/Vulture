@@ -86,6 +86,7 @@ namespace Vulture
 
 		// Associate the provided window with the device
 		Device::s_Window = createInfo.Window;
+		s_UseMemoryAddressFeature = createInfo.UseMemoryAddress;
 
 		s_DeviceExtensions = createInfo.DeviceExtensions;
 		for (int i = 0; i < createInfo.OptionalExtensions.size(); i++)

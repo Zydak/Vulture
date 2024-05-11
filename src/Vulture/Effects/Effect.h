@@ -21,7 +21,7 @@ namespace Vulture
 
 			std::vector<Image*> AdditionalTextures;
 
-			std::vector<std::string> Defines;
+			std::vector<Vulture::Shader::Define> Defines;
 
 			std::string DebugName = "Post Process";
 		};
@@ -117,7 +117,7 @@ namespace Vulture
 			m_Descriptor.clear();
 		}
 
-		void RecompileShader(std::vector<std::string> defines)
+		void RecompileShader(std::vector<Shader::Define> defines)
 		{
 
 			// Pipeline
