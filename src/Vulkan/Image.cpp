@@ -25,6 +25,8 @@ namespace Vulture
 		m_Size.height = createInfo.Height;
 
 		m_MipLevels = createInfo.MipMapCount + 1;
+		m_MipLevels = glm::min((int)m_MipLevels, (int)glm::floor(glm::log2((float)glm::max(createInfo.Width, createInfo.Height))));
+		m_MipLevels = glm::max((int)m_MipLevels, 1);
 		m_Format = createInfo.Format;
 		m_Aspect = createInfo.Aspect;
 
@@ -62,7 +64,8 @@ namespace Vulture
 
 	void Image::Destroy()
 	{
-		m_ImportanceSmplAccel.reset();
+		if (m_ImportanceSmplAccel.IsInitialized())
+			m_ImportanceSmplAccel.Destroy();
 
 		for (auto view : m_ImageViews)
 		{
@@ -73,6 +76,8 @@ namespace Vulture
 		delete m_Allocation;
 
 		m_Initialized = false;
+
+		ResetVariables();
 	}
 
 	/**
@@ -215,9 +220,9 @@ namespace Vulture
 
 		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		bufferInfo.UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		m_ImportanceSmplAccel = std::make_shared<Buffer>(bufferInfo);
+		m_ImportanceSmplAccel.Init(bufferInfo);
 
-		Buffer::CopyBuffer(stagingBuf.GetBuffer(), m_ImportanceSmplAccel->GetBuffer(), stagingBuf.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
+		Buffer::CopyBuffer(stagingBuf.GetBuffer(), m_ImportanceSmplAccel.GetBuffer(), stagingBuf.GetBufferSize(), 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 	}
 
 	/*
@@ -328,6 +333,9 @@ namespace Vulture
 	 */
 	void Image::TransitionImageLayout(const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
 	{
+		if (newLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+			return;
+
 		VkCommandBuffer commandBuffer;
 
 		if (!cmdBuffer)
@@ -517,6 +525,33 @@ namespace Vulture
 			Device::EndSingleTimeCommands(commandBuffer, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 	}
 
+	void Image::BlitImageToImage(Image* srcImage, VkCommandBuffer cmd)
+	{
+		for (int i = 0; i < (int)m_MipLevels; i++)
+		{
+			VkImageBlit blit{};
+			blit.srcOffsets[0] = { 0, 0, 0 };
+			blit.srcOffsets[1] = { (int)srcImage->GetImageSize().width, (int)srcImage->GetImageSize().height, 1};
+			blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			blit.srcSubresource.mipLevel = glm::min(i, (int)srcImage->GetMipLevelsCount());
+			blit.srcSubresource.baseArrayLayer = 0;
+			blit.srcSubresource.layerCount = 1;
+			blit.dstOffsets[0] = { 0, 0, 0 };
+			blit.dstOffsets[1] = { (int)m_Size.width, (int)m_Size.height, 1 };
+			blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			blit.dstSubresource.mipLevel = i;
+			blit.dstSubresource.baseArrayLayer = 0;
+			blit.dstSubresource.layerCount = 1;
+
+			vkCmdBlitImage(cmd,
+				srcImage->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				m_ImageHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				1, &blit,
+				VK_FILTER_LINEAR
+			);
+		}
+	}
+
 	// TODO description
 	float Image::GetLuminance(glm::vec3 color)
 	{
@@ -681,24 +716,46 @@ namespace Vulture
 			Destroy();
 
 		m_Initialized = true;
-		m_MemoryProperties = other.m_MemoryProperties;
-		m_Format = other.m_Format;
-		m_ImportanceSmplAccel = other.m_ImportanceSmplAccel;
-		m_Layout = other.m_Layout;
-		m_Usage = other.m_Usage;
+		m_MemoryProperties		= std::move(other.m_MemoryProperties);
+		m_Format				= std::move(other.m_Format);
+		m_ImportanceSmplAccel	= std::move(other.m_ImportanceSmplAccel);
+		m_Layout				= std::move(other.m_Layout);
+		m_Usage					= std::move(other.m_Usage);
 
-		m_Aspect = other.m_Aspect;
-		m_Tiling = other.m_Tiling;
-		m_LayerCount = other.m_LayerCount;
-		m_Type = other.m_Type;
+		m_Aspect				= std::move(other.m_Aspect);
+		m_Tiling				= std::move(other.m_Tiling);
+		m_LayerCount			= std::move(other.m_LayerCount);
+		m_Type					= std::move(other.m_Type);
 
-		m_ImageHandle = std::move(other.m_ImageHandle);
-		m_ImageViews = std::move(other.m_ImageViews); // view for each layer
-		m_Allocation = other.m_Allocation;
-		m_Size = other.m_Size;
-		m_MipLevels = other.m_MipLevels;
+		m_ImageHandle			= std::move(other.m_ImageHandle);
+		m_ImageViews			= std::move(other.m_ImageViews);
+		m_Allocation			= std::move(other.m_Allocation);
+		m_Size					= std::move(other.m_Size);
+		m_MipLevels				= std::move(other.m_MipLevels);
 
 		other.m_Initialized = false;
+	}
+
+	void Image::ResetVariables()
+	{
+		m_Format = VK_FORMAT_MAX_ENUM;
+		m_Aspect = VK_IMAGE_ASPECT_NONE;
+		m_Tiling = VK_IMAGE_TILING_OPTIMAL;
+		m_LayerCount = 1;
+		m_Type = ImageType::Image2D;
+
+		m_ImageHandle = VK_NULL_HANDLE;
+		m_ImageViews.clear();
+		m_Allocation = nullptr;
+		m_Size = { 0, 0 };
+		m_MipLevels = 1;
+
+		bool m_Initialized = false;
+
+		//Flags
+		m_Usage = VK_IMAGE_USAGE_FLAG_BITS_MAX_ENUM;
+		m_MemoryProperties = VK_MEMORY_PROPERTY_FLAG_BITS_MAX_ENUM;
+		m_Layout = VK_IMAGE_LAYOUT_UNDEFINED;
 	}
 
 	uint32_t Image::FormatToSize(VkFormat format)

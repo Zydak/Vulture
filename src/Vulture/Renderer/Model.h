@@ -22,16 +22,14 @@ namespace Vulture
 		float ay = 0.0f;
 	};
 
-	class AssetManager;
-
 	class Model
 	{
 	public:
-		void Init(const std::string& filepath, AssetManager* assetManager);
+		void Init(const std::string& filepath);
 		void Destroy();
 
 		Model() = default;
-		explicit Model(const std::string& filepath, AssetManager* assetManager);
+		explicit Model(const std::string& filepath);
 		explicit Model(const Model& other) = delete;
 		explicit Model(Model&& other);
 
@@ -70,8 +68,6 @@ namespace Vulture
 	private:
 		void ProcessNode(aiNode* node, const aiScene* scene, int& index);
 		void CreateTextureSet(uint32_t index);
-
-		AssetManager* m_AssetManager;
 
 		std::vector<std::string> m_MeshesNames;
 		std::vector<Ref<Mesh>> m_Meshes;

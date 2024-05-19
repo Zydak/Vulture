@@ -82,36 +82,6 @@ namespace Vulture
 		return out_matrix;
 	}
 
-	glm::mat4 Transform::GetMat4(const Transform& transform, bool& changed)
-	{
-		changed = false;
-		if (m_Translation != transform.GetTranslation() || m_Rotation != transform.GetRotation() || m_Scale != transform.GetScale())
-		{
-			glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), m_Translation);
-			glm::mat4 rotationMat = m_Rotation.GetMat4();
-			glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), m_Scale);
-
-			m_ModelMatrix = translationMat * rotationMat * scaleMat;
-
-			changed = true;
-		}
-		return m_ModelMatrix;
-	}
-
-	glm::mat4 Transform::GetMat4(const glm::mat4& compareMat)
-	{
-		if (m_ModelMatrix != compareMat)
-		{
-			glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), m_Translation);
-			glm::mat4 rotationMat = m_Rotation.GetMat4();
-			glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), m_Scale);
-
-			m_ModelMatrix = translationMat * rotationMat * scaleMat;
-		}
-
-		return m_ModelMatrix;
-	}
-
 	glm::mat4 Transform::GetMat4()
 	{
 		glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), m_Translation);

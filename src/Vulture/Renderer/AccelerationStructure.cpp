@@ -14,13 +14,13 @@ namespace Vulture
 	 * @param mesh - Input Mesh object to convert.
 	 * @return BlasInput - AccelerationStructure input data generated from the mesh.
 	 */
-	BlasInput AccelerationStructure::MeshToGeometry(Mesh& mesh)
+	BlasInput AccelerationStructure::MeshToGeometry(Mesh* mesh)
 	{
 		// Get device addresses of the vertex and index buffers
-		VkDeviceAddress vertexAddress = mesh.GetVertexBuffer()->GetDeviceAddress();
-		VkDeviceAddress indexAddress = mesh.GetIndexBuffer()->GetDeviceAddress();
+		VkDeviceAddress vertexAddress	= mesh->GetVertexBuffer()->GetDeviceAddress();
+		VkDeviceAddress indexAddress	= mesh->GetIndexBuffer()->GetDeviceAddress();
 
-		uint32_t primitiveCount = mesh.GetIndexCount() / 3;
+		uint32_t primitiveCount			= mesh->GetIndexCount() / 3;
 
 		// Describe buffer as array of Mesh::Vertex.
 		VkAccelerationStructureGeometryTrianglesDataKHR triangles{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR };
@@ -30,7 +30,7 @@ namespace Vulture
 		triangles.indexType = VK_INDEX_TYPE_UINT32;
 		triangles.indexData.deviceAddress = indexAddress;
 		triangles.transformData = {};
-		triangles.maxVertex = mesh.GetVertexCount() - 1;
+		triangles.maxVertex = mesh->GetVertexCount() - 1;
 
 		// Identify the above data as opaque triangles.
 		VkAccelerationStructureGeometryKHR asGeometry{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
@@ -285,13 +285,13 @@ namespace Vulture
 		m_Initialized = false;
 	}
 
-	void AccelerationStructure::Init(Scene& scene)
+	void AccelerationStructure::Init(const CreateInfo& info)
 	{
 		if (m_Initialized)
 			Destroy();
 
-		CreateBottomLevelAS(scene);
-		CreateTopLevelAS(scene);
+		CreateBottomLevelAS(info);
+		CreateTopLevelAS(info);
 
 		m_Initialized = true;
 	}
@@ -302,32 +302,21 @@ namespace Vulture
 			Destroy();
 	}
 
-	/**
-	 * @brief Creates a Top-Level Acceleration Structure (TLAS) for a scene.
-	 *
-	 * @param scene - Scene object containing entities with ModelComponent and TransformComponent.
-	 */
-	void AccelerationStructure::CreateTopLevelAS(Scene& scene)
+	void AccelerationStructure::CreateTopLevelAS(const CreateInfo& info)
 	{
 		std::vector<VkAccelerationStructureInstanceKHR> tlas;
-		auto view = scene.GetRegistry().view<ModelComponent, TransformComponent>();
 		int meshCount = 0;
-		for (auto& entity : view)
+		for (int i = 0; i < info.Instances.size(); i++)
 		{
-			const auto& [modelComponent, transformComponent] = view.get<ModelComponent, TransformComponent>(entity);
-
-			for (int i = 0; i < (int)modelComponent.ModelHandle.GetModel()->GetMeshCount(); i++)
-			{
-				VkAccelerationStructureInstanceKHR instance{};
-				instance.transform = transformComponent.transform.GetKhrMat();
-				instance.instanceCustomIndex = meshCount;
-				instance.accelerationStructureReference = GetBlasDeviceAddress(meshCount);
-				instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR | VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
-				instance.mask = 0xFF;
-				instance.instanceShaderBindingTableRecordOffset = 0;
-				tlas.emplace_back(instance);
-				meshCount++;
-			}
+			VkAccelerationStructureInstanceKHR instance{};
+			instance.transform = info.Instances[i].transform;
+			instance.instanceCustomIndex = meshCount;
+			instance.accelerationStructureReference = GetBlasDeviceAddress(meshCount);
+			instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR | VK_GEOMETRY_INSTANCE_FORCE_OPAQUE_BIT_KHR;
+			instance.mask = 0xFF;
+			instance.instanceShaderBindingTableRecordOffset = 0;
+			tlas.emplace_back(instance);
+			meshCount++;
 		}
 
 		uint32_t instanceCount = (uint32_t)tlas.size();
@@ -371,28 +360,15 @@ namespace Vulture
 		stagingBuffer.Unmap();
 	}
 
-	/**
-	 * @brief Creates Bottom-Level Acceleration Structures (BLAS) for each model in the scene.
-	 *
-	 * @param scene - Scene object containing entities with ModelComponent and TransformComponent.
-	 */
-	void AccelerationStructure::CreateBottomLevelAS(Scene& scene)
+	void AccelerationStructure::CreateBottomLevelAS(const CreateInfo& info)
 	{
-		// BLAS - Storing each primitive in a geometry
 		std::vector<BlasInput> blases;
 
-		// Retrieve view of entities with ModelComponent and TransformComponent
-		auto view = scene.GetRegistry().view<ModelComponent, TransformComponent>();
-		for (auto entity : view)
+		for (int i = 0; i < info.Instances.size(); i++)
 		{
-			const ModelComponent& modelComponent = view.get<ModelComponent>(entity);
+			BlasInput blas = MeshToGeometry(info.Instances[i].mesh);
 
-			for (int i = 0; i < (int)modelComponent.ModelHandle.GetModel()->GetMeshCount(); i++)
-			{
-				BlasInput blas = MeshToGeometry(modelComponent.ModelHandle.GetModel()->GetMesh(i));
-
-				blases.emplace_back(blas);
-			}
+			blases.emplace_back(blas);
 		}
 
 		uint32_t     blasCount = (uint32_t)blases.size();

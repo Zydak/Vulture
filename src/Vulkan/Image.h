@@ -64,6 +64,7 @@ namespace Vulture
 		static void TransitionImageLayout(const VkImage& image, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkCommandBuffer cmdBuffer = 0, const VkImageSubresourceRange& subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 		void CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkCommandBuffer cmd = 0, VkOffset3D offset = {0, 0, 0});
 		void CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkImageLayout layout, VkCommandBuffer cmd, VkOffset3D srcOffset = { 0, 0, 0 }, VkOffset3D dstOffset = {0, 0, 0});
+		void BlitImageToImage(Image* srcImage, VkCommandBuffer cmd);
 
 		void WritePixels(void* data, VkCommandBuffer cmd = 0);
 		void GenerateMipmaps();
@@ -77,7 +78,9 @@ namespace Vulture
 		inline VkMemoryPropertyFlags GetMemoryProperties() const { return m_MemoryProperties; }
 		inline VkImageLayout GetLayout() const { return m_Layout; }
 		inline void SetLayout(VkImageLayout newLayout) { m_Layout = newLayout; }
-		inline Ref<Buffer> GetAccelBuffer() { return m_ImportanceSmplAccel; }
+		inline Buffer* GetAccelBuffer() { return &m_ImportanceSmplAccel; }
+		inline uint32_t GetMipLevelsCount() const { return m_MipLevels; }
+		inline bool IsInitialized() const { return m_Initialized; }
 
 	private:
 		uint32_t FormatToSize(VkFormat format);
@@ -95,7 +98,6 @@ namespace Vulture
 		
 		std::vector<EnvAccel> CreateEnvAccel(float* pixels, uint32_t width, uint32_t height, float& average, float& integral);
 		float BuildAliasMap(const std::vector<float>& data, std::vector<EnvAccel>& accel);
-
 
 		VkFormat m_Format = VK_FORMAT_MAX_ENUM;
 		VkImageAspectFlagBits m_Aspect = VK_IMAGE_ASPECT_NONE;
@@ -117,9 +119,11 @@ namespace Vulture
 		VkImageLayout m_Layout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 		// HDR only
-		Ref<Buffer> m_ImportanceSmplAccel;
+		Buffer m_ImportanceSmplAccel;
 
 		void Move(Image&& other);
+
+		void ResetVariables();
 	};
 
 }

@@ -23,31 +23,24 @@ namespace Vulture
 			uint32_t ThreadCount = 1;
 		};
 
-		AssetManager() = default;
-		AssetManager(const CreateInfo& createInfo);
-		~AssetManager();
+		AssetManager() = delete;
 
-		void Init(const CreateInfo& createInfo);
-		void Destroy();
+		static void Init(const CreateInfo& createInfo);
+		static void Destroy();
 
-		explicit AssetManager(const AssetManager& other);
-		explicit AssetManager(AssetManager&& other) noexcept;
-		AssetManager& operator=(const AssetManager& other);
-		AssetManager& operator=(AssetManager&& other) noexcept;
+		static Asset* GetAsset(const AssetHandle& handle);
+		static bool IsAssetValid(const AssetHandle& handle);
 
-		Asset* GetAsset(const AssetHandle& handle);
-		bool IsAssetValid(const AssetHandle& handle) const;
+		static void WaitToLoad(const AssetHandle& handle);
+		static bool IsAssetLoaded(const AssetHandle& handle);
 
-		void WaitToLoad(const AssetHandle& handle) const;
-		bool IsAssetLoaded(const AssetHandle& handle) const;
-
-		AssetHandle LoadAsset(const std::string& path);
-		void UnloadAsset(const AssetHandle& handle);
+		static AssetHandle LoadAsset(const std::string& path);
+		static void UnloadAsset(const AssetHandle& handle);
 	private:
-		std::unordered_map<AssetHandle, AssetWithFuture> m_Assets;
-		ThreadPool m_ThreadPool;
-		std::mutex m_AssetsMutex;
+		static std::unordered_map<AssetHandle, AssetWithFuture> s_Assets;
+		static ThreadPool s_ThreadPool;
+		static std::mutex s_AssetsMutex;
 
-		bool m_Initialized = false;
+		static bool s_Initialized;
 	};
 }

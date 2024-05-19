@@ -14,14 +14,13 @@ namespace Vulture
 
 	AssetHandle::AssetHandle(const AssetHandle& other)
 	{
-		Init({ other.m_Handle, other.m_Manager });
+		Init({ other.m_Handle });
 	}
 
 	AssetHandle::AssetHandle(AssetHandle&& other) noexcept
 	{
 		m_Initialized = true;
 		m_Handle = other.m_Handle;
-		m_Manager = other.m_Manager;
 
 		other.m_Initialized = false;
 	}
@@ -37,7 +36,6 @@ namespace Vulture
 			Destroy();
 
 		m_Handle = createInfo.Handle;
-		m_Manager = createInfo.Manager;
 
 		m_Initialized = true;
 	}
@@ -49,7 +47,7 @@ namespace Vulture
 
 	AssetHandle& AssetHandle::operator=(const AssetHandle& other)
 	{
-		Init({ other.m_Handle, other.m_Manager });
+		Init({ other.m_Handle });
 		return *this;
 	}
 
@@ -57,7 +55,6 @@ namespace Vulture
 	{
 		m_Initialized = true;
 		m_Handle = other.m_Handle;
-		m_Manager = other.m_Manager;
 
 		other.m_Initialized = false;
 
@@ -68,28 +65,28 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		return m_Manager->GetAsset(*this);
+		return AssetManager::GetAsset(*this);
 	}
 
 	AssetType AssetHandle::GetAssetType() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		return m_Manager->GetAsset(*this)->GetAssetType();
+		return  AssetManager::GetAsset(*this)->GetAssetType();
 	}
 
 	Model* AssetHandle::GetModel() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		return &reinterpret_cast<ModelAsset*>(m_Manager->GetAsset(*this))->Model;
+		return &reinterpret_cast<ModelAsset*>( AssetManager::GetAsset(*this))->Model;
 	}
 
 	Image* AssetHandle::GetImage() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		return &reinterpret_cast<TextureAsset*>(m_Manager->GetAsset(*this))->Image;
+		return &reinterpret_cast<TextureAsset*>( AssetManager::GetAsset(*this))->Image;
 	}
 
 	bool AssetHandle::IsAssetValid() const
@@ -97,28 +94,28 @@ namespace Vulture
 		if (!m_Initialized)
 			return false;
 
-		return m_Manager->IsAssetValid(*this);
+		return  AssetManager::IsAssetValid(*this);
 	}
 
 	bool AssetHandle::IsAssetLoaded() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		return m_Manager->IsAssetLoaded(*this);
+		return  AssetManager::IsAssetLoaded(*this);
 	}
 
 	void AssetHandle::Unload() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		m_Manager->UnloadAsset(*this);
+		 AssetManager::UnloadAsset(*this);
 	}
 
 	void AssetHandle::WaitToLoad() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		m_Manager->WaitToLoad(*this);
+		 AssetManager::WaitToLoad(*this);
 	}
 
 	size_t AssetHandle::Hash() const

@@ -15,8 +15,8 @@ namespace Vulture
 	public:
 		struct CreateInfo
 		{
-			std::vector<Ref<Image>> InputImages;
-			std::vector<Ref<Image>> OutputImages;
+			Image* InputImage;
+			Image* OutputImage;
 
 			uint32_t MipsCount;
 		};
@@ -35,10 +35,10 @@ namespace Vulture
 		Bloom(const CreateInfo& info);
 		~Bloom();
 
-		void Run(const BloomInfo& bloomInfo, VkCommandBuffer cmd, uint32_t imageIndex = 0);
+		void Run(const BloomInfo& bloomInfo, VkCommandBuffer cmd);
 
 		void UpdateDescriptors(const CreateInfo& info);
-		void RecreateDescriptors(uint32_t mipsCount, int32_t frameIndex = -1);
+		void RecreateDescriptors(uint32_t mipsCount);
 	private:
 		void CreateBloomMips();
 
@@ -46,18 +46,18 @@ namespace Vulture
 
 		VkExtent2D m_ImageSize;
 
-		std::vector<DescriptorSet> m_SeparateBrightValuesSet;
-		std::vector<std::vector<DescriptorSet>> m_DownSampleSet;
-		std::vector<std::vector<DescriptorSet>> m_AccumulateSet;
+		DescriptorSet m_SeparateBrightValuesSet;
+		std::vector<DescriptorSet> m_DownSampleSet;
+		std::vector<DescriptorSet> m_AccumulateSet;
 
-		std::vector<std::vector<Image>> m_BloomImages;
+		std::vector<Image> m_BloomImages;
 
 		Pipeline m_SeparateBrightValuesPipeline;
 		Pipeline m_DownSamplePipeline;
 		Pipeline m_AccumulatePipeline;
 
-		std::vector<Ref<Image>> m_InputImages;
-		std::vector<Ref<Image>> m_OutputImages;
+		Image* m_InputImage;
+		Image* m_OutputImage;
 
 		bool m_Initialized = false;
 	};

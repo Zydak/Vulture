@@ -68,6 +68,7 @@ namespace Vulture
 		inline VkMemoryPropertyFlags GetMemoryPropertyFlags() const { return m_MemoryPropertyFlags; }
 		inline VkDeviceSize GetBufferSize() const { return m_BufferSize; }
 		inline bool GetNoPool() const { return m_NoPool; }
+		inline bool IsInitialized() const { return m_Initialized; }
 
 	private:
 		static VkDeviceSize GetAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment);

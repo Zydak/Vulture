@@ -31,8 +31,19 @@ namespace Vulture
 	class AccelerationStructure
 	{
 	public:
+		struct Instance
+		{
+			Vulture::Mesh* mesh;
+			VkTransformMatrixKHR transform;
+		};
+
+		struct CreateInfo
+		{
+			std::vector<Instance> Instances;
+		};
+
 		void Destroy();
-		void Init(Scene& scene);
+		void Init(const CreateInfo& info);
 
 		AccelerationStructure() = default;
 		~AccelerationStructure();
@@ -41,9 +52,9 @@ namespace Vulture
 		AccelKHR GetBlas(int index) const { return m_Blas[index].As; }
 
 	private:
-		void CreateTopLevelAS(Scene& scene);
-		void CreateBottomLevelAS(Scene& scene);
-		BlasInput MeshToGeometry(Mesh& mesh);
+		void CreateTopLevelAS(const CreateInfo& info);
+		void CreateBottomLevelAS(const CreateInfo& info);
+		BlasInput MeshToGeometry(Mesh* mesh);
 
 		void CmdCreateBlas(
 			VkCommandBuffer cmdBuf,
@@ -75,6 +86,6 @@ namespace Vulture
 		std::vector<BuildAccelerationStructure> m_Blas;
 		AccelKHR m_Tlas;
 
-		bool m_Initialized;
+		bool m_Initialized = false;
 	};
 }

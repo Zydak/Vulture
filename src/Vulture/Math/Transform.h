@@ -7,7 +7,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "glm/gtc/matrix_transform.hpp"
 
-#include "Math/Quaternion.h"
+#include "Quaternion.h"
 
 namespace Vulture
 {
@@ -27,10 +27,8 @@ namespace Vulture
 		Transform& operator=(Transform&& other) noexcept;
 
 		VkTransformMatrixKHR GetKhrMat();
-		// Maybe add ComputeMat4() function and make getters const?
+		// Maybe add ComputeMat4() function and make getter const?
 		glm::mat4 GetMat4();
-		glm::mat4 GetMat4(const glm::mat4& compareMat);
-		glm::mat4 GetMat4(const Transform& transform, bool& changed);
 
 		inline glm::vec3 GetTranslation() const { return m_Translation; }
 		inline Quaternion GetRotation() const { return m_Rotation; }

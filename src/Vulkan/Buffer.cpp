@@ -243,9 +243,8 @@ namespace Vulture
 		m_MinOffsetAlignment = std::move(other.m_MinOffsetAlignment); // Stored only for copies of the buffer
 		m_NoPool = std::move(other.m_NoPool);
 
+		m_Initialized = other.m_Initialized;
 		other.m_Initialized = false;
-
-		m_Initialized = true;
 	}
 
 	Buffer& Buffer::operator=(Buffer&& other) noexcept
@@ -267,9 +266,9 @@ namespace Vulture
 		m_MinOffsetAlignment = std::move(other.m_MinOffsetAlignment); // Stored only for copies of the buffer
 		m_NoPool = std::move(other.m_NoPool);
 
+		m_Initialized = other.m_Initialized;
 		other.m_Initialized = false;
 
-		m_Initialized = true;
 		return *this;
 	}
 

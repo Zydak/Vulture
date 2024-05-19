@@ -52,7 +52,6 @@ namespace Vulture
 		struct CreateInfo
 		{
 			uint64_t Handle;
-			AssetManager* Manager;
 		};
 
 		AssetHandle() = default;
@@ -81,7 +80,6 @@ namespace Vulture
 		bool operator==(uint64_t other) const;
 		size_t Hash() const;
 	private:
-		AssetManager* m_Manager;
 		uint64_t m_Handle;
 
 		bool m_Initialized = false;

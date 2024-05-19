@@ -47,9 +47,9 @@ namespace Vulture
 		return Image(std::move(image));
 	}
 
-	Model AssetImporter::ImportModel(const std::string& path, AssetManager* assetManager)
+	Model AssetImporter::ImportModel(const std::string& path)
 	{
-		return Model(path, assetManager);
+		return Model(path);
 	}
 
 }

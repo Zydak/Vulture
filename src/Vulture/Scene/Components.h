@@ -1,7 +1,7 @@
 #pragma once
 #include "pch.h"
 #include "../Renderer/Text.h"
-#include "../Renderer/Transform.h"
+#include "../Math/Transform.h"
 #include "../Renderer/Model.h"
 
 #define GLM_FORCE_RADIANS
@@ -87,92 +87,5 @@ namespace Vulture
 		SpriteComponent(const glm::vec2 atlasOffsets);
 
 		void Draw();
-	};
-
-	class TransformComponent
-	{
-	public:
-		Transform transform;
-
-		TransformComponent(const Transform& transform);
-		TransformComponent(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale);
-	};
-
-	class CameraComponent
-	{
-	public:
-		Quaternion Rotation{};
-		glm::vec3 Translation{ 0.0f };
-		glm::mat4 ProjMat{1.0f};
-		glm::mat4 ViewMat{1.0f};
-		glm::vec4 m_LeftRightBottomTopOrtho;
-		glm::vec2 m_NearFar;
-
-		bool Main = false;
-		float Zoom = 1.0f;
-		float FOV = 45.0f;
-		float AspectRatio = 1.0f;
-
-		void Reset();
-
-		void SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far);
-		void SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far);
-		void SetZoom(float zoom);
-
-		void UpdateViewMatrix();
-		void UpdateViewMatrixCustom(const glm::mat4 mat);
-
-		void AddRotation(const glm::vec3& vec);
-		void AddPitch(float pitch);
-		void AddYaw(float yaw);
-		void AddRoll(float roll);
-
-		glm::mat4 GetProjView();
-		inline const glm::vec3 GetFrontVec() const { return Rotation.GetFrontVec(); }
-		inline const glm::vec3 GetRightVec() const { return Rotation.GetRightVec(); }
-		inline const glm::vec3 GetUpVec() const { return Rotation.GetUpVec(); }
-		inline const float GetAspectRatio() const { return AspectRatio; }
-	};
-
-	class ColliderComponent
-	{
-	public:
-		Vulture::Entity Entity;
-		std::string ColliderName;
-
-		ColliderComponent(const Vulture::Entity& entity, const std::string name);
-
-		bool CheckCollision(ColliderComponent& otherCollider);
-	};
-
-	class TextComponent
-	{
-	public:
-		Vulture::Text Text;
-		TextComponent(const Text::CreateInfo& createInfo);
-
-		void ChangeText(const std::string& string, float kerningOffset = 0.0f);
-	};
-
-	class ModelComponent
-	{
-	public:
-		AssetHandle ModelHandle;
-
-		ModelComponent(const AssetHandle& modelHandle) { ModelHandle = modelHandle; };
-
-		~ModelComponent() = default;
-
-	private:
-	};
-
-	class SkyboxComponent
-	{
-	public:
-		AssetHandle ImageHandle;
-
-		SkyboxComponent(const AssetHandle& handle) { ImageHandle = handle; };
-
-		~SkyboxComponent() = default;
 	};
 }

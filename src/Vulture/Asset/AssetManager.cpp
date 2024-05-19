@@ -5,84 +5,51 @@
 
 namespace Vulture
 {
-
-	AssetManager::AssetManager(const CreateInfo& createInfo)
-	{
-		Init(createInfo);
-	}
-
-	AssetManager::AssetManager(const AssetManager& other)
-	{
-		// TODO
-	}
-
-	AssetManager::AssetManager(AssetManager&& other) noexcept
-	{
-		// TODO
-	}
-
-	AssetManager& AssetManager::operator=(AssetManager&& other) noexcept
-	{
-		// TODO
-		return *this;
-	}
-
-	AssetManager& AssetManager::operator=(const AssetManager& other)
-	{
-		// TODO
-		return *this;
-	}
-
-	AssetManager::~AssetManager()
-	{
-
-	}
-
 	void AssetManager::Init(const CreateInfo& createInfo)
 	{
-		if (m_Initialized)
+		if (s_Initialized)
 			Destroy();
 
-		m_ThreadPool.Init({ createInfo.ThreadCount });
+		s_ThreadPool.Init({ createInfo.ThreadCount });
 
-		m_Initialized = true;
+		s_Initialized = true;
 	}
 
 	void AssetManager::Destroy()
 	{
-		m_ThreadPool.Destroy();
-		m_Assets.clear();
-		m_Initialized = false;
+		s_ThreadPool.Destroy();
+		s_Assets.clear();
+		s_Initialized = false;
 	}
 
 	Asset* AssetManager::GetAsset(const AssetHandle& handle)
 	{
-		auto iter = m_Assets.find(handle);
-		VL_CORE_ASSERT(iter != m_Assets.end(), "There is no such handle!");
+		auto iter = s_Assets.find(handle);
+		VL_CORE_ASSERT(iter != s_Assets.end(), "There is no such handle!");
 
 		return iter->second.Asset.get();
 	}
 
-	bool AssetManager::IsAssetValid(const AssetHandle& handle) const
+	bool AssetManager::IsAssetValid(const AssetHandle& handle)
 	{
-		auto iter = m_Assets.find(handle);
-		VL_CORE_ASSERT(iter != m_Assets.end(), "There is no such handle!");
+		auto iter = s_Assets.find(handle);
+		VL_CORE_ASSERT(iter != s_Assets.end(), "There is no such handle!");
 
 		return iter->second.Asset->IsValid();
 	}
 
-	void AssetManager::WaitToLoad(const AssetHandle& handle) const
+	void AssetManager::WaitToLoad(const AssetHandle& handle)
 	{
-		auto iter = m_Assets.find(handle);
-		VL_CORE_ASSERT(iter != m_Assets.end(), "There is no such handle!");
+		auto iter = s_Assets.find(handle);
+		VL_CORE_ASSERT(iter != s_Assets.end(), "There is no such handle!");
 
 		iter->second.Future.wait();
 	}
 
-	bool AssetManager::IsAssetLoaded(const AssetHandle& handle) const
+	bool AssetManager::IsAssetLoaded(const AssetHandle& handle)
 	{
-		auto iter = m_Assets.find(handle);
-		VL_CORE_ASSERT(iter != m_Assets.end(), "There is no such handle!");
+		auto iter = s_Assets.find(handle);
+		VL_CORE_ASSERT(iter != s_Assets.end(), "There is no such handle!");
 
 		return iter->second.Future.wait_for(std::chrono::duration<float>(0)) == std::future_status::ready;
 	}
@@ -90,8 +57,8 @@ namespace Vulture
 	AssetHandle AssetManager::LoadAsset(const std::string& path)
 	{
 		std::hash<std::string> hash;
-		AssetHandle handle(AssetHandle::CreateInfo{hash(path), this});
-		if (m_Assets.contains(handle))
+		AssetHandle handle(AssetHandle::CreateInfo{hash(path)});
+		if (s_Assets.contains(handle))
 		{
 			// Asset with this path is already loaded
 			return AssetHandle(handle);
@@ -105,17 +72,17 @@ namespace Vulture
 
 		std::shared_ptr<std::promise<void>> promise = std::make_shared<std::promise<void>>();
 
-		m_Assets[handle] = { promise->get_future(), nullptr };
+		s_Assets[handle] = { promise->get_future(), nullptr };
 		if (extension == ".png" || extension == ".jpg")
 		{
-			m_ThreadPool.PushTask([this](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
+			s_ThreadPool.PushTask([](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
 				{
 					Scope<Asset> asset = std::make_unique<TextureAsset>(std::move(AssetImporter::ImportTexture(path, false)));
 					asset->SetValid(true);
 					asset->SetPath(path);
 
-					std::unique_lock<std::mutex> lock(m_AssetsMutex);
-					m_Assets[handle].Asset = std::move(asset);
+					std::unique_lock<std::mutex> lock(s_AssetsMutex);
+					s_Assets[handle].Asset = std::move(asset);
 					lock.unlock();
 
 					promise->set_value();
@@ -123,14 +90,14 @@ namespace Vulture
 		}
 		else if (extension == ".gltf" || extension == ".obj")
 		{
-			m_ThreadPool.PushTask([this](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
+			s_ThreadPool.PushTask([](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
 				{
-					Scope<Asset> asset = std::make_unique<ModelAsset>(std::move(AssetImporter::ImportModel(path, this)));
+					Scope<Asset> asset = std::make_unique<ModelAsset>(std::move(AssetImporter::ImportModel(path)));
 					asset->SetValid(true);
 					asset->SetPath(path);
 
-					std::unique_lock<std::mutex> lock(m_AssetsMutex);
-					m_Assets[handle].Asset = std::move(asset);
+					std::unique_lock<std::mutex> lock(s_AssetsMutex);
+					s_Assets[handle].Asset = std::move(asset);
 					lock.unlock();
 
 					promise->set_value();
@@ -138,14 +105,14 @@ namespace Vulture
 		}
 		else if (extension == ".hdr")
 		{
-			m_ThreadPool.PushTask([this](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
+			s_ThreadPool.PushTask([](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
 				{
 					Scope<Asset> asset = std::make_unique<TextureAsset>(std::move(AssetImporter::ImportTexture(path, true)));
 					asset->SetValid(true);
 					asset->SetPath(path);
 
-					std::unique_lock<std::mutex> lock(m_AssetsMutex);
-					m_Assets[handle].Asset = std::move(asset);
+					std::unique_lock<std::mutex> lock(s_AssetsMutex);
+					s_Assets[handle].Asset = std::move(asset);
 					lock.unlock();
 
 					promise->set_value();
@@ -159,10 +126,16 @@ namespace Vulture
 	void AssetManager::UnloadAsset(const AssetHandle& handle)
 	{
 		VL_CORE_TRACE("Unloading asset: {}", handle.GetAsset()->GetPath());
-		m_ThreadPool.PushTask([this](const AssetHandle& handle)
+		s_ThreadPool.PushTask([](const AssetHandle& handle)
 			{
-				std::unique_lock<std::mutex> lock(m_AssetsMutex);
-				m_Assets.erase(handle);
+				std::unique_lock<std::mutex> lock(s_AssetsMutex);
+				s_Assets.erase(handle);
 			}, handle);
 	}
+
+	std::unordered_map<Vulture::AssetHandle, Vulture::AssetWithFuture> AssetManager::s_Assets;
+	Vulture::ThreadPool AssetManager::s_ThreadPool;
+	std::mutex AssetManager::s_AssetsMutex;
+	bool AssetManager::s_Initialized = false;
+
 }

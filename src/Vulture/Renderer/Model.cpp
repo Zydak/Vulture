@@ -10,10 +10,9 @@
 
 namespace Vulture
 {
-	void Model::Init(const std::string& filepath, AssetManager* assetManager)
+	void Model::Init(const std::string& filepath)
 	{
 		Assimp::Importer importer;
-		m_AssetManager = assetManager;
 		const aiScene* scene = importer.ReadFile(filepath,
 			aiProcess_CalcTangentSpace |
 			aiProcess_GenSmoothNormals |
@@ -60,12 +59,12 @@ namespace Vulture
 		m_Initialized = false;
 	}
 
-	Model::Model(const std::string& filepath, AssetManager* assetManager)
+	Model::Model(const std::string& filepath)
 	{
 		if (m_Initialized)
 			Destroy();
 
-		Init(filepath, assetManager);
+		Init(filepath);
 	}
 
 	Model::Model(Model&& other)
@@ -145,7 +144,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE, i, &str);
-				m_AlbedoTextures.push_back(m_AssetManager->LoadAsset(std::string("assets/") + std::string(str.C_Str())));
+				m_AlbedoTextures.push_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -153,7 +152,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_NORMALS, i, &str);
-				m_NormalTextures.push_back(m_AssetManager->LoadAsset(std::string("assets/") + std::string(str.C_Str())));
+				m_NormalTextures.push_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -161,7 +160,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, i, &str);
-				m_RoughnessTextures.push_back(m_AssetManager->LoadAsset(std::string("assets/") + std::string(str.C_Str())));
+				m_RoughnessTextures.push_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -169,27 +168,27 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_METALNESS, i, &str);
-				m_MetallnessTextures.push_back(m_AssetManager->LoadAsset(std::string("assets/") + std::string(str.C_Str())));
+				m_MetallnessTextures.push_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
 			// Create Empty Texture if none are found
 			if (material->GetTextureCount(aiTextureType_DIFFUSE) == 0)
 			{
-				m_AlbedoTextures.push_back(m_AssetManager->LoadAsset("assets/white.png"));
+				m_AlbedoTextures.push_back(AssetManager::LoadAsset("assets/white.png"));
 			}
 			if (material->GetTextureCount(aiTextureType_NORMALS) == 0)
 			{
-				m_NormalTextures.push_back(m_AssetManager->LoadAsset("assets/empty_normal.png"));
+				m_NormalTextures.push_back(AssetManager::LoadAsset("assets/empty_normal.png"));
 			}
 			// TODO: specify format when loading texture
 			if (material->GetTextureCount(aiTextureType_METALNESS) == 0)
 			{
-				m_MetallnessTextures.push_back(m_AssetManager->LoadAsset("assets/white.png"));
+				m_MetallnessTextures.push_back(AssetManager::LoadAsset("assets/white.png"));
 			}
 			if (material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS) == 0)
 			{
-				m_RoughnessTextures.push_back(m_AssetManager->LoadAsset("assets/white.png"));
+				m_RoughnessTextures.push_back(AssetManager::LoadAsset("assets/white.png"));
 			}
 
 			m_Materials[index].Color = glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, albedoColor.a);
