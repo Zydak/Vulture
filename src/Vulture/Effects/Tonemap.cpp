@@ -12,31 +12,29 @@ namespace Vulture
 		if (m_Initialized)
 			Destroy();
 
-		m_ImageSize = info.OutputImages[0]->GetImageSize();
+		m_ImageSize = info.OutputImage->GetImageSize();
 
-		m_InputImages = info.InputImages;
-		m_OutputImages = info.OutputImages;
+		m_InputImage = info.InputImage;
+		m_OutputImage = info.OutputImage;
 
-		m_Descriptor.resize(m_OutputImages.size());
-		for (int i = 0; i < m_OutputImages.size(); i++)
 		{
 			Vulture::DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			Vulture::DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 
-			m_Descriptor[i].Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			m_Descriptor[i].AddImageSampler(
+			m_Descriptor.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
+			m_Descriptor.AddImageSampler(
 				0,
 				{ Vulture::Renderer::GetLinearSamplerHandle(),
-				info.InputImages[i]->GetImageView(),
+				info.InputImage->GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 			);
-			m_Descriptor[i].AddImageSampler(
+			m_Descriptor.AddImageSampler(
 				1,
 				{ Vulture::Renderer::GetLinearSamplerHandle(),
-				info.OutputImages[i]->GetImageView(),
+				info.OutputImage->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL }
 			);
-			m_Descriptor[i].Build();
+			m_Descriptor.Build();
 		}
 
 		// Pipeline
@@ -73,10 +71,7 @@ namespace Vulture
 	{
 		m_Pipeline.Destroy();
 		
-		for (int i = 0; i < m_InputImages.size(); i++)
-		{
-			m_Descriptor[i].Destroy();
-		}
+		m_Descriptor.Destroy();
 		m_Push.Destroy();
 
 		m_Initialized = false;
@@ -126,18 +121,18 @@ namespace Vulture
 			Destroy();
 	}
 
-	void Tonemap::Run(const TonemapInfo& info, VkCommandBuffer cmd, uint32_t imageIndex /*= 0*/)
+	void Tonemap::Run(const TonemapInfo& info, VkCommandBuffer cmd)
 	{
-		m_OutputImages[imageIndex]->TransitionImageLayout(
+		m_OutputImage->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL,
 			Vulture::Renderer::GetCurrentCommandBuffer()
 		);
 
-		m_InputImages[imageIndex]->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
+		m_InputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
 
 		m_Pipeline.Bind(cmd, VK_PIPELINE_BIND_POINT_COMPUTE);
 
-		m_Descriptor[imageIndex].Bind(
+		m_Descriptor.Bind(
 			0,
 			m_Pipeline.GetPipelineLayout(),
 			VK_PIPELINE_BIND_POINT_COMPUTE, 

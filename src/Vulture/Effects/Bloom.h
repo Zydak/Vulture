@@ -18,7 +18,7 @@ namespace Vulture
 			Image* InputImage;
 			Image* OutputImage;
 
-			uint32_t MipsCount;
+			uint32_t MipsCount = 6;
 		};
 
 		struct BloomInfo
@@ -39,8 +39,8 @@ namespace Vulture
 
 		void UpdateDescriptors(const CreateInfo& info);
 		void RecreateDescriptors(uint32_t mipsCount);
-	private:
 		void CreateBloomMips();
+	private:
 
 		PushConstant<BloomInfo> m_Push;
 

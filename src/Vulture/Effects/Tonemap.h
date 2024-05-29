@@ -25,8 +25,8 @@ namespace Vulture
 
 		struct CreateInfo
 		{
-			std::vector<Ref<Image>> InputImages;
-			std::vector<Ref<Image>> OutputImages;
+			Image* InputImage;
+			Image* OutputImage;
 
 			Tonemappers Tonemapper = Tonemappers::Filmic;
 		};
@@ -58,17 +58,17 @@ namespace Vulture
 		Tonemap(const CreateInfo& info);
 		~Tonemap();
 
-		void Run(const TonemapInfo& info, VkCommandBuffer cmd, uint32_t imageIndex = 0);
+		void Run(const TonemapInfo& info, VkCommandBuffer cmd);
 	private:
 		std::string GetTonemapperMacroDefinition(Tonemappers tonemapper);
-		std::vector<DescriptorSet> m_Descriptor;
+		DescriptorSet m_Descriptor;
 		Pipeline m_Pipeline;
 		PushConstant<TonemapInfo> m_Push;
 
 		VkExtent2D m_ImageSize;
 
-		std::vector<Ref<Image>> m_InputImages;
-		std::vector<Ref<Image>> m_OutputImages;
+		Image* m_InputImage;
+		Image* m_OutputImage;
 
 		bool m_Initialized = false;
 	};

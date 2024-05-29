@@ -187,12 +187,11 @@ namespace Vulture
 
 			if (idx != bloomInfo.MipCount)
 			{
-				//m_BloomImages[idx].TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd);
+				m_BloomImages[idx].TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd);
 			}
 
 			m_BloomImages[idx - 1].TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, cmd);
 
-			// Japierdole
 			m_AccumulateSet[i].Bind(0, m_AccumulatePipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmd);
 
 			vkCmdDispatch(cmd, m_BloomImages[idx - 1].GetImageSize().width / 8 + 1, m_BloomImages[idx - 1].GetImageSize().height / 8 + 1, 1);

@@ -13,10 +13,27 @@ namespace Vulture
 	public:
 		FunctionQueue() = default;
 
-		explicit FunctionQueue(const FunctionQueue& other) = delete;
-		explicit FunctionQueue(FunctionQueue&& other) noexcept = delete;
-		FunctionQueue& operator=(const FunctionQueue& other) = delete;
-		FunctionQueue& operator=(FunctionQueue&& other) noexcept = delete;
+		explicit FunctionQueue(const FunctionQueue& other)
+		{
+			m_Tasks = other.m_Tasks;
+		}
+
+		explicit FunctionQueue(FunctionQueue&& other) noexcept
+		{
+			m_Tasks = std::move(other.m_Tasks);
+		}
+
+		FunctionQueue& operator=(const FunctionQueue& other)
+		{
+			m_Tasks = other.m_Tasks;
+			return *this;
+		}
+
+		FunctionQueue& operator=(FunctionQueue&& other) noexcept
+		{
+			m_Tasks = std::move(other.m_Tasks);
+			return *this;
+		}
 
 		template<typename T, typename ...Args>
 		void PushTask(T&& task, Args&& ... args)
@@ -26,7 +43,7 @@ namespace Vulture
 
 		void RunTasks()
 		{
-			while (m_Tasks.size() != 0)
+			while (!m_Tasks.empty())
 			{
 				m_Tasks.front()();
 				m_Tasks.pop();
@@ -34,6 +51,14 @@ namespace Vulture
 		}
 
 		inline std::queue<std::function<void()>>* GetQueue() { return &m_Tasks; }
+
+		void Merge(const FunctionQueue& other)
+		{
+			for (int i = 0; i < other.m_Tasks.size(); i++)
+			{
+				m_Tasks.push(other.m_Tasks.front());
+			}
+		}
 
 	private:
 		std::queue<std::function<void()>> m_Tasks;
