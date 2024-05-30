@@ -35,32 +35,41 @@ namespace Vulture
 			return *this;
 		}
 
+		~FunctionQueue()
+		{
+			m_Tasks.clear();
+		}
+
 		template<typename T, typename ...Args>
 		void PushTask(T&& task, Args&& ... args)
 		{
-			m_Tasks.emplace(std::bind(std::forward<T>(task), std::forward<Args>(args)...));
+			m_Tasks.emplace_back(std::bind(std::forward<T>(task), std::forward<Args>(args)...));
 		}
 
 		void RunTasks()
 		{
-			while (!m_Tasks.empty())
+			for (int i = 0; i < m_Tasks.size(); i++)
 			{
-				m_Tasks.front()();
-				m_Tasks.pop();
+				m_Tasks[i]();
 			}
 		}
 
-		inline std::queue<std::function<void()>>* GetQueue() { return &m_Tasks; }
+		void Clear()
+		{
+			m_Tasks.clear();
+		}
+
+		inline std::vector<std::function<void()>>* GetQueue() { return &m_Tasks; }
 
 		void Merge(const FunctionQueue& other)
 		{
 			for (int i = 0; i < other.m_Tasks.size(); i++)
 			{
-				m_Tasks.push(other.m_Tasks.front());
+				m_Tasks.push_back(other.m_Tasks.front());
 			}
 		}
 
 	private:
-		std::queue<std::function<void()>> m_Tasks;
+		std::vector<std::function<void()>> m_Tasks;
 	};
 }
