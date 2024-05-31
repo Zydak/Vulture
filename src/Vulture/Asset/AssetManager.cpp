@@ -126,11 +126,19 @@ namespace Vulture
 	void AssetManager::UnloadAsset(const AssetHandle& handle)
 	{
 		VL_CORE_TRACE("Unloading asset: {}", handle.GetAsset()->GetPath());
-		s_ThreadPool.PushTask([](const AssetHandle& handle)
+
+		// Immediately remove asset from m_Assets and then destroy everything on separate thread
+		std::unique_lock<std::mutex> lock(s_AssetsMutex);
+
+		Ref<AssetWithFuture> asset = std::make_shared<AssetWithFuture>(std::move(s_Assets[handle]));
+		s_Assets.erase(handle);
+
+		lock.unlock();
+
+		s_ThreadPool.PushTask([](Ref<AssetWithFuture> asset)
 			{
-				std::unique_lock<std::mutex> lock(s_AssetsMutex);
-				s_Assets.erase(handle);
-			}, handle);
+				asset.reset();
+			}, asset);
 	}
 
 	std::unordered_map<Vulture::AssetHandle, Vulture::AssetWithFuture> AssetManager::s_Assets;

@@ -23,7 +23,7 @@ namespace Vulture
 			std::vector<Define> Defines;
 		};
 
-		void Init(const CreateInfo& info);
+		[[nodiscard]] bool Init(const CreateInfo& info);
 		void Destroy();
 
 		Shader() = default;

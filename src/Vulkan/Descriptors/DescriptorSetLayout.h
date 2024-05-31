@@ -10,7 +10,7 @@ namespace Vulture
 	public:
 		struct Binding
 		{
-			uint32_t BindingNumber = -1;
+			int BindingNumber = -1;
 			uint32_t DescriptorsCount = 1;
 			VkDescriptorType Type = VK_DESCRIPTOR_TYPE_MAX_ENUM;
 			VkShaderStageFlags StageFlags = VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;

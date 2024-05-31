@@ -126,7 +126,7 @@ namespace Vulture
 			m_Materials.push_back(Material());
 			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 			aiColor4D emissiveColor(0.0f, 0.0f, 0.0f, 0.0f);
-			aiColor4D albedoColor(0.0f, 0.0f, 0.0f, 1.0f);
+			aiColor4D albedoColor(0.0f, 0.0f, 0.0f, 0.0f);
 			float roughness = 1.0f;
 			float metallic = 0.0f;
 
@@ -191,10 +191,10 @@ namespace Vulture
 				m_RoughnessTextures.push_back(AssetManager::LoadAsset("assets/white.png"));
 			}
 
-			m_Materials[index].Color = glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, albedoColor.a);
+			m_Materials[index].Color = glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, glm::max(glm::max(emissiveColor.r, emissiveColor.g), emissiveColor.b));
 			m_Materials[index].Metallic = metallic;
 			m_Materials[index].Roughness = roughness;
-			m_Materials[index].Emissive = glm::vec4(emissiveColor.r, emissiveColor.g, emissiveColor.b, emissiveColor.a);
+			m_Materials[index].Transparency = 1.0f - albedoColor.a;
 
 			index++;
 		}

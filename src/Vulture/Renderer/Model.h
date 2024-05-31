@@ -8,15 +8,21 @@ namespace Vulture
 {
 	struct Material
 	{
+	public:
 		glm::vec4 Color;
-		glm::vec4 Emissive;
 		float Metallic;
 		float Roughness;
+		float SubsurfaceScattering = 0.0f;
+		float Anisotropy = 0.0f;
+		float Sheen = 0.0f;
+		float SheenTint = 0.0f;
+		float SpecularStrength = 1.0f;
 
 		float Ior = 1.5f;
-		float SpecTrans = 0.0f;
+		float Transparency = 0.0f;
 		float Clearcoat = 0.0f;
 		float ClearcoatRoughness = 0.0f;
+	private:
 		float eta = 0.0f;
 		float ax = 0.0f;
 		float ay = 0.0f;

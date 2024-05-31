@@ -8,14 +8,22 @@
 
 namespace Vulture
 {
-	void Shader::Init(const CreateInfo& info)
+	bool Shader::Init(const CreateInfo& info)
 	{
 		if (m_Initialzed)
 			Destroy();
 
+		if (!std::filesystem::exists(info.Filepath))
+		{
+			VL_CORE_ERROR("File does not exist: {}", info.Filepath);
+			return false;
+		}
+
 		m_Type = info.Type;
 
 		std::vector<uint32_t> data = CompileSource(info.Filepath, info.Defines);
+		if (data.empty())
+			return false;
 
 		VkShaderModuleCreateInfo createInfo{};
 
@@ -31,6 +39,8 @@ namespace Vulture
 		Device::SetObjectName(VK_OBJECT_TYPE_SHADER_MODULE, (uint64_t)m_ModuleHandle, info.Filepath.c_str());
 
 		m_Initialzed = true;
+		
+		return true;
 	}
 
 	void Shader::Destroy()
@@ -41,7 +51,7 @@ namespace Vulture
 
 	Shader::Shader(const CreateInfo& info)
 	{
-		Init(info);
+		bool result = Init(info);
 	}
 
 	Shader::~Shader()
@@ -98,7 +108,11 @@ namespace Vulture
 				std::string source = File::ReadFromFile(filepath);
 				shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(source, VkStageToScStage(m_Type), filepath.c_str(), options);
 
-				VL_CORE_RETURN_ASSERT(module.GetCompilationStatus(), 0, "Failed to compile shader! {}", module.GetErrorMessage());
+				if (module.GetCompilationStatus() != shaderc_compilation_status_success)
+				{
+					VL_CORE_ERROR("Failed to compile shader! {}", module.GetErrorMessage());
+					return std::vector<uint32_t>();
+				}
 
 				std::vector<uint32_t> data(module.cbegin(), module.cend());
 

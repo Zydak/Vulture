@@ -282,6 +282,9 @@ namespace Vulture
 		}
 		Device::vkDestroyAccelerationStructureKHR(Device::GetDevice(), m_Tlas.Accel);
 
+		m_Blas.clear();
+		m_Tlas = {};
+
 		m_Initialized = false;
 	}
 
