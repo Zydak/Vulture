@@ -146,7 +146,7 @@ namespace ImFlow
         NodeStyle(ImU32 header_bg, ImColor header_title_color, float radius) :header_bg(header_bg), header_title_color(header_title_color), radius(radius) {}
 
         /// @brief Body's background color
-        ImU32 bg = IM_COL32(55,64,75,255);
+        ImU32 bg = IM_COL32(40, 40, 40, 255);
         /// @brief Header's background color
         ImU32 header_bg;
         /// @brief Header title color
