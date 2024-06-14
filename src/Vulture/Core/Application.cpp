@@ -28,7 +28,7 @@ namespace Vulture
 		deviceInfo.UseRayTracing = appInfo.EnableRayTracingSupport;
 		deviceInfo.UseMemoryAddress = appInfo.UseMemoryAddress;
 		Device::Init(deviceInfo);
-		Renderer::Init(*m_Window);
+		Renderer::Init(*m_Window, appInfo.MaxFramesInFlight);
 		Input::Init(m_Window->GetGLFWwindow());
 	}
 

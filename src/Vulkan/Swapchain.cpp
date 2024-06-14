@@ -9,37 +9,24 @@
 namespace Vulture
 {
 
-	void Swapchain::Init(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode)
+	void Swapchain::Init(const CreateInfo& createInfo)
 	{
 		if (m_Initialized)
 			Destroy();
 
-		m_WindowExtent = windowExtent;
+		m_MaxFramesInFlight = createInfo.MaxFramesInFlight;
+
+		m_OldSwapchain = createInfo.PreviousSwapchain;
+		m_WindowExtent = createInfo.WindowExtent;
 		m_SwapchainDepthFormat = FindDepthFormat();
-		CreateSwapchain(prefferedPresentMode);
-		CreateImageViews();
-		CreateRenderPass();
-		CreateFramebuffers();
-		CreateSyncObjects();
-
-		m_Initialized = true;
-	}
-
-	void Swapchain::Init(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode, Ref<Swapchain> previousSwapchain)
-	{
-		if (m_Initialized)
-			Destroy();
-
-		m_OldSwapchain = previousSwapchain;
-		m_WindowExtent = windowExtent;
-		m_SwapchainDepthFormat = FindDepthFormat();
-		CreateSwapchain(prefferedPresentMode);
+		CreateSwapchain(createInfo.PrefferedPresentMode);
 		CreateImageViews();
 		CreateRenderPass();
 		CreateFramebuffers();
 		CreateSyncObjects();
 
 		m_OldSwapchain.reset();
+
 		m_Initialized = true;
 	}
 
@@ -57,7 +44,7 @@ namespace Vulture
 		for (auto framebuffer : m_PresentableFramebuffers) { vkDestroyFramebuffer(Device::GetDevice(), framebuffer, nullptr); }
 
 		// cleanup synchronization objects
-		for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		for (uint32_t i = 0; i < m_MaxFramesInFlight; i++)
 		{
 			vkDestroySemaphore(Device::GetDevice(), m_RenderFinishedSemaphores[i], nullptr);
 			vkDestroySemaphore(Device::GetDevice(), m_ImageAvailableSemaphores[i], nullptr);
@@ -69,14 +56,9 @@ namespace Vulture
 		m_Initialized = false;
 	}
 
-	Swapchain::Swapchain(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode)
+	Swapchain::Swapchain(const CreateInfo& createInfo)
 	{
-		Init(windowExtent, prefferedPresentMode);
-	}
-
-	Swapchain::Swapchain(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode, Ref<Swapchain> previousSwapchain)
-	{
-		Init(windowExtent, prefferedPresentMode, previousSwapchain);
+		Init(createInfo);
 	}
 
 	Swapchain::~Swapchain()
@@ -196,8 +178,10 @@ namespace Vulture
 		VkExtent2D extent = ChooseSwapExtent(swapChainSupport.Capabilities);
 
 		uint32_t imageCount = swapChainSupport.Capabilities.minImageCount + 1;
-		if (imageCount < MAX_FRAMES_IN_FLIGHT)
-			imageCount += MAX_FRAMES_IN_FLIGHT - imageCount;
+		if (imageCount < m_MaxFramesInFlight)
+			imageCount += m_MaxFramesInFlight - imageCount;
+
+		VL_CORE_ASSERT(imageCount <= swapChainSupport.Capabilities.maxImageCount, "Image Count Is Too Big!");
 
 		VkSwapchainCreateInfoKHR createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -457,7 +441,7 @@ namespace Vulture
 
 		auto result = vkQueuePresentKHR(Device::GetPresentQueue(), &presentInfo);
 
-		m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+		m_CurrentFrame = (m_CurrentFrame + 1) % m_MaxFramesInFlight;
 
 		return result;
 	}
@@ -483,9 +467,9 @@ namespace Vulture
 	 */
 	void Swapchain::CreateSyncObjects()
 	{
-		m_ImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-		m_RenderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-		m_InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+		m_ImageAvailableSemaphores.resize(m_MaxFramesInFlight);
+		m_RenderFinishedSemaphores.resize(m_MaxFramesInFlight);
+		m_InFlightFences.resize(m_MaxFramesInFlight);
 		m_ImagesInFlight.resize(GetImageCount(), VK_NULL_HANDLE);
 
 		VkSemaphoreCreateInfo semaphoreInfo = {};
@@ -495,7 +479,7 @@ namespace Vulture
 		fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-		for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		for (uint32_t i = 0; i < m_MaxFramesInFlight; i++)
 		{
 			if (vkCreateSemaphore(Device::GetDevice(), &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]) != VK_SUCCESS ||
 				vkCreateSemaphore(Device::GetDevice(), &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]) != VK_SUCCESS ||

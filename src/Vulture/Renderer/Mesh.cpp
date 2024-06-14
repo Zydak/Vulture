@@ -4,30 +4,21 @@
 namespace Vulture
 {
 
-	void Mesh::Init(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, VkBufferUsageFlags customUsageFlags)
+	void Mesh::Init(const CreateInfo& createInfo)
 	{
 		if (m_Initialized)
 			Destroy();
 
-		CreateMesh(vertices, indices, customUsageFlags);
+		CreateMesh(createInfo);
 		m_Initialized = true;
 	}
 
-	void Mesh::Init(aiMesh* mesh, const aiScene* scene, glm::mat4 mat /*= glm::mat4(1.0f)*/, VkBufferUsageFlags customUsageFlags)
+	void Mesh::Init(aiMesh* mesh, const aiScene* scene, glm::mat4 mat, VkBufferUsageFlags customUsageFlags)
 	{
 		if (m_Initialized)
 			Destroy();
 
 		CreateMesh(mesh, scene, mat, customUsageFlags);
-		m_Initialized = true;
-	}
-
-	void Mesh::Init(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags, VkBufferUsageFlags customUsageFlags)
-	{
-		if (m_Initialized)
-			Destroy();
-
-		CreateEmptyBuffers(vertexCount, indexCount, vertexBufferFlags, indexBufferFlags, customUsageFlags);
 		m_Initialized = true;
 	}
 
@@ -45,10 +36,10 @@ namespace Vulture
 			Destroy();
 	}
 
-	void Mesh::CreateMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices, VkBufferUsageFlags customUsageFlags)
+	void Mesh::CreateMesh(const CreateInfo& createInfo)
 	{
-		CreateVertexBuffer(vertices, customUsageFlags);
-		CreateIndexBuffer(indices, customUsageFlags);
+		CreateVertexBuffer(createInfo.Vertices, createInfo.vertexUsageFlags);
+		CreateIndexBuffer(createInfo.Indices, createInfo.indexUsageFlags);
 	}
 
 	void Mesh::CreateMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 mat, VkBufferUsageFlags customUsageFlags)
@@ -113,15 +104,15 @@ namespace Vulture
 				indices.push_back(face.mIndices[j]);
 		}
 
-		CreateVertexBuffer(vertices);
-		CreateIndexBuffer(indices);
+		CreateVertexBuffer(&vertices);
+		CreateIndexBuffer(&indices);
 	}
 
-	void Mesh::CreateVertexBuffer(const std::vector<Vertex>& vertices, VkBufferUsageFlags customUsageFlags)
+	void Mesh::CreateVertexBuffer(const std::vector<Vertex>* const  vertices, VkBufferUsageFlags customUsageFlags)
 	{
-		m_VertexCount = (uint32_t)vertices.size();
-		VkDeviceSize bufferSize = sizeof(vertices[0]) * m_VertexCount;
-		uint32_t vertexSize = sizeof(vertices[0]);
+		m_VertexCount = (uint32_t)vertices->size();
+		VkDeviceSize bufferSize = sizeof(Vertex) * m_VertexCount;
+		uint32_t vertexSize = sizeof(Vertex);
 
 		/*
 			We need to be able to write our vertex data to memory.
@@ -142,7 +133,7 @@ namespace Vulture
 			This is done by mapping the buffer memory into CPU accessible memory with vkMapMemory.
 		*/
 		stagingBuffer.Map();
-		stagingBuffer.WriteToBuffer((void*)vertices.data());
+		stagingBuffer.WriteToBuffer((void*)vertices->data());
 
 		/*
 			The vertexBuffer is now allocated from a memory type that is device
@@ -167,14 +158,19 @@ namespace Vulture
 		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_VertexBuffer.GetBuffer(), bufferSize, 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 	}
 
-	void Mesh::CreateIndexBuffer(const std::vector<uint32_t>& indices, VkBufferUsageFlags customUsageFlags)
+	void Mesh::CreateIndexBuffer(const std::vector<uint32_t>* const  indices, VkBufferUsageFlags customUsageFlags)
 	{
-		m_IndexCount = (uint32_t)indices.size();
+		if (indices == nullptr)
+		{
+			m_HasIndexBuffer = false;
+			return;
+		}
+		m_IndexCount = (uint32_t)indices->size();
 		m_HasIndexBuffer = m_IndexCount > 0;
 		if (!m_HasIndexBuffer) { return; }
 
-		VkDeviceSize bufferSize = sizeof(indices[0]) * m_IndexCount;
-		uint32_t indexSize = sizeof(indices[0]);
+		VkDeviceSize bufferSize = sizeof(uint32_t) * m_IndexCount;
+		uint32_t indexSize = sizeof(uint32_t);
 
 		/*
 			We need to be able to write our index data to memory.
@@ -195,7 +191,7 @@ namespace Vulture
 			This is done by mapping the buffer memory into CPU accessible memory with vkMapMemory.
 		*/
 		stagingBuffer.Map();
-		stagingBuffer.WriteToBuffer((void*)indices.data());
+		stagingBuffer.WriteToBuffer((void*)indices->data());
 
 		/*
 			The IndexBuffer is now allocated from a memory type that is device
@@ -234,6 +230,11 @@ namespace Vulture
 		other.m_Initialized = false;
 
 		m_Initialized = true;
+	}
+
+	Mesh::Mesh(const CreateInfo& createInfo)
+	{
+		Init(createInfo);
 	}
 
 	Mesh& Mesh::operator=(Mesh&& other) noexcept
@@ -310,43 +311,14 @@ namespace Vulture
 		return attributeDescriptions;
 	}
 
-	void Mesh::UpdateVertexBuffer(VkCommandBuffer cmd, int offset, Buffer* buffer, const std::vector<Vertex>& vertices)
+	void Mesh::UpdateVertexBuffer(const std::vector<Vertex>& vertices, int offset, VkCommandBuffer cmd)
 	{
-		vkCmdUpdateBuffer(cmd, buffer->GetBuffer(), offset, sizeof(vertices[0]) * vertices.size(), vertices.data());
-		m_VertexCount += (uint32_t)vertices.size();
+		vkCmdUpdateBuffer(cmd, m_VertexBuffer.GetBuffer(), offset, sizeof(vertices[0]) * vertices.size(), vertices.data());
 	}
 
-	void Mesh::CreateEmptyBuffers(int vertexCount, int indexCount, VkMemoryPropertyFlagBits vertexBufferFlags, VkMemoryPropertyFlagBits indexBufferFlags, VkBufferUsageFlags customUsageFlags)
+	void Mesh::UpdateIndexBuffer(const std::vector<uint32_t>& indices, int offset, VkCommandBuffer cmd /*= 0*/)
 	{
-		{
-			Buffer::CreateInfo bufferInfo{};
-			VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-			if (Device::UseRayTracing())
-				usageFlags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-
-			m_VertexCount = vertexCount;
-			bufferInfo.InstanceSize = sizeof(Vertex);
-			bufferInfo.InstanceCount = m_VertexCount;
-			bufferInfo.UsageFlags = usageFlags | customUsageFlags;
-			bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-			m_VertexBuffer.Init(bufferInfo);
-		}
-
-		{
-			Buffer::CreateInfo bufferInfo{};
-			m_IndexCount = indexCount;
-			m_HasIndexBuffer = indexCount > 0;
-			if (!m_HasIndexBuffer)
-				return;
-			VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-			if (Device::UseRayTracing())
-				usageFlags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-
-			bufferInfo.InstanceSize = sizeof(uint32_t);
-			bufferInfo.InstanceCount = m_IndexCount;
-			bufferInfo.UsageFlags = usageFlags | customUsageFlags;
-			bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-			m_IndexBuffer.Init(bufferInfo);
-		}
+		vkCmdUpdateBuffer(cmd, m_IndexBuffer.GetBuffer(), offset, sizeof(indices[0]) * indices.size(), indices.data());
 	}
+
 }

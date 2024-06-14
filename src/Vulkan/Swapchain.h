@@ -7,8 +7,6 @@
 
 #include <vulkan/vulkan_core.h>
 
-#include "Defines.h"
-
 namespace Vulture
 {
 	enum class PresentModes
@@ -27,13 +25,20 @@ namespace Vulture
 	class Swapchain
 	{
 	public:
-		void Init(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode);
-		void Init(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode, Ref<Swapchain> previousSwapchain);
+
+		struct CreateInfo
+		{
+			VkExtent2D WindowExtent;
+			PresentModes PrefferedPresentMode;
+			uint32_t MaxFramesInFlight;
+			Ref<Swapchain> PreviousSwapchain = nullptr;
+		};
+
+		void Init(const CreateInfo& createInfo);
 		void Destroy();
 
 		Swapchain() = default;
-		Swapchain(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode);
-		Swapchain(VkExtent2D windowExtent, const PresentModes& prefferedPresentMode, Ref<Swapchain> previousSwapchain);
+		Swapchain(const CreateInfo& createInfo);
 		~Swapchain();
 
 		Swapchain(const Swapchain&) = delete;
@@ -74,8 +79,12 @@ namespace Vulture
 		VkPresentModeKHR ChooseSwapPresentMode(const PresentModes& presentMode);
 		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 		void FindPresentModes(const std::vector<VkPresentModeKHR>& availablePresentModes);
+
+	private:
 		std::vector<PresentMode> m_AvailablePresentModes;
 		PresentModes m_CurrentPresentMode;
+
+		uint32_t m_MaxFramesInFlight;
 
 		Ref<Swapchain> m_OldSwapchain;
 		VkSwapchainKHR m_Swapchain;

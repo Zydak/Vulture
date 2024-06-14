@@ -27,6 +27,15 @@ namespace Vulture
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
 		m_Window = glfwCreateWindow(m_Width, m_Height, m_Name.c_str(), nullptr, nullptr);
+
+		int left, top, right, bottom;
+		glfwGetWindowFrameSize(m_Window, &left, &top, &right, &bottom);
+
+		m_Height -= top + bottom;
+		m_Width -= left + right;
+
+		glfwSetWindowSize(m_Window, m_Width, m_Height);
+
 		glfwSetWindowUserPointer(m_Window, this);
 		glfwSetFramebufferSizeCallback(m_Window, ResizeCallback);
 		glfwSetErrorCallback(GLFW_CALLBACK);
@@ -104,6 +113,13 @@ namespace Vulture
 		m_Resized = true;
 		m_Width = (int)extent.x;
 		m_Height = (int)extent.y;
+
+		int left, top, right, bottom;
+		glfwGetWindowFrameSize(m_Window, &left, &top, &right, &bottom);
+
+		m_Height -= top + bottom;
+		m_Width -= left + right;
+
 		glfwSetWindowSize(m_Window, m_Width, m_Height);
 	}
 

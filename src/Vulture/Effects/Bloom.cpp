@@ -151,7 +151,7 @@ namespace Vulture
 
 		m_BloomImages[0].TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, cmd);
 
-		m_SeparateBrightValuesPipeline.Bind(cmd, VK_PIPELINE_BIND_POINT_COMPUTE);
+		m_SeparateBrightValuesPipeline.Bind(cmd);
 		m_SeparateBrightValuesSet.Bind(0, m_SeparateBrightValuesPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmd);
 
 		m_Push.Push(m_SeparateBrightValuesPipeline.GetPipelineLayout(), cmd);
@@ -165,7 +165,7 @@ namespace Vulture
 			m_BloomImages[i].TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, cmd);
 		}
 
-		m_DownSamplePipeline.Bind(cmd, VK_PIPELINE_BIND_POINT_COMPUTE);
+		m_DownSamplePipeline.Bind(cmd);
 		m_Push.Push(m_AccumulatePipeline.GetPipelineLayout(), cmd);
 		for (int i = 1; i < (int)bloomInfo.MipCount + 1; i++)
 		{
@@ -176,7 +176,7 @@ namespace Vulture
 			m_BloomImages[i].TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd);
 		}
 
-		m_AccumulatePipeline.Bind(cmd, VK_PIPELINE_BIND_POINT_COMPUTE);
+		m_AccumulatePipeline.Bind(cmd);
 		m_Push.Push(m_AccumulatePipeline.GetPipelineLayout(), cmd);
 
 		int i;

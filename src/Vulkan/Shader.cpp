@@ -140,7 +140,11 @@ namespace Vulture
 			std::string source = File::ReadFromFile(filepath);
 			shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(source, VkStageToScStage(m_Type), filepath.c_str(), options);
 
-			VL_CORE_RETURN_ASSERT(module.GetCompilationStatus(), 0, "Failed to compile shader! {}", module.GetErrorMessage());
+			if (module.GetCompilationStatus() != shaderc_compilation_status_success)
+			{
+				VL_CORE_ERROR("Failed to compile shader! {}", module.GetErrorMessage());
+				return std::vector<uint32_t>();
+			}
 
 			std::vector<uint32_t> data(module.cbegin(), module.cend());
 

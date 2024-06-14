@@ -31,7 +31,7 @@ namespace Vulture
 		Pipeline(const Pipeline&) = delete;
 		Pipeline& operator=(const Pipeline&) = delete;
 
-		void Bind(VkCommandBuffer commandBuffer, VkPipelineBindPoint bindPoint);
+		void Bind(VkCommandBuffer commandBuffer);
 
 		inline VkPipelineLayout GetPipelineLayout() const { return m_PipelineLayout; }
 		inline VkPipeline GetPipeline() const { return m_PipelineHandle; }
@@ -101,8 +101,16 @@ namespace Vulture
 		void CreateShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
 		void CreatePipelineLayout(const std::vector<VkDescriptorSetLayout>& descriptorSetsLayouts, VkPushConstantRange* pushConstants);
 	
+		enum class PipelineType
+		{
+			Graphics,
+			Compute,
+			RayTracing
+		};
+
 		VkPipeline m_PipelineHandle = 0;
 		VkPipelineLayout m_PipelineLayout = 0;
+		PipelineType m_PipelineType;
 
 		bool m_Initialized = false;
 	};

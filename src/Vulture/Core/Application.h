@@ -8,6 +8,7 @@ namespace Vulture
 {
 	struct ApplicationInfo
 	{
+		uint32_t MaxFramesInFlight = 2;
 		std::string WorkingDirectory = "";
 		std::string Name = "";
 		std::string Icon = "";

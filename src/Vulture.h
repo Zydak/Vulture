@@ -4,8 +4,6 @@
 #include "Vulture/src/Vulture/core/EntryPoint.h"
 #endif
 
-#include "Defines.h"
-
 #include "Vulture/src/Vulture/core/Application.h"
 #include "Vulture/src/Vulture/core/Input.h"
 #include "Vulture/src/Vulture/Scene/Components.h"

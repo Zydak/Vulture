@@ -19,10 +19,9 @@ namespace Vulture
 		{
 			int vertexCount = createInfo.MaxLettersCount * 4;
 			int indexCount = createInfo.MaxLettersCount * 6;
-			for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-			{
-				m_TextMesh.Init(vertexCount, indexCount, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-			}
+			std::vector<Mesh::Vertex> vert(vertexCount);
+			std::vector<uint32_t> ind(indexCount);
+			m_TextMesh.Init({&vert, &ind, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT});
 			ChangeText(createInfo.Text);
 		}
 		else
@@ -32,7 +31,7 @@ namespace Vulture
 
 			GetTextVertices(vertices, indices);
 
-			m_TextMesh.Init(vertices, indices);
+			m_TextMesh.Init({ &vertices, &indices });
 		}
 
 		m_Initialized = true;

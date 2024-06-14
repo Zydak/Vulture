@@ -25,7 +25,7 @@ namespace Vulture
 		~Renderer() = delete;
 		Renderer() = delete;
 
-		static void Init(Window& window);
+		static void Init(Window& window, uint32_t maxFramesInFlight);
 		static void Destroy();
 		
 		static inline Swapchain& GetSwapchain() { return *s_Swapchain; }
@@ -47,6 +47,7 @@ namespace Vulture
 
 		static VkCommandBuffer GetCurrentCommandBuffer();
 		static int GetFrameIndex();
+		inline static int GetImageIndex() { return s_CurrentImageIndex; };
 
 		static void SaveImageToFile(const std::string& filepath, Ref<Image> image);
 		static void ImGuiPass();
@@ -54,11 +55,12 @@ namespace Vulture
 		static void FramebufferCopyPassBlit(Ref<Image> image);
 		static void EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap);
 
+		static void BeginRenderPass(const std::vector<VkClearValue>& clearColors, VkFramebuffer framebuffer, const VkRenderPass& renderPass, VkExtent2D extent);
+		static void EndRenderPass();
+
 	private:
 		static bool BeginFrameInternal();
 		static bool EndFrameInternal();
-		static void BeginRenderPass(const std::vector<VkClearValue>& clearColors, VkFramebuffer framebuffer, const VkRenderPass& renderPass, glm::vec2 extent);
-		static void EndRenderPass();
 
 		static void RecreateSwapchain();
 		static void CreateCommandBuffers();
@@ -68,6 +70,8 @@ namespace Vulture
 		static void WriteToFile(const char* filename, std::vector<unsigned char>& image, unsigned width, unsigned height);
 
 		static void InitImGui();
+
+		static uint32_t m_MaxFramesInFlight;
 		
 		static Scope<DescriptorPool> s_Pool;
 		static Window* s_Window;

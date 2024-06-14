@@ -10,8 +10,6 @@
 #include <vulkan/vk_platform.h>
 #include <Dxgi1_2.h>
 
-#include "Defines.h"
-
 namespace Vulture
 {
 	std::vector<const char*> Device::s_ValidationLayers = { "VK_LAYER_KHRONOS_validation" };
@@ -27,13 +25,6 @@ namespace Vulture
 	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
 		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
 	{
-		int32_t currentID = pCallbackData->messageIdNumber;
-		for (int32_t id : s_LayersIgnoreList)
-		{
-			if (currentID == id)
-				return VK_FALSE;
-		}
-
 		if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
 		{
 			VL_CORE_INFO("Info: {0} - {1} : {2}", pCallbackData->messageIdNumber, pCallbackData->pMessageIdName, pCallbackData->pMessage);

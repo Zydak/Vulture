@@ -26,6 +26,8 @@ namespace Vulture
 			Destroy();
 		}
 
+		m_PipelineType = PipelineType::Graphics;
+
 		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
 		PipelineConfigInfo configInfo{};
 		configInfo.DepthClamp = info.DepthClamp;
@@ -104,6 +106,8 @@ namespace Vulture
 		{
 			Destroy();
 		}
+
+		m_PipelineType = PipelineType::RayTracing;
 
 		// All stages
 		int count = (int)info.RayGenShaders.size() + (int)info.MissShaders.size() + (int)info.HitShaders.size();
@@ -210,6 +214,8 @@ namespace Vulture
 			Destroy();
 		}
 
+		m_PipelineType = PipelineType::Compute;
+
 		CreatePipelineLayout(info.DescriptorSetLayouts, info.PushConstants);
 
 		VkComputePipelineCreateInfo computePipelineInfo = {};
@@ -305,8 +311,25 @@ namespace Vulture
 	 *
 	 * @param commandBuffer - The Vulkan command buffer to which the pipeline is bound.
 	 */
-	void Pipeline::Bind(VkCommandBuffer commandBuffer, VkPipelineBindPoint bindPoint)
+	void Pipeline::Bind(VkCommandBuffer commandBuffer)
 	{
+		VkPipelineBindPoint bindPoint;
+
+		switch (m_PipelineType)
+		{
+		case Vulture::Pipeline::PipelineType::Graphics:
+			bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+			break;
+		case Vulture::Pipeline::PipelineType::Compute:
+			bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
+			break;
+		case Vulture::Pipeline::PipelineType::RayTracing:
+			bindPoint = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+			break;
+		default:
+			break;
+		}
+
 		vkCmdBindPipeline(commandBuffer, bindPoint, m_PipelineHandle);
 	}
 

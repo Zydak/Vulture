@@ -48,8 +48,10 @@ namespace Vulture
 		if (err < 0) abort();
 	}
 
-	void Renderer::Init(Window& window)
+	void Renderer::Init(Window& window, uint32_t maxFramesInFlight)
 	{
+		m_MaxFramesInFlight = maxFramesInFlight;
+
 		CreatePool();
 		s_RendererLinearSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR));
 		s_RendererNearestSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST));
@@ -75,7 +77,8 @@ namespace Vulture
 			0, 2, 3   // Second triangle
 		};
 
-		s_QuadMesh.Init(vertices, indices);
+
+		s_QuadMesh.Init({ &vertices, &indices });
 
 		InitImGui();
 	}
@@ -131,6 +134,14 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(!s_IsFrameStarted, "Can't call BeginFrame while already in progress!");
 
+		if (s_Window->WasWindowResized())
+		{
+			s_Window->ResetWindowResizedFlag();
+			RecreateSwapchain();
+
+			return false;
+		}
+
 		auto result = s_Swapchain->AcquireNextImage(s_CurrentImageIndex);
 		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 			RecreateSwapchain();
@@ -170,8 +181,18 @@ namespace Vulture
 		VL_CORE_ASSERT(success == VK_SUCCESS, "Failed to record command buffer!");
 
 		// Submit the command buffer for execution and present the image
+		if (s_Window->WasWindowResized())
+		{
+			s_Window->ResetWindowResizedFlag();
+			RecreateSwapchain();
+
+			s_IsFrameStarted = false;
+			s_CurrentFrameIndex = (s_CurrentFrameIndex + 1) % m_MaxFramesInFlight;
+
+			return false;
+		}
 		auto result = s_Swapchain->SubmitCommandBuffers(&commandBuffer, s_CurrentImageIndex);
-		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || s_Window->WasWindowResized())
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
 		{
 			// Recreate swap chain or handle window resize
 			s_Window->ResetWindowResizedFlag();
@@ -185,7 +206,7 @@ namespace Vulture
 
 		// End the frame and update frame index
 		s_IsFrameStarted = false;
-		s_CurrentFrameIndex = (s_CurrentFrameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+		s_CurrentFrameIndex = (s_CurrentFrameIndex + 1) % m_MaxFramesInFlight;
 		return retVal;
 	}
 
@@ -198,7 +219,7 @@ namespace Vulture
 	 * @param renderPass - The render pass to begin.
 	 * @param extent - The extent (width and height) of the render area.
 	 */
-	void Renderer::BeginRenderPass(const std::vector<VkClearValue>& clearColors, VkFramebuffer framebuffer, const VkRenderPass& renderPass, glm::vec2 extent)
+	void Renderer::BeginRenderPass(const std::vector<VkClearValue>& clearColors, VkFramebuffer framebuffer, const VkRenderPass& renderPass, VkExtent2D extent)
 	{
 		VL_CORE_ASSERT(s_IsFrameStarted, "Cannot call BeginSwapchainRenderPass while frame is not in progress");
 
@@ -206,15 +227,15 @@ namespace Vulture
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = extent.x;
-		viewport.height = extent.y;
+		viewport.width = (float)extent.width;
+		viewport.height = (float)extent.height;
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
 
 		// Set up scissor
 		VkRect2D scissor{
 			{0, 0},
-			VkExtent2D{(uint32_t)extent.x, (uint32_t)extent.y}
+			VkExtent2D{(uint32_t)extent.width, (uint32_t)extent.height}
 		};
 
 		// Set viewport and scissor for the current command buffer
@@ -227,7 +248,7 @@ namespace Vulture
 		renderPassInfo.renderPass = renderPass;
 		renderPassInfo.framebuffer = framebuffer;
 		renderPassInfo.renderArea.offset = { 0, 0 };
-		renderPassInfo.renderArea.extent = VkExtent2D{ (uint32_t)extent.x, (uint32_t)extent.y };
+		renderPassInfo.renderArea.extent = VkExtent2D{ (uint32_t)extent.width, (uint32_t)extent.height };
 		renderPassInfo.clearValueCount = (uint32_t)clearColors.size();
 		renderPassInfo.pClearValues = clearColors.data();
 
@@ -345,10 +366,10 @@ namespace Vulture
 			clearColors,
 			s_Swapchain->GetPresentableFrameBuffer(s_CurrentImageIndex),
 			s_Swapchain->GetSwapchainRenderPass(),
-			glm::vec2(s_Swapchain->GetSwapchainExtent().width, s_Swapchain->GetSwapchainExtent().height)
+			s_Swapchain->GetSwapchainExtent()
 		);
 		// Bind the geometry pipeline
-		s_HDRToPresentablePipeline.Bind(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS);
+		s_HDRToPresentablePipeline.Bind(GetCurrentCommandBuffer());
 
 		descriptorWithImageSampler->Bind(
 			0,
@@ -383,7 +404,7 @@ namespace Vulture
 			clearColors,
 			s_Swapchain->GetPresentableFrameBuffer(s_CurrentImageIndex),
 			s_Swapchain->GetSwapchainRenderPass(),
-			glm::vec2(s_Swapchain->GetSwapchainExtent().width, s_Swapchain->GetSwapchainExtent().height)
+			s_Swapchain->GetSwapchainExtent()
 		);
 
 		ImGui_ImplVulkan_NewFrame();
@@ -464,7 +485,7 @@ namespace Vulture
 
 		cubemap->TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, cmdBuf);
 
-		s_EnvToCubemapPipeline.Bind(cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE);
+		s_EnvToCubemapPipeline.Bind(cmdBuf);
 		s_EnvToCubemapDescriptorSet->Bind(0, s_EnvToCubemapPipeline.GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE, cmdBuf);
 
 		vkCmdDispatch(cmdBuf, cubemap->GetImageSize().width / 8 + 1, cubemap->GetImageSize().height / 8 + 1, 1);
@@ -493,7 +514,7 @@ namespace Vulture
 		// Recreate the swapchain
 		if (s_Swapchain == nullptr)
 		{
-			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::VSync);
+			s_Swapchain = std::make_unique<Swapchain>(Swapchain::CreateInfo{ extent, PresentModes::VSync, m_MaxFramesInFlight, nullptr });
 		}
 		else
 		{
@@ -501,7 +522,7 @@ namespace Vulture
 			std::shared_ptr<Swapchain> oldSwapchain = std::move(s_Swapchain);
 
 			// Create a new swapchain using the old one as a reference
-			s_Swapchain = std::make_unique<Swapchain>(extent, PresentModes::VSync, oldSwapchain);
+			s_Swapchain = std::make_unique<Swapchain>(Swapchain::CreateInfo{ extent, PresentModes::VSync, m_MaxFramesInFlight, oldSwapchain });
 
 			// Check if the swap formats are consistent
 			VL_CORE_ASSERT(oldSwapchain->CompareSwapFormats(*s_Swapchain), "Swap chain image or depth formats have changed!");
@@ -545,13 +566,13 @@ namespace Vulture
 	{
 		// Create and initialize the descriptor pool
 		std::vector<DescriptorPool::PoolSize> poolSizes;
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (MAX_FRAMES_IN_FLIGHT) * 100 });
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (MAX_FRAMES_IN_FLIGHT) * 10000 });
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, (MAX_FRAMES_IN_FLIGHT) * 100 });
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, (MAX_FRAMES_IN_FLIGHT) * 100 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (m_MaxFramesInFlight) * 100 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (m_MaxFramesInFlight) * 10000 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, (m_MaxFramesInFlight) * 100 });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, (m_MaxFramesInFlight) * 100 });
 		if (Device::UseRayTracing())
-			poolSizes.push_back({ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, (MAX_FRAMES_IN_FLIGHT) * 100 });
-		s_Pool = std::make_unique<DescriptorPool>(poolSizes, (MAX_FRAMES_IN_FLIGHT) * 10000, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+			poolSizes.push_back({ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, (m_MaxFramesInFlight) * 100 });
+		s_Pool = std::make_unique<DescriptorPool>(poolSizes, (m_MaxFramesInFlight) * 10000, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 	}
 
 	/**
@@ -769,6 +790,7 @@ namespace Vulture
 		return s_CurrentFrameIndex;
 	}
 
+	uint32_t Renderer::m_MaxFramesInFlight;
 	Window* Renderer::s_Window;
 	Scope<DescriptorPool> Renderer::s_Pool;
 	Scope<Swapchain> Renderer::s_Swapchain;
