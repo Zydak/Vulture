@@ -121,9 +121,7 @@ namespace Vulture
 		// HDR only
 		Buffer m_ImportanceSmplAccel;
 
-		void Move(Image&& other);
-
-		void ResetVariables();
+		void Reset();
 	};
 
 }

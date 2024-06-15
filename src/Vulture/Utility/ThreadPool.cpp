@@ -23,8 +23,7 @@ namespace Vulture
 
 	ThreadPool::~ThreadPool()
 	{
-		if (m_Initialized)
-			Destroy();
+		Destroy();
 	}
 
 	void ThreadPool::Init(const CreateInfo& createInfo)
@@ -53,6 +52,9 @@ namespace Vulture
 
 	void ThreadPool::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		std::unique_lock<std::mutex> lock(m_Mutex);
 		m_Stop = true;
 		lock.unlock();
@@ -62,6 +64,16 @@ namespace Vulture
 			worker.join();
 		}
 
+		Reset();
+	}
+
+	void ThreadPool::Reset()
+	{
+		m_WorkerThreads.clear();
+		while (!m_Tasks.empty())
+			m_Tasks.pop();
+
+		m_Stop = false;
 		m_Initialized = false;
 	}
 

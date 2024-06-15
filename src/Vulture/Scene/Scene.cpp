@@ -20,9 +20,10 @@ namespace Vulture
 
 	void Scene::Destroy()
 	{
-		m_Window.reset();
-		m_Registry.reset();
-		m_Initialized = false;
+		if (!m_Initialized)
+			return;
+
+		Reset();
 	}
 
 	Scene::Scene(Ref<Window> window)
@@ -30,10 +31,37 @@ namespace Vulture
 		Init(window);
 	}
 
-	Scene::~Scene()
+	Scene::Scene(Scene&& other) noexcept
 	{
 		if (m_Initialized)
 			Destroy();
+
+		m_Window = std::move(other.m_Window);
+		m_Registry = std::move(other.m_Registry);
+		m_Systems = std::move(other.m_Systems);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	Scene& Scene::operator=(Scene&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Window = std::move(other.m_Window);
+		m_Registry = std::move(other.m_Registry);
+		m_Systems = std::move(other.m_Systems);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
+	Scene::~Scene()
+	{
+		Destroy();
 	}
 
 	Entity Scene::CreateEntity()
@@ -110,4 +138,13 @@ namespace Vulture
 			m_Systems[i]->OnUpdate(deltaTime);
 		}
 	}
+
+	void Scene::Reset()
+	{
+		m_Window = nullptr;
+		m_Registry = nullptr;
+		m_Systems.clear();
+		m_Initialized = false;
+	}
+
 }

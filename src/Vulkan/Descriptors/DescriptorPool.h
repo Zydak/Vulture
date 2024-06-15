@@ -28,9 +28,14 @@ namespace Vulture
 		DescriptorPool(const DescriptorPool&) = delete;
 		DescriptorPool& operator=(const DescriptorPool&) = delete;
 
+		DescriptorPool(DescriptorPool&&) noexcept;
+		DescriptorPool& operator=(DescriptorPool&&) noexcept;
+
 		bool AllocateDescriptorSets(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet* descriptor);
 
 		inline VkDescriptorPool GetDescriptorPoolHandle(uint32_t index = 0) { return m_DescriptorPoolHandles[index]; }
+
+		inline bool IsInitialized() const { return m_Initialized; }
 
 		void ResetPool(uint32_t index = 0);
 
@@ -44,6 +49,8 @@ namespace Vulture
 		VkDescriptorPoolCreateFlags m_PoolFlags;
 
 		bool m_Initialized = false;
+
+		void Reset();
 
 		friend class DescriptorWriter;
 	};

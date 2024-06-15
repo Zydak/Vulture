@@ -96,17 +96,15 @@ namespace Vulture
 
 	void Bloom::Destroy()
 	{
-		m_SeparateBrightValuesSet.Destroy();
-		m_DownSampleSet.clear();
-		m_AccumulateSet.clear();
+		if (!m_Initialized)
+			return;
 
+		m_SeparateBrightValuesSet.Destroy();
 		m_AccumulatePipeline.Destroy();
 		m_SeparateBrightValuesPipeline.Destroy();
 		m_DownSamplePipeline.Destroy();
 
-		m_BloomImages.clear();
-
-		m_Initialized = false;
+		Reset();
 	}
 
 	Bloom::Bloom(const CreateInfo& info)
@@ -114,10 +112,53 @@ namespace Vulture
 		Init(info);
 	}
 
-	Bloom::~Bloom()
+	Bloom::Bloom(Bloom&& other) noexcept
 	{
 		if (m_Initialized)
 			Destroy();
+
+		m_Push = std::move(other.m_Push);
+		m_ImageSize = std::move(other.m_ImageSize);
+		m_SeparateBrightValuesSet = std::move(other.m_SeparateBrightValuesSet);
+		m_DownSampleSet = std::move(other.m_DownSampleSet);
+		m_AccumulateSet = std::move(other.m_AccumulateSet);
+		m_BloomImages = std::move(other.m_BloomImages);
+		m_SeparateBrightValuesPipeline = std::move(other.m_SeparateBrightValuesPipeline);
+		m_DownSamplePipeline = std::move(other.m_DownSamplePipeline);
+		m_AccumulatePipeline = std::move(other.m_AccumulatePipeline);
+		m_InputImage = std::move(other.m_InputImage);
+		m_OutputImage = std::move(other.m_OutputImage);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	Bloom& Bloom::operator=(Bloom&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Push = std::move(other.m_Push);
+		m_ImageSize = std::move(other.m_ImageSize);
+		m_SeparateBrightValuesSet = std::move(other.m_SeparateBrightValuesSet);
+		m_DownSampleSet = std::move(other.m_DownSampleSet);
+		m_AccumulateSet = std::move(other.m_AccumulateSet);
+		m_BloomImages = std::move(other.m_BloomImages);
+		m_SeparateBrightValuesPipeline = std::move(other.m_SeparateBrightValuesPipeline);
+		m_DownSamplePipeline = std::move(other.m_DownSamplePipeline);
+		m_AccumulatePipeline = std::move(other.m_AccumulatePipeline);
+		m_InputImage = std::move(other.m_InputImage);
+		m_OutputImage = std::move(other.m_OutputImage);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
+	Bloom::~Bloom()
+	{
+		Destroy();
 	}
 
 	void Bloom::Run(const BloomInfo& bloomInfo, VkCommandBuffer cmd)
@@ -334,6 +375,18 @@ namespace Vulture
 			info.Height = glm::max(1, (int)info.Height / 2);
 			m_BloomImages[j + 1].Init(info);
 		}
+	}
+
+	void Bloom::Reset()
+	{
+		m_ImageSize = { 0, 0 };
+
+		m_DownSampleSet.clear();
+		m_AccumulateSet.clear();
+		m_BloomImages.clear();
+		m_InputImage = nullptr;
+		m_OutputImage = nullptr;
+		m_Initialized = false;
 	}
 
 }

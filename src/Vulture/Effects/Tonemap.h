@@ -52,24 +52,34 @@ namespace Vulture
 		void Init(const CreateInfo& info);
 		void Destroy();
 
+		inline bool IsInitialized() const { return m_Initialized; }
+
 		void RecompileShader(Tonemappers tonemapper, bool chromaticAberration);
 
 		Tonemap() = default;
 		Tonemap(const CreateInfo& info);
 		~Tonemap();
 
+		Tonemap(const Tonemap& other) = delete;
+		Tonemap& operator=(const Tonemap& other) = delete;
+		Tonemap(Tonemap&& other) noexcept;
+		Tonemap& operator=(Tonemap&& other) noexcept;
+
 		void Run(const TonemapInfo& info, VkCommandBuffer cmd);
 	private:
 		std::string GetTonemapperMacroDefinition(Tonemappers tonemapper);
+
 		DescriptorSet m_Descriptor;
 		Pipeline m_Pipeline;
 		PushConstant<TonemapInfo> m_Push;
 
-		VkExtent2D m_ImageSize;
+		VkExtent2D m_ImageSize = { 0, 0 };
 
-		Image* m_InputImage;
-		Image* m_OutputImage;
+		Image* m_InputImage = nullptr;
+		Image* m_OutputImage = nullptr;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 }

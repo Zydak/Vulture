@@ -29,17 +29,10 @@ namespace Vulture
 	 */
 	void DescriptorWriter::Destroy()
 	{
-		// Clear the writes vector.
-		m_Writes.clear();
+		if (!m_Initialized)
+			return;
 
-		// Reset the descriptor pool pointer to nullptr.
-		m_Pool = nullptr;
-
-		// Reset the descriptor set layout pointer to nullptr.
-		m_SetLayout = nullptr;
-
-		// Mark the DescriptorWriter as uninitialized.
-		m_Initialized = false;
+		Reset();
 	}
 
 	/**
@@ -54,14 +47,40 @@ namespace Vulture
 		Init(setLayout, pool);
 	}
 
+	DescriptorWriter::DescriptorWriter(DescriptorWriter&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_SetLayout		= std::move(other.m_SetLayout);
+		m_Pool			= std::move(other.m_Pool);
+		m_Writes		= std::move(other.m_Writes);
+		m_Initialized	= std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	DescriptorWriter& DescriptorWriter::operator=(DescriptorWriter&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_SetLayout = std::move(other.m_SetLayout);
+		m_Pool = std::move(other.m_Pool);
+		m_Writes = std::move(other.m_Writes);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
 	/**
 	 * @brief Destructor for DescriptorWriter.
 	 */
 	DescriptorWriter::~DescriptorWriter()
 	{
-		// If the DescriptorWriter is initialized, destroy it.
-		if (m_Initialized)
-			Destroy();
+		Destroy();
 	}
 
 	/*
@@ -206,6 +225,13 @@ namespace Vulture
 		vkUpdateDescriptorSets(Device::GetDevice(), static_cast<uint32_t>(m_Writes.size()), m_Writes.data(), 0, nullptr);
 
 		// Clear the writes vector.
+		m_Writes.clear();
+	}
+
+	void DescriptorWriter::Reset()
+	{
+		m_SetLayout = nullptr;
+		m_Pool = nullptr;
 		m_Writes.clear();
 	}
 

@@ -14,6 +14,8 @@ namespace Vulture
 		Quaternion(glm::vec3 angles);
 		~Quaternion();
 
+		void Init(glm::vec3 angles);
+
 		void Reset();
 
 		void SetAngles(glm::vec3 angles);

@@ -31,6 +31,11 @@ namespace Vulture
 		Text(const CreateInfo& createInfo);
 		~Text();
 
+		Text(const Text& other) = delete;
+		Text& operator=(const Text& other) = delete;
+		Text(Text&& other) noexcept;
+		Text& operator=(Text&& other) noexcept;
+
 		void ChangeText(const std::string& text, float kerningOffset = 0.0f, VkCommandBuffer cmdBuffer = 0);
 
 		std::string GetTextString() const { return m_Text; }
@@ -39,6 +44,8 @@ namespace Vulture
 		inline float GetMaxWidth() const { return m_Width; }
 		inline const Mesh* GetTextMesh() const { return &m_TextMesh; }
 		inline Mesh* GetTextMesh() { return &m_TextMesh; }
+
+		inline bool IsInitialized() const { return m_Initialized; }
 
 		glm::vec4 GetTextColor() const { return m_Color; }
 		Vulture::FontAtlas* GetFontAtlas() const { return m_FontAtlas; }
@@ -49,11 +56,13 @@ namespace Vulture
 		float m_Height = 0;
 		Vulture::FontAtlas* m_FontAtlas;
 		float m_KerningOffset = 0.0f;
-		std::string m_Text;
+		std::string m_Text = "";
 		Mesh m_TextMesh;
-		glm::vec4 m_Color;
-		bool m_Resizable;
+		glm::vec4 m_Color = { 0.0f, 0.0f, 0.0f, 0.0f };
+		bool m_Resizable = false;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 }

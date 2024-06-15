@@ -36,6 +36,8 @@ namespace Vulture
 
 		static AssetHandle LoadAsset(const std::string& path);
 		static void UnloadAsset(const AssetHandle& handle);
+
+		static inline bool IsInitialized() { return s_Initialized; }
 	private:
 		static std::unordered_map<AssetHandle, AssetWithFuture> s_Assets;
 		static ThreadPool s_ThreadPool;

@@ -31,10 +31,15 @@ namespace Vulture
 		Pipeline(const Pipeline&) = delete;
 		Pipeline& operator=(const Pipeline&) = delete;
 
+		Pipeline(Pipeline&& other) noexcept;
+		Pipeline& operator=(Pipeline&& other) noexcept;
+
 		void Bind(VkCommandBuffer commandBuffer);
 
 		inline VkPipelineLayout GetPipelineLayout() const { return m_PipelineLayout; }
 		inline VkPipeline GetPipeline() const { return m_PipelineHandle; }
+
+		inline bool IsInitialized() const { return m_Initialized; }
 
 	public:
 		struct GraphicsCreateInfo
@@ -105,14 +110,17 @@ namespace Vulture
 		{
 			Graphics,
 			Compute,
-			RayTracing
+			RayTracing,
+			Undefined
 		};
 
 		VkPipeline m_PipelineHandle = 0;
 		VkPipelineLayout m_PipelineLayout = 0;
-		PipelineType m_PipelineType;
+		PipelineType m_PipelineType = PipelineType::Undefined;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 
 }

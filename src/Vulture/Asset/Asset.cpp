@@ -19,10 +19,13 @@ namespace Vulture
 
 	AssetHandle::AssetHandle(AssetHandle&& other) noexcept
 	{
-		m_Initialized = true;
-		m_Handle = other.m_Handle;
+		if (m_Initialized)
+			Destroy();
 
-		other.m_Initialized = false;
+		m_Initialized	= std::move(other.m_Initialized);
+		m_Handle		= std::move(other.m_Handle);
+
+		other.Reset();
 	}
 
 	AssetHandle::~AssetHandle()
@@ -42,6 +45,9 @@ namespace Vulture
 
 	void AssetHandle::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		m_Initialized = false;
 	}
 
@@ -53,10 +59,13 @@ namespace Vulture
 
 	AssetHandle& AssetHandle::operator=(AssetHandle&& other) noexcept
 	{
-		m_Initialized = true;
-		m_Handle = other.m_Handle;
+		if (m_Initialized)
+			Destroy();
 
-		other.m_Initialized = false;
+		m_Initialized	= std::move(other.m_Initialized);
+		m_Handle		= std::move(other.m_Handle);
+
+		other.Reset();
 
 		return *this;
 	}
@@ -123,6 +132,12 @@ namespace Vulture
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
 		return (size_t)m_Handle;
+	}
+
+	void AssetHandle::Reset()
+	{
+		m_Handle = 0;
+		m_Initialized = false;
 	}
 
 	bool AssetHandle::operator==(const AssetHandle& other) const

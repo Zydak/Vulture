@@ -58,6 +58,8 @@ namespace Vulture
 		static void BeginRenderPass(const std::vector<VkClearValue>& clearColors, VkFramebuffer framebuffer, const VkRenderPass& renderPass, VkExtent2D extent);
 		static void EndRenderPass();
 
+		static inline bool IsInitialized() { return s_Initialized; }
+
 	private:
 		static bool BeginFrameInternal();
 		static bool EndFrameInternal();
@@ -85,7 +87,7 @@ namespace Vulture
 		// TODO: delete this from here
 		static Scene* s_CurrentSceneRendered;
 
-		static bool s_IsInitialized;
+		static bool s_Initialized;
 	private:
 
 		static Mesh s_QuadMesh;

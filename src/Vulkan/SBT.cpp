@@ -117,19 +117,78 @@ namespace Vulture
 
 	void SBT::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		m_RtSBTBuffer.Destroy();
-		m_Initialized = false;
+		
+		Reset();
 	}
 
 	SBT::~SBT()
 	{
-		if (m_Initialized)
-			Destroy();
+		Destroy();
 	}
 
 	SBT::SBT(CreateInfo* createInfo)
 	{
 		Init(createInfo);
+	}
+
+	SBT::SBT(SBT&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_RGenCount				= std::move(other.m_RGenCount);
+		m_MissCount				= std::move(other.m_MissCount);
+		m_HitCount				= std::move(other.m_HitCount);
+		m_CallableCount			= std::move(other.m_CallableCount);
+		m_RayTracingPipeline	= std::move(other.m_RayTracingPipeline);
+		m_RgenRegion			= std::move(other.m_RgenRegion);
+		m_MissRegion			= std::move(other.m_MissRegion);
+		m_HitRegion				= std::move(other.m_HitRegion);
+		m_CallRegion			= std::move(other.m_CallRegion);
+		m_RtSBTBuffer			= std::move(other.m_RtSBTBuffer);
+		m_Initialized			= std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	SBT& SBT::operator=(SBT&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_RGenCount = std::move(other.m_RGenCount);
+		m_MissCount = std::move(other.m_MissCount);
+		m_HitCount = std::move(other.m_HitCount);
+		m_CallableCount = std::move(other.m_CallableCount);
+		m_RayTracingPipeline = std::move(other.m_RayTracingPipeline);
+		m_RgenRegion = std::move(other.m_RgenRegion);
+		m_MissRegion = std::move(other.m_MissRegion);
+		m_HitRegion = std::move(other.m_HitRegion);
+		m_CallRegion = std::move(other.m_CallRegion);
+		m_Initialized = std::move(other.m_Initialized);
+		m_RtSBTBuffer = std::move(other.m_RtSBTBuffer);
+
+		other.Reset();
+
+		return *this;
+	}
+
+	void SBT::Reset()
+	{
+		m_RGenCount = 0;
+		m_MissCount = 0;
+		m_HitCount = 0;
+		m_CallableCount = 0;
+		m_RayTracingPipeline = nullptr;
+		m_RgenRegion = {};
+		m_MissRegion = {};
+		m_HitRegion = {};
+		m_CallRegion = {};
+		m_Initialized = false;
 	}
 
 }

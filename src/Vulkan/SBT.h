@@ -26,7 +26,14 @@ namespace Vulture
 		void Init(CreateInfo* createInfo);
 		void Destroy();
 
+
+		SBT() = default;
 		SBT(CreateInfo* createInfo);
+		~SBT();
+		SBT(const SBT&) = delete;
+		SBT& operator=(const SBT&) = delete;
+		SBT(SBT&& other) noexcept;
+		SBT& operator=(SBT&& other) noexcept;
 
 	public:
 		inline uint32_t GetRGenCount() const { return m_RGenCount; }
@@ -44,18 +51,15 @@ namespace Vulture
 		inline const VkStridedDeviceAddressRegionKHR* GetHitRegionPtr() const { return &m_HitRegion; }
 		inline const VkStridedDeviceAddressRegionKHR* GetCallRegionPtr() const { return &m_CallRegion; }
 
-		SBT() = default;
-		~SBT();
-		SBT(const SBT&) = delete;
-		SBT& operator=(const SBT&) = delete;
+		inline bool IsInitialized() const { return m_Initialized; }
 
 	private:
 
-		uint32_t m_RGenCount;
-		uint32_t m_MissCount;
-		uint32_t m_HitCount;
-		uint32_t m_CallableCount;
-		Pipeline* m_RayTracingPipeline;
+		uint32_t m_RGenCount = 0;
+		uint32_t m_MissCount = 0;
+		uint32_t m_HitCount = 0;
+		uint32_t m_CallableCount = 0;
+		Pipeline* m_RayTracingPipeline = nullptr;
 
 		VkStridedDeviceAddressRegionKHR m_RgenRegion{};
 		VkStridedDeviceAddressRegionKHR m_MissRegion{};
@@ -64,5 +68,7 @@ namespace Vulture
 		Vulture::Buffer m_RtSBTBuffer;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 }

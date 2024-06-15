@@ -43,6 +43,8 @@ namespace Vulture
 
 		Swapchain(const Swapchain&) = delete;
 		Swapchain& operator=(const Swapchain&) = delete;
+		Swapchain(Swapchain&& other) noexcept;
+		Swapchain& operator=(Swapchain&& other) noexcept;
 
 		inline VkRenderPass GetSwapchainRenderPass() const { return m_RenderPass; }
 
@@ -56,6 +58,8 @@ namespace Vulture
 		inline VkFormat GetSwapchainImageFormat() const { return m_SwapchainImageFormat; }
 		inline uint32_t GetImageCount() const { return (uint32_t)m_PresentableImageViews.size(); }
 		inline VkExtent2D GetSwapchainExtent() const { return m_SwapchainExtent; }
+
+		inline bool IsInitialized() const { return m_Initialized; }
 
 		inline const std::vector<PresentMode>& GetAvailablePresentModes() const { return m_AvailablePresentModes; }
 		inline PresentModes GetCurrentPresentMode() const { return m_CurrentPresentMode; }
@@ -108,6 +112,8 @@ namespace Vulture
 		VkRenderPass m_RenderPass{};
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 
 }

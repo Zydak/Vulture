@@ -240,15 +240,18 @@ namespace Vulture
 
 	void Pipeline::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		vkDestroyPipeline(Device::GetDevice(), m_PipelineHandle, nullptr);
 		vkDestroyPipelineLayout(Device::GetDevice(), m_PipelineLayout, nullptr);
-		m_Initialized = false;
+
+		Reset();
 	}
 
 	Pipeline::~Pipeline()
 	{
-		if (m_Initialized)
-			Destroy();
+		Destroy();
 	}
 
 	Pipeline::Pipeline(const GraphicsCreateInfo& info)
@@ -264,6 +267,34 @@ namespace Vulture
 	Pipeline::Pipeline(const RayTracingCreateInfo& info)
 	{
 		Init(info);
+	}
+
+	Pipeline::Pipeline(Pipeline&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_PipelineHandle	= std::move(other.m_PipelineHandle);
+		m_PipelineLayout	= std::move(other.m_PipelineLayout);
+		m_PipelineType		= std::move(other.m_PipelineType);
+		m_Initialized		= std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	Pipeline& Pipeline::operator=(Pipeline&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_PipelineHandle = std::move(other.m_PipelineHandle);
+		m_PipelineLayout = std::move(other.m_PipelineLayout);
+		m_PipelineType = std::move(other.m_PipelineType);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
 	}
 
 	/*
@@ -327,6 +358,7 @@ namespace Vulture
 			bindPoint = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
 			break;
 		default:
+			VL_CORE_ASSERT(false, "Undefined Pipeline Type!");
 			break;
 		}
 
@@ -351,6 +383,14 @@ namespace Vulture
 			VK_SUCCESS,
 			"failed to create pipeline layout!"
 		);
+	}
+
+	void Pipeline::Reset()
+	{
+		m_PipelineHandle = VK_NULL_HANDLE;
+		m_PipelineLayout = VK_NULL_HANDLE;
+		m_PipelineType = PipelineType::Undefined;
+		m_Initialized = false;
 	}
 
 	/**

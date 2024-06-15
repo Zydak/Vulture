@@ -39,6 +39,8 @@ namespace Vulture
 
 		Window(const Window&) = delete;
 		Window& operator=(const Window&) = delete;
+		Window(Window&& other) noexcept;
+		Window& operator=(Window&& other) noexcept;
 
 		void CreateWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
 		void PollEvents();
@@ -52,7 +54,6 @@ namespace Vulture
 		inline VkExtent2D GetExtent() const { return { (uint32_t)m_Width, (uint32_t)m_Height }; }
 		inline float GetAspectRatio() const { return { (float)m_Width / (float)m_Height }; }
 		inline const std::vector<Monitor>& GetMonitors() const { return m_Monitors; }
-		inline const std::vector<const char*>& GetMonitorsNames()  const { return m_MonitorRawNames; }
 		inline int GetMonitorsCount() const { return m_MonitorsCount; }
 
 		void Resize(const glm::vec2& extent);
@@ -60,20 +61,23 @@ namespace Vulture
 
 		inline GLFWwindow* GetGLFWwindow() const { return m_Window; }
 
+		inline bool IsInitialized() const { return m_Initialized; }
+
 	private:
 		static void ResizeCallback(GLFWwindow* window, int width, int height);
 
-		int m_Width;
-		int m_Height;
-		std::string m_Name;
+		int m_Width = 0;
+		int m_Height = 0;
+		std::string m_Name = "";
 		bool m_Resized = false;
 
-		GLFWwindow* m_Window;
+		GLFWwindow* m_Window = nullptr;
 		std::vector<Monitor> m_Monitors;
-		std::vector<const char*> m_MonitorRawNames; // ³ot?
-		int m_MonitorsCount;
+		int m_MonitorsCount = 0;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 
 }

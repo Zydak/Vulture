@@ -37,10 +37,10 @@ namespace Vulture
 		Model() = default;
 		explicit Model(const std::string& filepath);
 		explicit Model(const Model& other) = delete;
-		explicit Model(Model&& other);
+		explicit Model(Model&& other) noexcept;
 
 		Model& operator=(const Model& other) = delete;
-		Model& operator=(Model&& other);
+		Model& operator=(Model&& other) noexcept;
 
 		~Model();
 
@@ -90,7 +90,7 @@ namespace Vulture
 
 		bool m_Initialized = false;
 
-		void Move(Model&& other);
+		void Reset();
 	};
 	
 

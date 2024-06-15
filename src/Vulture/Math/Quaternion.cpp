@@ -5,12 +5,17 @@ namespace Vulture
 {
 	Quaternion::Quaternion(glm::vec3 angles)
 	{
-		m_Quat = glm::quat(glm::radians(angles));
+		Init(angles);
 	}
 
 	Quaternion::~Quaternion()
 	{
 
+	}
+
+	void Quaternion::Init(glm::vec3 angles)
+	{
+		m_Quat = glm::quat(glm::radians(angles));
 	}
 
 	void Quaternion::Reset()

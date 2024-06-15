@@ -82,6 +82,8 @@ namespace Vulture
 
 		static inline VmaAllocator GetAllocator() { return s_Allocator; }
 
+		static inline bool IsInitialized() { return s_Initialized; }
+
 		static inline VkPhysicalDeviceProperties2 GetDeviceProperties() { return s_Properties; }
 		static inline VkPhysicalDeviceRayTracingPipelinePropertiesKHR GetRayTracingProperties() { return s_RayTracingProperties; }
 		static VkSampleCountFlagBits GetMaxSampleCount();

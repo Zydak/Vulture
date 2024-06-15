@@ -64,6 +64,9 @@ namespace Vulture
 
 	void Image::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		if (m_ImportanceSmplAccel.IsInitialized())
 			m_ImportanceSmplAccel.Destroy();
 
@@ -75,9 +78,7 @@ namespace Vulture
 		vmaDestroyImage(Device::GetAllocator(), m_ImageHandle, *m_Allocation);
 		delete m_Allocation;
 
-		m_Initialized = false;
-
-		ResetVariables();
+		Reset();
 	}
 
 	/**
@@ -93,21 +94,61 @@ namespace Vulture
 
 	Image::Image(Image&& other) noexcept
 	{
-		Move(std::move(other));
+		if (m_Initialized)
+			Destroy();
+
+		m_Initialized = true;
+		m_MemoryProperties = std::move(other.m_MemoryProperties);
+		m_Format = std::move(other.m_Format);
+		m_ImportanceSmplAccel = std::move(other.m_ImportanceSmplAccel);
+		m_Layout = std::move(other.m_Layout);
+		m_Usage = std::move(other.m_Usage);
+
+		m_Aspect = std::move(other.m_Aspect);
+		m_Tiling = std::move(other.m_Tiling);
+		m_LayerCount = std::move(other.m_LayerCount);
+		m_Type = std::move(other.m_Type);
+
+		m_ImageHandle = std::move(other.m_ImageHandle);
+		m_ImageViews = std::move(other.m_ImageViews);
+		m_Allocation = std::move(other.m_Allocation);
+		m_Size = std::move(other.m_Size);
+		m_MipLevels = std::move(other.m_MipLevels);
+
+		other.Reset();
 	}
 
 	Image& Image::operator=(Image&& other) noexcept
 	{
-		Move(std::move(other));
+		if (m_Initialized)
+			Destroy();
+
+		m_Initialized = true;
+		m_MemoryProperties = std::move(other.m_MemoryProperties);
+		m_Format = std::move(other.m_Format);
+		m_ImportanceSmplAccel = std::move(other.m_ImportanceSmplAccel);
+		m_Layout = std::move(other.m_Layout);
+		m_Usage = std::move(other.m_Usage);
+
+		m_Aspect = std::move(other.m_Aspect);
+		m_Tiling = std::move(other.m_Tiling);
+		m_LayerCount = std::move(other.m_LayerCount);
+		m_Type = std::move(other.m_Type);
+
+		m_ImageHandle = std::move(other.m_ImageHandle);
+		m_ImageViews = std::move(other.m_ImageViews);
+		m_Allocation = std::move(other.m_Allocation);
+		m_Size = std::move(other.m_Size);
+		m_MipLevels = std::move(other.m_MipLevels);
+
+		other.Reset();
+
 		return *this;
 	}
 
 	Image::~Image()
 	{
-		if (m_Initialized)
-		{
-			Destroy();
-		}
+		Destroy();
 	}
 
 	void Image::WritePixels(void* data, VkCommandBuffer cmd)
@@ -710,51 +751,21 @@ namespace Vulture
 		return sum;
 	}
 
-	void Image::Move(Image&& other)
-	{
-		if (m_Initialized)
-			Destroy();
-
-		m_Initialized = true;
-		m_MemoryProperties		= std::move(other.m_MemoryProperties);
-		m_Format				= std::move(other.m_Format);
-		m_ImportanceSmplAccel	= std::move(other.m_ImportanceSmplAccel);
-		m_Layout				= std::move(other.m_Layout);
-		m_Usage					= std::move(other.m_Usage);
-
-		m_Aspect				= std::move(other.m_Aspect);
-		m_Tiling				= std::move(other.m_Tiling);
-		m_LayerCount			= std::move(other.m_LayerCount);
-		m_Type					= std::move(other.m_Type);
-
-		m_ImageHandle			= std::move(other.m_ImageHandle);
-		m_ImageViews			= std::move(other.m_ImageViews);
-		m_Allocation			= std::move(other.m_Allocation);
-		m_Size					= std::move(other.m_Size);
-		m_MipLevels				= std::move(other.m_MipLevels);
-
-		other.m_Initialized = false;
-	}
-
-	void Image::ResetVariables()
+	void Image::Reset()
 	{
 		m_Format = VK_FORMAT_MAX_ENUM;
 		m_Aspect = VK_IMAGE_ASPECT_NONE;
 		m_Tiling = VK_IMAGE_TILING_OPTIMAL;
 		m_LayerCount = 1;
 		m_Type = ImageType::Image2D;
-
 		m_ImageHandle = VK_NULL_HANDLE;
 		m_ImageViews.clear();
 		m_Allocation = nullptr;
 		m_Size = { 0, 0 };
 		m_MipLevels = 1;
-
-		bool m_Initialized = false;
-
-		//Flags
-		m_Usage = VK_IMAGE_USAGE_FLAG_BITS_MAX_ENUM;
-		m_MemoryProperties = VK_MEMORY_PROPERTY_FLAG_BITS_MAX_ENUM;
+		m_Initialized = false;
+		m_Usage = 0;
+		m_MemoryProperties = 0;
 		m_Layout = VK_IMAGE_LAYOUT_UNDEFINED;
 	}
 

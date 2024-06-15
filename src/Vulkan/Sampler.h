@@ -23,11 +23,20 @@ namespace Vulture
 		Sampler(const SamplerInfo& samplerInfo);
 		~Sampler();
 
+		Sampler(const Sampler& other) = delete;
+		Sampler& operator=(const Sampler& other) = delete;
+		Sampler(Sampler&& other) noexcept;
+		Sampler& operator=(Sampler&& other) noexcept;
+
 		inline VkSampler GetLinearSamplerHandle() const { return m_SamplerHandle; }
 
+		inline bool IsInitialized() const { return m_Initialized; }
+
 	private:
-		VkSampler m_SamplerHandle;
+		VkSampler m_SamplerHandle = VK_NULL_HANDLE;
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 
 }

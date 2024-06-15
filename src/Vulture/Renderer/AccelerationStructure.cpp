@@ -274,18 +274,25 @@ namespace Vulture
 		return Device::vkGetAccelerationStructureDeviceAddressKHR(Device::GetDevice(), &addressInfo);
 	}
 
+	void AccelerationStructure::Reset()
+	{
+		m_Blas.clear();
+		m_Tlas = {};
+		m_Initialized = false;
+	}
+
 	void AccelerationStructure::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		for (int i = 0; i < m_Blas.size(); i++)
 		{
 			Device::vkDestroyAccelerationStructureKHR(Device::GetDevice(), m_Blas[i].As.Accel);
 		}
 		Device::vkDestroyAccelerationStructureKHR(Device::GetDevice(), m_Tlas.Accel);
 
-		m_Blas.clear();
-		m_Tlas = {};
-
-		m_Initialized = false;
+		Reset();
 	}
 
 	void AccelerationStructure::Init(const CreateInfo& info)
@@ -301,8 +308,38 @@ namespace Vulture
 
 	AccelerationStructure::~AccelerationStructure()
 	{
+		Destroy();
+	}
+
+	AccelerationStructure::AccelerationStructure(const CreateInfo& info)
+	{
+		Init(info);
+	}
+
+	AccelerationStructure::AccelerationStructure(AccelerationStructure&& other) noexcept
+	{
 		if (m_Initialized)
 			Destroy();
+
+		m_Blas = std::move(other.m_Blas);
+		m_Tlas = std::move(other.m_Tlas);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	AccelerationStructure& AccelerationStructure::operator=(AccelerationStructure&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Blas = std::move(other.m_Blas);
+		m_Tlas = std::move(other.m_Tlas);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+		
+		return *this;
 	}
 
 	void AccelerationStructure::CreateTopLevelAS(const CreateInfo& info)

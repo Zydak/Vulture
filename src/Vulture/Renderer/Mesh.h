@@ -63,6 +63,8 @@ namespace Vulture
 		inline uint32_t& GetVertexCount() { return m_VertexCount; }
 
 		inline bool& HasIndexBuffer() { return m_HasIndexBuffer; }
+
+		inline bool IsInitialized() const { return m_Initialized; }
 	private:
 		
 		void CreateMesh(const CreateInfo& createInfo);
@@ -79,5 +81,7 @@ namespace Vulture
 		uint32_t m_IndexCount = 0;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 }

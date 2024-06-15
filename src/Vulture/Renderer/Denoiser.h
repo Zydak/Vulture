@@ -40,6 +40,8 @@ public:
 	void BufferToImage(const VkCommandBuffer& cmdBuf, Vulture::Image* imgOut);
 	void ImageToBuffer(VkCommandBuffer& cmdBuf, const std::vector<Vulture::Image*>& imgIn);
 
+	inline bool IsInitialized() const { return m_Initialized; }
+
 private:
 	void DestroyBuffer();
 

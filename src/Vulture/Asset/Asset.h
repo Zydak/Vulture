@@ -73,6 +73,8 @@ namespace Vulture
 		bool IsAssetValid() const;
 		bool IsAssetLoaded() const;
 
+		inline bool IsInitialized() const { return m_Initialized; }
+
 		void Unload() const;
 		void WaitToLoad() const;
 
@@ -80,9 +82,11 @@ namespace Vulture
 		bool operator==(uint64_t other) const;
 		size_t Hash() const;
 	private:
-		uint64_t m_Handle;
+		uint64_t m_Handle = 0;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 }
 

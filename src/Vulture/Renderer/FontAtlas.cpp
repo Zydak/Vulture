@@ -125,9 +125,13 @@ namespace Vulture
 
 	void FontAtlas::Destroy()
 	{
-		m_AtlasTexture.reset();
+		if (!m_Initialized)
+			return;
+
 		m_DescriptorSet.Destroy();
-		m_Initialized = false;
+		m_Sampler.Destroy();
+
+		Reset();
 	}
 
 	FontAtlas::FontAtlas(const std::string& filepath, const std::string& fontName, float fontSize, glm::vec2 atlasSize)
@@ -136,10 +140,52 @@ namespace Vulture
 		Init(filepath, fontName, fontSize, atlasSize);
 	}
 
-	FontAtlas::~FontAtlas()
+	FontAtlas::FontAtlas(FontAtlas&& other) noexcept
 	{
 		if (m_Initialized)
 			Destroy();
+
+		m_FontName = std::move(other.m_FontName);
+		m_Glyphs = std::move(other.m_Glyphs);
+		m_FontGeometry = std::move(other.m_FontGeometry);
+		m_DescriptorSet = std::move(other.m_DescriptorSet);
+		m_Sampler = std::move(other.m_Sampler);
+		m_AtlasTexture = std::move(other.m_AtlasTexture);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	FontAtlas& FontAtlas::operator=(FontAtlas&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_FontName = std::move(other.m_FontName);
+		m_Glyphs = std::move(other.m_Glyphs);
+		m_FontGeometry = std::move(other.m_FontGeometry);
+		m_DescriptorSet = std::move(other.m_DescriptorSet);
+		m_Sampler = std::move(other.m_Sampler);
+		m_AtlasTexture = std::move(other.m_AtlasTexture);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
+	FontAtlas::~FontAtlas()
+	{
+		Destroy();
+	}
+
+	void FontAtlas::Reset()
+	{
+		m_FontName = "";
+		m_Glyphs.clear();
+		m_FontGeometry = {};
+		m_AtlasTexture = nullptr;
+		m_Initialized = false;
 	}
 
 }

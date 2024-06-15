@@ -39,6 +39,8 @@ namespace Vulture
 
 		inline uint32_t GetThreadCount() const { return (uint32_t)m_WorkerThreads.size(); }
 
+		inline bool IsInitialized() const { return m_Initialized; }
+
 	private:
 		std::vector<std::thread> m_WorkerThreads;
 		std::queue<std::function<void()>> m_Tasks;
@@ -48,5 +50,7 @@ namespace Vulture
 		bool m_Stop = false;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 }

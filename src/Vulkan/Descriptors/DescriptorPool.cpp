@@ -66,11 +66,16 @@ namespace Vulture
 	 */
 	void DescriptorPool::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		// Iterate through each descriptor pool handle and destroy it.
 		for (uint32_t i = 0; i <= m_CurrentPool; i++)
 		{
 			vkDestroyDescriptorPool(Device::GetDevice(), m_DescriptorPoolHandles[i], nullptr);
 		}
+
+		Reset();
 
 		// Mark the descriptor pool as uninitialized.
 		m_Initialized = false;
@@ -90,14 +95,44 @@ namespace Vulture
 		Init(poolSizes, maxSets, poolFlags);
 	}
 
+	DescriptorPool::DescriptorPool(DescriptorPool&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Initialized = std::move(other.m_Initialized);
+		m_MaxSets = std::move(other.m_MaxSets);
+		m_PoolFlags = std::move(other.m_PoolFlags);
+		m_PoolSizes = std::move(other.m_PoolSizes);
+		m_DescriptorPoolHandles = std::move(other.m_DescriptorPoolHandles);
+		m_CurrentPool = std::move(other.m_CurrentPool);
+
+		other.Reset();
+	}
+
+	DescriptorPool& DescriptorPool::operator=(DescriptorPool&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Initialized			= std::move(other.m_Initialized);
+		m_MaxSets				= std::move(other.m_MaxSets);
+		m_PoolFlags				= std::move(other.m_PoolFlags);
+		m_PoolSizes				= std::move(other.m_PoolSizes);
+		m_DescriptorPoolHandles = std::move(other.m_DescriptorPoolHandles);
+		m_CurrentPool			= std::move(other.m_CurrentPool);
+
+		other.Reset();
+
+		return *this;
+	}
+
 	/**
 	 * @brief Destructor for DescriptorPool.
 	 */
 	DescriptorPool::~DescriptorPool()
 	{
-		// If the descriptor pool is initialized, destroy it.
-		if (m_Initialized)
-			Destroy();
+		Destroy();
 	}
 
 	/*
@@ -204,6 +239,17 @@ namespace Vulture
 			VK_SUCCESS,
 			"Failed to create descriptor pool!"
 		);
+	}
+
+	void DescriptorPool::Reset()
+	{
+		m_CurrentPool = 0;
+		m_DescriptorPoolHandles.clear();
+		m_PoolSizes.clear();
+		m_MaxSets = 0;
+		m_PoolFlags = 0;
+
+		bool m_Initialized = false;
 	}
 
 }

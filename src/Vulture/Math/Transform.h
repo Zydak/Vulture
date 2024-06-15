@@ -30,6 +30,8 @@ namespace Vulture
 		// Maybe add ComputeMat4() function and make getter const?
 		glm::mat4 GetMat4();
 
+		inline bool IsInitialized() const { return m_Initialized; }
+
 		inline glm::vec3 GetTranslation() const { return m_Translation; }
 		inline Quaternion GetRotation() const { return m_Rotation; }
 		inline glm::vec3 GetScale() const { return m_Scale; }

@@ -24,16 +24,19 @@ namespace Vulture
 
 	void Mesh::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		m_VertexBuffer.Destroy();
 		if (m_HasIndexBuffer)
 			m_IndexBuffer.Destroy();
-		m_Initialized = false;
+
+		Reset();
 	}
 
 	Mesh::~Mesh()
 	{
-		if (m_Initialized)
-			Destroy();
+		Destroy();
 	}
 
 	void Mesh::CreateMesh(const CreateInfo& createInfo)
@@ -215,6 +218,14 @@ namespace Vulture
 		Buffer::CopyBuffer(stagingBuffer.GetBuffer(), m_IndexBuffer.GetBuffer(), bufferSize, 0, 0, Device::GetGraphicsQueue(), 0, Device::GetGraphicsCommandPool());
 	}
 
+	void Mesh::Reset()
+	{
+		m_VertexCount = 0;
+		m_HasIndexBuffer = false;
+		m_IndexCount = 0;
+		m_Initialized = false;
+	}
+
 	Mesh::Mesh(Mesh&& other) noexcept
 	{
 		if (m_Initialized)
@@ -222,14 +233,12 @@ namespace Vulture
 
 		m_VertexBuffer = std::move(other.m_VertexBuffer);
 		m_VertexCount = std::move(other.m_VertexCount);
-
 		m_HasIndexBuffer = std::move(other.m_HasIndexBuffer);
 		m_IndexBuffer = std::move(other.m_IndexBuffer);
 		m_IndexCount = std::move(other.m_IndexCount);
+		m_Initialized = std::move(other.m_Initialized);
 
-		other.m_Initialized = false;
-
-		m_Initialized = true;
+		other.Reset();
 	}
 
 	Mesh::Mesh(const CreateInfo& createInfo)
@@ -244,14 +253,12 @@ namespace Vulture
 
 		m_VertexBuffer = std::move(other.m_VertexBuffer);
 		m_VertexCount = std::move(other.m_VertexCount);
-
 		m_HasIndexBuffer = std::move(other.m_HasIndexBuffer);
 		m_IndexBuffer = std::move(other.m_IndexBuffer);
 		m_IndexCount = std::move(other.m_IndexCount);
+		m_Initialized = std::move(other.m_Initialized);
 
-		other.m_Initialized = false;
-
-		m_Initialized = true;
+		other.Reset();
 
 		return *this;
 	}

@@ -23,6 +23,11 @@ namespace Vulture
 		Scene(Ref<Window> window);
 		~Scene();
 
+		Scene(const Scene& other) = delete;
+		Scene& operator=(const Scene& other) = delete;
+		Scene(Scene&& other) noexcept;
+		Scene& operator=(Scene&& other) noexcept;
+
 		Entity CreateEntity();
 		void DestroyEntity(Entity& entity);
 
@@ -43,12 +48,16 @@ namespace Vulture
 		inline entt::registry& GetRegistry() { return *m_Registry; }
 		inline Ref<Window> GetWindow() const { return m_Window; }
 
+		inline bool IsInitialized() const { return m_Initialized; }
+
 	private:
-		Ref<Window> m_Window;
-		Ref<entt::registry> m_Registry;
+		Ref<Window> m_Window = nullptr;
+		Ref<entt::registry> m_Registry = nullptr;
 		std::vector<SystemInterface*> m_Systems;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 
 }

@@ -17,6 +17,9 @@ namespace Vulture
 
 	void AssetManager::Destroy()
 	{
+		if (!s_Initialized)
+			return;
+
 		s_ThreadPool.Destroy();
 		s_Assets.clear();
 		s_Initialized = false;

@@ -57,6 +57,25 @@ namespace Vulture
 		return instanceSize;
 	}
 
+	void Buffer::Reset()
+	{
+		m_Mapped = nullptr;
+		m_BufferHandle = VK_NULL_HANDLE;
+		m_Allocation = nullptr;
+		m_Pool = nullptr; // only for buffers that are allocated on their own pools
+
+		m_BufferSize = 0;
+		m_InstanceCount = 0;
+		m_InstanceSize = 0;
+		m_AlignmentSize = 1;
+		m_UsageFlags = 0;
+		m_MemoryPropertyFlags = 0;
+		m_MinOffsetAlignment = 1; // Stored only for copies of the buffer
+		m_NoPool = false;
+
+		m_Initialized = false;
+	}
+
 	/**
 	 * @brief Initializes the buffer with the specified creation information.
 	 *
@@ -113,6 +132,9 @@ namespace Vulture
 	 */
 	void Buffer::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		// Check if the buffer is initialized.
 		VL_CORE_ASSERT(m_Initialized, "Can't destroy buffer that is not initialized!");
 
@@ -131,8 +153,7 @@ namespace Vulture
 			m_Pool = nullptr;
 		}
 
-		// Mark the buffer as uninitialized.
-		m_Initialized = false;
+		Reset();
 	}
 
 	/**
@@ -244,7 +265,8 @@ namespace Vulture
 		m_NoPool = std::move(other.m_NoPool);
 
 		m_Initialized = other.m_Initialized;
-		other.m_Initialized = false;
+
+		other.Reset();
 	}
 
 	Buffer& Buffer::operator=(Buffer&& other) noexcept
@@ -267,7 +289,8 @@ namespace Vulture
 		m_NoPool = std::move(other.m_NoPool);
 
 		m_Initialized = other.m_Initialized;
-		other.m_Initialized = false;
+
+		other.Reset();
 
 		return *this;
 	}
@@ -277,9 +300,7 @@ namespace Vulture
 	 */
 	Buffer::~Buffer()
 	{
-		// If the Buffer is initialized, destroy it.
-		if (m_Initialized)
-			Destroy();
+		Destroy();
 	}
 
 	/**

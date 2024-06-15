@@ -69,12 +69,15 @@ namespace Vulture
 
 	void Tonemap::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		m_Pipeline.Destroy();
 		
 		m_Descriptor.Destroy();
 		m_Push.Destroy();
 
-		m_Initialized = false;
+		Reset();
 	}
 
 	void Tonemap::RecompileShader(Tonemappers tonemapper, bool chromaticAberration)
@@ -115,10 +118,43 @@ namespace Vulture
 		Init(info);
 	}
 
-	Tonemap::~Tonemap()
+	Tonemap::Tonemap(Tonemap&& other) noexcept
 	{
 		if (m_Initialized)
 			Destroy();
+
+		m_Descriptor = std::move(other.m_Descriptor);
+		m_Pipeline = std::move(other.m_Pipeline);
+		m_Push = std::move(other.m_Push);
+		m_ImageSize	= std::move(other.m_ImageSize);
+		m_InputImage = std::move(other.m_InputImage);
+		m_OutputImage = std::move(other.m_OutputImage);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	Tonemap& Tonemap::operator=(Tonemap&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Descriptor = std::move(other.m_Descriptor);
+		m_Pipeline = std::move(other.m_Pipeline);
+		m_Push = std::move(other.m_Push);
+		m_ImageSize = std::move(other.m_ImageSize);
+		m_InputImage = std::move(other.m_InputImage);
+		m_OutputImage = std::move(other.m_OutputImage);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
+	Tonemap::~Tonemap()
+	{
+		Destroy();
 	}
 
 	void Tonemap::Run(const TonemapInfo& info, VkCommandBuffer cmd)
@@ -130,7 +166,7 @@ namespace Vulture
 
 		m_InputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
 
-		m_Pipeline.Bind(cmd, VK_PIPELINE_BIND_POINT_COMPUTE);
+		m_Pipeline.Bind(cmd);
 
 		m_Descriptor.Bind(
 			0,
@@ -172,6 +208,14 @@ namespace Vulture
 			return "USE_FILMIC";
 			break;
 		}
+	}
+
+	void Tonemap::Reset()
+	{
+		m_ImageSize = { 0, 0 };
+		m_InputImage = nullptr;
+		m_OutputImage = nullptr;
+		m_Initialized = false;
 	}
 
 }

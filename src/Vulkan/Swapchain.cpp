@@ -32,6 +32,9 @@ namespace Vulture
 
 	void Swapchain::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		for (auto imageView : m_PresentableImageViews) { vkDestroyImageView(Device::GetDevice(), imageView, nullptr); }
 		m_PresentableImageViews.clear();
 
@@ -53,7 +56,7 @@ namespace Vulture
 
 		vkDestroyRenderPass(Device::GetDevice(), m_RenderPass, nullptr);
 
-		m_Initialized = false;
+		Reset();
 	}
 
 	Swapchain::Swapchain(const CreateInfo& createInfo)
@@ -61,10 +64,67 @@ namespace Vulture
 		Init(createInfo);
 	}
 
-	Swapchain::~Swapchain()
+	Swapchain::Swapchain(Swapchain&& other) noexcept
 	{
 		if (m_Initialized)
 			Destroy();
+
+		m_AvailablePresentModes		= std::move(other.m_AvailablePresentModes);
+		m_CurrentPresentMode		= std::move(other.m_CurrentPresentMode);
+		m_MaxFramesInFlight			= std::move(other.m_MaxFramesInFlight);
+		m_OldSwapchain				= std::move(other.m_OldSwapchain);
+		m_Swapchain					= std::move(other.m_Swapchain);
+		m_WindowExtent				= std::move(other.m_WindowExtent);
+		m_CurrentFrame				= std::move(other.m_CurrentFrame);
+		m_PresentableFramebuffers	= std::move(other.m_PresentableFramebuffers);
+		m_PresentableImages			= std::move(other.m_PresentableImages);
+		m_PresentableImageViews		= std::move(other.m_PresentableImageViews);
+		m_ImageAvailableSemaphores	= std::move(other.m_ImageAvailableSemaphores);
+		m_RenderFinishedSemaphores	= std::move(other.m_RenderFinishedSemaphores);
+		m_InFlightFences			= std::move(other.m_InFlightFences);
+		m_ImagesInFlight			= std::move(other.m_ImagesInFlight);
+		m_SwapchainImageFormat		= std::move(other.m_SwapchainImageFormat);
+		m_SwapchainDepthFormat		= std::move(other.m_SwapchainDepthFormat);
+		m_SwapchainExtent			= std::move(other.m_SwapchainExtent);
+		m_RenderPass				= std::move(other.m_RenderPass);
+		m_Initialized				= std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	Swapchain& Swapchain::operator=(Swapchain&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_AvailablePresentModes = std::move(other.m_AvailablePresentModes);
+		m_CurrentPresentMode = std::move(other.m_CurrentPresentMode);
+		m_MaxFramesInFlight = std::move(other.m_MaxFramesInFlight);
+		m_OldSwapchain = std::move(other.m_OldSwapchain);
+		m_Swapchain = std::move(other.m_Swapchain);
+		m_WindowExtent = std::move(other.m_WindowExtent);
+		m_CurrentFrame = std::move(other.m_CurrentFrame);
+		m_PresentableFramebuffers = std::move(other.m_PresentableFramebuffers);
+		m_PresentableImages = std::move(other.m_PresentableImages);
+		m_PresentableImageViews = std::move(other.m_PresentableImageViews);
+		m_ImageAvailableSemaphores = std::move(other.m_ImageAvailableSemaphores);
+		m_RenderFinishedSemaphores = std::move(other.m_RenderFinishedSemaphores);
+		m_InFlightFences = std::move(other.m_InFlightFences);
+		m_ImagesInFlight = std::move(other.m_ImagesInFlight);
+		m_SwapchainImageFormat = std::move(other.m_SwapchainImageFormat);
+		m_SwapchainDepthFormat = std::move(other.m_SwapchainDepthFormat);
+		m_SwapchainExtent = std::move(other.m_SwapchainExtent);
+		m_RenderPass = std::move(other.m_RenderPass);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+		
+		return *this;
+	}
+
+	Swapchain::~Swapchain()
+	{
+		Destroy();
 	}
 
 	/*
@@ -358,6 +418,29 @@ namespace Vulture
 				m_AvailablePresentModes[2].Available = true;
 			}
 		}
+	}
+
+	void Swapchain::Reset()
+	{
+		m_AvailablePresentModes.clear();
+		m_CurrentPresentMode = PresentModes::VSync;
+		m_MaxFramesInFlight = 0;
+		m_OldSwapchain = nullptr;
+		m_Swapchain = VK_NULL_HANDLE;
+		m_WindowExtent = { 0, 0 };
+		m_CurrentFrame = 0;
+		m_PresentableFramebuffers.clear();
+		m_PresentableImages.clear();
+		m_PresentableImageViews.clear();
+		m_ImageAvailableSemaphores.clear();
+		m_RenderFinishedSemaphores.clear();
+		m_InFlightFences.clear();
+		m_ImagesInFlight.clear();
+		m_SwapchainImageFormat = VK_FORMAT_UNDEFINED;
+		m_SwapchainDepthFormat = VK_FORMAT_UNDEFINED;
+		m_SwapchainExtent = { 0, 0 };
+		m_RenderPass = {};
+		m_Initialized = false;
 	}
 
 	/*

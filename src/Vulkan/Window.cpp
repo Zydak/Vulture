@@ -42,12 +42,10 @@ namespace Vulture
 
 		GLFWmonitor** monitorwRaw = glfwGetMonitors(&m_MonitorsCount);
 		m_Monitors.resize(m_MonitorsCount);
-		m_MonitorRawNames.resize(m_MonitorsCount);
 		for (int i = 0; i < m_MonitorsCount; i++)
 		{
 			m_Monitors[i].Monitor = monitorwRaw[i];
 			m_Monitors[i].Name = glfwGetMonitorName(m_Monitors[i].Monitor);
-			m_MonitorRawNames[i] = glfwGetMonitorName(m_Monitors[i].Monitor);
 		}
 
 		int width, height, channels;
@@ -73,10 +71,13 @@ namespace Vulture
 
 	void Window::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		glfwDestroyWindow(m_Window);
 		glfwTerminate();
 
-		m_Initialized = false;
+		Reset();
 	}
 
 	/**
@@ -89,10 +90,45 @@ namespace Vulture
 		Init(createInfo);
 	}
 
-	Window::~Window()
+	Window::Window(Window&& other) noexcept
 	{
 		if (m_Initialized)
 			Destroy();
+
+		m_Width			= std::move(other.m_Width);
+		m_Height		= std::move(other.m_Height);
+		m_Name			= std::move(other.m_Name);
+		m_Resized		= std::move(other.m_Resized);
+		m_Window		= std::move(other.m_Window);
+		m_Monitors		= std::move(other.m_Monitors);
+		m_MonitorsCount = std::move(other.m_MonitorsCount);
+		m_Initialized	= std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	Window& Window::operator=(Window&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Width = std::move(other.m_Width);
+		m_Height = std::move(other.m_Height);
+		m_Name = std::move(other.m_Name);
+		m_Resized = std::move(other.m_Resized);
+		m_Window = std::move(other.m_Window);
+		m_Monitors = std::move(other.m_Monitors);
+		m_MonitorsCount = std::move(other.m_MonitorsCount);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
+	Window::~Window()
+	{
+		Destroy();
 	}
 
 	void Window::CreateWindowSurface(VkInstance instance, VkSurfaceKHR* surface)
@@ -136,6 +172,18 @@ namespace Vulture
 		_window->m_Resized = true;
 		_window->m_Width = width;
 		_window->m_Height = height;
+	}
+
+	void Window::Reset()
+	{
+		m_Width = 0;
+		m_Height = 0;
+		m_Name = "";
+		m_Resized = false;
+		m_Window = nullptr;
+		m_Monitors.clear();
+		m_MonitorsCount = 0;
+		m_Initialized = false;
 	}
 
 }

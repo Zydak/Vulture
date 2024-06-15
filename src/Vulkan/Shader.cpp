@@ -10,7 +10,7 @@ namespace Vulture
 {
 	bool Shader::Init(const CreateInfo& info)
 	{
-		if (m_Initialzed)
+		if (m_Initialized)
 			Destroy();
 
 		if (!std::filesystem::exists(info.Filepath))
@@ -38,15 +38,19 @@ namespace Vulture
 
 		Device::SetObjectName(VK_OBJECT_TYPE_SHADER_MODULE, (uint64_t)m_ModuleHandle, info.Filepath.c_str());
 
-		m_Initialzed = true;
+		m_Initialized = true;
 		
 		return true;
 	}
 
 	void Shader::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		vkDestroyShaderModule(Device::GetDevice(), m_ModuleHandle, nullptr);
-		m_Initialzed = false;
+		
+		Reset();
 	}
 
 	Shader::Shader(const CreateInfo& info)
@@ -54,10 +58,35 @@ namespace Vulture
 		bool result = Init(info);
 	}
 
+	Shader::Shader(Shader&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_ModuleHandle	= std::move(other.m_ModuleHandle);
+		m_Type			= std::move(other.m_Type);
+		m_Initialized	= std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	Shader& Shader::operator=(Shader&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_ModuleHandle	= std::move(other.m_ModuleHandle);
+		m_Type			= std::move(other.m_Type);
+		m_Initialized	= std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
 	Shader::~Shader()
 	{
-		if (m_Initialzed)
-			Destroy();
+		Destroy();
 	}
 
 	static std::string GetLastPartAfterLastSlash(const std::string& str)
@@ -273,4 +302,12 @@ namespace Vulture
 		// just to get rid of the warning
 		return shaderc_mesh_shader;
 	}
+
+	void Shader::Reset()
+	{
+		m_ModuleHandle = VK_NULL_HANDLE;
+		m_Type = VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+		m_Initialized = false;
+	}
+
 }

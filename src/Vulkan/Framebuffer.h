@@ -61,14 +61,18 @@ namespace Vulture
 		void Bind(VkCommandBuffer cmd, const std::vector<VkClearValue>& clearColors);
 		void Unbind(VkCommandBuffer cmd);
 
-		inline VkRenderPass GetRenderPass() const { return m_RenderPass; }
-
 		void TransitionImageLayout(VkImageLayout newLayout, VkCommandBuffer cmd = 0, VkAccessFlags srcAccess = 0, VkAccessFlags dstAccess = 0, VkPipelineStageFlags srcStage = 0, VkPipelineStageFlags dstStage = 0);
 
 		Framebuffer() = default;
 		Framebuffer(const CreateInfo& createInfo);
 		~Framebuffer();
 
+		Framebuffer(const Framebuffer& other) = delete;
+		Framebuffer& operator=(const Framebuffer& other) = delete;
+		Framebuffer(Framebuffer&& other) noexcept;
+		Framebuffer& operator=(Framebuffer&& other) noexcept;
+
+		inline VkRenderPass GetRenderPass() const { return m_RenderPass; }
 		inline VkFramebuffer GetFramebufferHandle() const { return m_FramebufferHandle; }
 		inline VkImageView GetImageView(int index) const { return m_Images[index]->GetImageView(); }
 		inline VkImage GetImage(int index) const { return m_Images[index]->GetImage(); }
@@ -80,6 +84,8 @@ namespace Vulture
 		inline std::vector<FramebufferAttachment> GetDepthAttachmentFormats() const { return m_AttachmentFormats; }
 
 		inline glm::vec2 GetExtent() const { return { m_Extent.width, m_Extent.height }; }
+
+		inline bool IsInitialized() const { return m_Initialized; }
 
 	private:
 		void CreateColorAttachment(VkFormat format, Image::ImageType type, VkImageUsageFlags customBits);
@@ -100,6 +106,8 @@ namespace Vulture
 
 		VkRenderPass m_RenderPass = VK_NULL_HANDLE;
 		std::vector<VkImageLayout> m_FinalLayouts;
+
+		void Reset();
 	};
 
 }

@@ -60,13 +60,15 @@ namespace Vulture
 	void DescriptorSetLayout::Destroy()
 	{
 		// Mark the descriptor set layout as not initialized.
+		if (!m_Initialized)
+			return;
+
 		m_Initialized = false;
 
 		// Destroy the Vulkan descriptor set layout object.
 		vkDestroyDescriptorSetLayout(Device::GetDevice(), m_DescriptorSetLayoutHandle, nullptr);
 
-		// Clear the bindings vector.
-		m_Bindings.clear();
+		Reset();
 	}
 
 	/**
@@ -81,13 +83,45 @@ namespace Vulture
 		Init(bindings);
 	}
 
+	DescriptorSetLayout::DescriptorSetLayout(DescriptorSetLayout&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_DescriptorSetLayoutHandle = std::move(other.m_DescriptorSetLayoutHandle);
+		m_Bindings					= std::move(other.m_Bindings);
+		m_Initialized				= std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	DescriptorSetLayout& DescriptorSetLayout::operator=(DescriptorSetLayout&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_DescriptorSetLayoutHandle = std::move(other.m_DescriptorSetLayoutHandle);
+		m_Bindings = std::move(other.m_Bindings);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
+	void DescriptorSetLayout::Reset()
+	{
+		m_DescriptorSetLayoutHandle = VK_NULL_HANDLE;
+		m_Bindings.clear();
+
+		bool m_Initialized = false;
+	}
+
 	/**
 	 * @brief Destructor for DescriptorSetLayout.
 	 */
 	DescriptorSetLayout::~DescriptorSetLayout()
 	{
-		// If the descriptor set layout is initialized, destroy it.
-		if (m_Initialized)
-			Destroy();
+		Destroy();
 	}
 }

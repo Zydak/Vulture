@@ -89,6 +89,9 @@ namespace Vulture
 
 	void Denoiser::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		// Cleanup resources
 		optixDenoiserDestroy(m_Denoiser);
 		optixDeviceContextDestroy(m_OptixDevice);

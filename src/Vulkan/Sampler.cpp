@@ -40,8 +40,12 @@ namespace Vulture
 
 	void Sampler::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		vkDestroySampler(Device::GetDevice(), m_SamplerHandle, nullptr);
-		m_Initialized = false;
+		
+		Reset();
 	}
 
 	Sampler::Sampler(const SamplerInfo& samplerInfo)
@@ -49,10 +53,39 @@ namespace Vulture
 		Init(samplerInfo);
 	}
 
-	Sampler::~Sampler()
+	Sampler::Sampler(Sampler&& other) noexcept
 	{
 		if (m_Initialized)
 			Destroy();
+
+		m_SamplerHandle = std::move(other.m_SamplerHandle);
+		m_Initialized	= std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	Sampler& Sampler::operator=(Sampler&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_SamplerHandle = std::move(other.m_SamplerHandle);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
+	Sampler::~Sampler()
+	{
+		Destroy();
+	}
+
+	void Sampler::Reset()
+	{
+		m_SamplerHandle = VK_NULL_HANDLE;
+		m_Initialized = false;
 	}
 
 }

@@ -35,16 +35,23 @@ namespace Vulture
 		Bloom(const CreateInfo& info);
 		~Bloom();
 
+		Bloom(const Bloom& other) = delete;
+		Bloom& operator=(const Bloom& other) = delete;
+		Bloom(Bloom&& other) noexcept;
+		Bloom& operator=(Bloom&& other) noexcept;
+
 		void Run(const BloomInfo& bloomInfo, VkCommandBuffer cmd);
 
 		void UpdateDescriptors(const CreateInfo& info);
 		void RecreateDescriptors(uint32_t mipsCount);
 		void CreateBloomMips();
+
+		inline bool IsInitialized() const { return m_Initialized; }
 	private:
 
 		PushConstant<BloomInfo> m_Push;
 
-		VkExtent2D m_ImageSize;
+		VkExtent2D m_ImageSize = { 0, 0 };
 
 		DescriptorSet m_SeparateBrightValuesSet;
 		std::vector<DescriptorSet> m_DownSampleSet;
@@ -56,10 +63,12 @@ namespace Vulture
 		Pipeline m_DownSamplePipeline;
 		Pipeline m_AccumulatePipeline;
 
-		Image* m_InputImage;
-		Image* m_OutputImage;
+		Image* m_InputImage = nullptr;
+		Image* m_OutputImage = nullptr;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 
 }

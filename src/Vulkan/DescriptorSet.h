@@ -21,10 +21,18 @@ namespace Vulture
 		DescriptorSet(DescriptorPool* pool, const std::vector<DescriptorSetLayout::Binding>& bindings);
 		~DescriptorSet();
 
+		DescriptorSet(const DescriptorSet&) = delete;
+		DescriptorSet& operator=(const DescriptorSet&) = delete;
+
+		DescriptorSet(DescriptorSet&&) noexcept;
+		DescriptorSet& operator=(DescriptorSet&&) noexcept;
+
 		inline const DescriptorSetLayout* GetDescriptorSetLayout() const { return &m_DescriptorSetLayout; }
 
 		inline const VkDescriptorSet& GetDescriptorSetHandle() const { return m_DescriptorSetHandle; }
 		inline const DescriptorPool* GetPool() const { return m_Pool; }
+
+		inline bool IsInitialized() const { return m_Initialized; }
 
 		void AddImageSampler(uint32_t binding, VkDescriptorImageInfo info);
 		void AddAccelerationStructure(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR asInfo);
@@ -53,6 +61,8 @@ namespace Vulture
 		DescriptorPool* m_Pool;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 
 }

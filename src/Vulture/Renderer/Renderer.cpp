@@ -17,7 +17,10 @@ namespace Vulture
 {
 	void Renderer::Destroy()
 	{
-		s_IsInitialized = false;
+		if (!s_Initialized)
+			return;
+
+		s_Initialized = false;
 		vkDeviceWaitIdle(Device::GetDevice());
 		vkFreeCommandBuffers(Device::GetDevice(), Device::GetGraphicsCommandPool(), (uint32_t)s_CommandBuffers.size(), s_CommandBuffers.data());
 
@@ -56,7 +59,7 @@ namespace Vulture
 		s_RendererLinearSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR));
 		s_RendererNearestSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST));
 
-		s_IsInitialized = true;
+		s_Initialized = true;
 		s_Window = &window;
 		CreateDescriptorSets();
 		RecreateSwapchain();
@@ -799,7 +802,7 @@ namespace Vulture
 	uint32_t Renderer::s_CurrentImageIndex = 0;
 	uint32_t Renderer::s_CurrentFrameIndex = 0;
 	Scene* Renderer::s_CurrentSceneRendered;
-	bool Renderer::s_IsInitialized = true;
+	bool Renderer::s_Initialized = true;
 	Pipeline Renderer::s_HDRToPresentablePipeline;
 	Vulture::Pipeline Renderer::s_EnvToCubemapPipeline;
 	std::vector<Ref<Image>> Renderer::s_BloomImages;

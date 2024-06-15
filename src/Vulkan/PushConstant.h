@@ -20,6 +20,11 @@ namespace Vulture
 		PushConstant(const CreateInfo& createInfo);
 		~PushConstant();
 
+		PushConstant(const PushConstant& other) = delete;
+		PushConstant& operator=(const PushConstant& other) = delete;
+		PushConstant(PushConstant&& other) noexcept;
+		PushConstant& operator=(PushConstant&& other) noexcept;
+
 		void SetData(const T& data);
 		void Push(VkPipelineLayout Layout, VkCommandBuffer cmdBuffer, uint32_t offset = 0);
 
@@ -27,13 +32,51 @@ namespace Vulture
 		inline VkPushConstantRange* GetRangePtr() { return &m_Range; }
 		inline T GetData() const { return m_Data; }
 		inline T* GetDataPtr() { return &m_Data; }
+
+		inline bool IsInitialized() const { return m_Initialized; }
 	private:
 		T m_Data = T{};
 
-		VkPushConstantRange m_Range;
-		VkShaderStageFlags m_Stage;
-		bool m_Initialized;
+		VkPushConstantRange m_Range = {};
+		VkShaderStageFlags m_Stage = {};
+		bool m_Initialized = false;
+
+		void Reset();
 	};
+
+	template<typename T>
+	PushConstant<T>& PushConstant<T>::operator=(PushConstant<T>&& other) noexcept
+	{
+		T m_Data		= std::move(other.m_Data);
+		m_Range			= std::move(other.m_Range);
+		m_Stage			= std::move(other.m_Stage);
+		m_Initialized	= std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
+	template<typename T>
+	PushConstant<T>::PushConstant(PushConstant&& other) noexcept
+	{
+		T m_Data = std::move(other.m_Data);
+		m_Range = std::move(other.m_Range);
+		m_Stage = std::move(other.m_Stage);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	template<typename T>
+	void Vulture::PushConstant<T>::Reset()
+	{
+		T m_Data = T{};
+
+		m_Range = {};
+		m_Stage = {};
+		m_Initialized = false;
+	}
 
 	template<typename T>
 	void Vulture::PushConstant<T>::SetData(const T& data)
@@ -44,7 +87,10 @@ namespace Vulture
 	template<typename T>
 	void Vulture::PushConstant<T>::Destroy()
 	{
-		m_Initialized = false;
+		if (!m_Initialized)
+			Destroy();
+
+		Reset();
 	}
 
 	template<typename T>

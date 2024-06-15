@@ -79,17 +79,14 @@ namespace Vulture
 
 	void Framebuffer::Destroy()
 	{
-		m_Images.clear();
-		m_AttachmentFormats.clear();
-		m_Extent = { 0, 0 };
-		m_FinalLayouts.clear();
-		m_Views.clear();
+		if (!m_Initialized)
+			return;
+
 		vkDestroyFramebuffer(Device::GetDevice(), m_FramebufferHandle, nullptr);
 
 		vkDestroyRenderPass(Device::GetDevice(), m_RenderPass, nullptr);
-		m_RenderPass = VK_NULL_HANDLE;
-		m_FramebufferHandle = VK_NULL_HANDLE;
-		m_Initialized = false;
+
+		Reset();
 	}
 
 	void Framebuffer::Bind(VkCommandBuffer cmd, const std::vector<VkClearValue>& clearColors)
@@ -164,10 +161,45 @@ namespace Vulture
 		Init(createInfo);
 	}
 
-	Framebuffer::~Framebuffer()
+	Framebuffer::Framebuffer(Framebuffer&& other) noexcept
 	{
 		if (m_Initialized)
 			Destroy();
+
+		m_Extent			= std::move(other.m_Extent);
+		m_Views				= std::move(other.m_Views);
+		m_AttachmentFormats = std::move(other.m_AttachmentFormats);
+		m_FramebufferHandle = std::move(other.m_FramebufferHandle);
+		m_Images			= std::move(other.m_Images);
+		m_Initialized		= std::move(other.m_Initialized);
+		m_RenderPass		= std::move(other.m_RenderPass);
+		m_FinalLayouts		= std::move(other.m_FinalLayouts);
+
+		other.Reset();
+	}
+
+	Framebuffer& Framebuffer::operator=(Framebuffer&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Extent = std::move(other.m_Extent);
+		m_Views = std::move(other.m_Views);
+		m_AttachmentFormats = std::move(other.m_AttachmentFormats);
+		m_FramebufferHandle = std::move(other.m_FramebufferHandle);
+		m_Images = std::move(other.m_Images);
+		m_Initialized = std::move(other.m_Initialized);
+		m_RenderPass = std::move(other.m_RenderPass);
+		m_FinalLayouts = std::move(other.m_FinalLayouts);
+
+		other.Reset();
+
+		return *this;
+	}
+
+	Framebuffer::~Framebuffer()
+	{
+		Destroy();
 	}
 
 	/**
@@ -342,6 +374,18 @@ namespace Vulture
 			VL_CORE_ASSERT(false, "Format not supported");
 			return VK_FORMAT_MAX_ENUM; // just to get rid of the warning
 		}
+	}
+
+	void Framebuffer::Reset()
+	{
+		m_Extent = { 0, 0 };
+		m_Views.clear();
+		m_AttachmentFormats.clear();
+		m_FramebufferHandle = VK_NULL_HANDLE;
+		m_Images.clear();
+		m_Initialized = false;
+		m_RenderPass = VK_NULL_HANDLE;
+		m_FinalLayouts.clear();
 	}
 
 }

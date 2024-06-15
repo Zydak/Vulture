@@ -39,8 +39,11 @@ namespace Vulture
 
 	void Text::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		m_TextMesh.Destroy();
-		m_Initialized = false;
+		Reset();
 	}
 
 	Text::Text(const CreateInfo& createInfo)
@@ -48,10 +51,47 @@ namespace Vulture
 		Init(createInfo);
 	}
 
-	Text::~Text()
+	Text::Text(Text&& other) noexcept
 	{
 		if (m_Initialized)
 			Destroy();
+
+		m_Width = std::move(other.m_Width);
+		m_Height = std::move(other.m_Height);
+		m_FontAtlas = std::move(other.m_FontAtlas);
+		m_KerningOffset = std::move(other.m_KerningOffset);
+		m_Text = std::move(other.m_Text);
+		m_TextMesh = std::move(other.m_TextMesh);
+		m_Color = std::move(other.m_Color);
+		m_Resizable = std::move(other.m_Resizable);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	Text& Text::operator=(Text&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_Width = std::move(other.m_Width);
+		m_Height = std::move(other.m_Height);
+		m_FontAtlas = std::move(other.m_FontAtlas);
+		m_KerningOffset = std::move(other.m_KerningOffset);
+		m_Text = std::move(other.m_Text);
+		m_TextMesh = std::move(other.m_TextMesh);
+		m_Color = std::move(other.m_Color);
+		m_Resizable = std::move(other.m_Resizable);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
+	Text::~Text()
+	{
+		Destroy();
 	}
 
 	void Text::ChangeText(const std::string& text, float kerningOffset, VkCommandBuffer cmdBuffer)
@@ -185,6 +225,18 @@ namespace Vulture
 			if (x + spaceAdvance > m_Width)
 				m_Width = x + spaceAdvance; // add spaceAdvance for better look
 		}
+	}
+
+	void Text::Reset()
+	{
+		m_Width = 0;
+		m_Height = 0;
+		m_FontAtlas = nullptr;
+		m_KerningOffset = 0.0f;
+		m_Text = "";
+		m_Color = { 0.0f, 0.0f, 0.0f, 0.0f };
+		m_Resizable = false;
+		m_Initialized = false;
 	}
 
 }

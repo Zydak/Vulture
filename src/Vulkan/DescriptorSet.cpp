@@ -88,17 +88,14 @@ namespace Vulture
 	 */
 	void DescriptorSet::Destroy()
 	{
+		if (!m_Initialized)
+			return;
+
 		// Destroy the descriptor set layout.
 		m_DescriptorSetLayout.Destroy();
 
 		// Clear the bindings write information.
-		m_BindingsWriteInfo.clear();
-
-		// Reset the descriptor pool pointer.
-		m_Pool = nullptr;
-
-		// Mark the descriptor set as uninitialized.
-		m_Initialized = false;
+		Reset();
 	}
 
 	/**
@@ -113,14 +110,42 @@ namespace Vulture
 		Init(pool, bindings);
 	}
 
+	DescriptorSet::DescriptorSet(DescriptorSet&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_BindingsWriteInfo		= std::move(other.m_BindingsWriteInfo);
+		m_DescriptorSetLayout	= std::move(other.m_DescriptorSetLayout);
+		m_DescriptorSetHandle	= std::move(other.m_DescriptorSetHandle);
+		m_Pool					= std::move(other.m_Pool);
+		m_Initialized			= std::move(other.m_Initialized);
+
+		other.Reset();
+	}
+
+	DescriptorSet& DescriptorSet::operator=(DescriptorSet&& other) noexcept
+	{
+		if (m_Initialized)
+			Destroy();
+
+		m_BindingsWriteInfo = std::move(other.m_BindingsWriteInfo);
+		m_DescriptorSetLayout = std::move(other.m_DescriptorSetLayout);
+		m_DescriptorSetHandle = std::move(other.m_DescriptorSetHandle);
+		m_Pool = std::move(other.m_Pool);
+		m_Initialized = std::move(other.m_Initialized);
+
+		other.Reset();
+
+		return *this;
+	}
+
 	/**
 	 * @brief Destructor for the DescriptorSet class.
 	 */
 	DescriptorSet::~DescriptorSet()
 	{
-		// If the descriptor set is initialized, destroy it.
-		if (m_Initialized)
-			Destroy();
+		Destroy();
 	}
 
 	// TODO
@@ -309,4 +334,16 @@ namespace Vulture
 			nullptr
 		);
 	}
+
+	void DescriptorSet::Reset()
+	{
+		m_BindingsWriteInfo.clear();
+		//m_DescriptorSetLayout.Destroy();
+		m_DescriptorSetHandle = VK_NULL_HANDLE;
+
+		m_Pool = nullptr;
+
+		bool m_Initialized = false;
+	}
+
 }

@@ -68,6 +68,7 @@ namespace Vulture
 		inline VkMemoryPropertyFlags GetMemoryPropertyFlags() const { return m_MemoryPropertyFlags; }
 		inline VkDeviceSize GetBufferSize() const { return m_BufferSize; }
 		inline bool GetNoPool() const { return m_NoPool; }
+
 		inline bool IsInitialized() const { return m_Initialized; }
 
 	private:
@@ -88,5 +89,7 @@ namespace Vulture
 		bool m_NoPool = false;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 }

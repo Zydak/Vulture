@@ -47,16 +47,10 @@ namespace Vulture
 
 	void Model::Destroy()
 	{
-		m_Meshes.clear();
-		m_Materials.clear();
-		m_AlbedoTextures.clear();
-		m_RoughnessTextures.clear();
-		m_MetallnessTextures.clear();
-		m_NormalTextures.clear();
+		if (!m_Initialized)
+			return;
 
-		m_VertexCount = 0;
-		m_IndexCount = 0;
-		m_Initialized = false;
+		Reset();
 	}
 
 	Model::Model(const std::string& filepath)
@@ -67,21 +61,51 @@ namespace Vulture
 		Init(filepath);
 	}
 
-	Model::Model(Model&& other)
+	Model::Model(Model&& other) noexcept
 	{
-		Move(std::move(other));
+		if (m_Initialized)
+			Destroy();
+
+		m_Initialized = std::move(other.m_Initialized);
+		m_MeshesNames = std::move(other.m_MeshesNames);
+		m_Meshes = std::move(other.m_Meshes);
+		m_Materials = std::move(other.m_Materials);
+		m_AlbedoTextures = std::move(other.m_AlbedoTextures);
+		m_NormalTextures = std::move(other.m_NormalTextures);
+		m_RoughnessTextures = std::move(other.m_RoughnessTextures);
+		m_MetallnessTextures = std::move(other.m_MetallnessTextures);
+		m_TextureSets = std::move(other.m_TextureSets);
+		m_VertexCount = std::move(other.m_VertexCount);
+		m_IndexCount = std::move(other.m_IndexCount);
+
+		other.Reset();
 	}
 
-	Model& Model::operator=(Model&& other)
+	Model& Model::operator=(Model&& other) noexcept
 	{
-		Move(std::move(other));
+		if (m_Initialized)
+			Destroy();
+
+		m_Initialized = std::move(other.m_Initialized);
+		m_MeshesNames = std::move(other.m_MeshesNames);
+		m_Meshes = std::move(other.m_Meshes);
+		m_Materials = std::move(other.m_Materials);
+		m_AlbedoTextures = std::move(other.m_AlbedoTextures);
+		m_NormalTextures = std::move(other.m_NormalTextures);
+		m_RoughnessTextures = std::move(other.m_RoughnessTextures);
+		m_MetallnessTextures = std::move(other.m_MetallnessTextures);
+		m_TextureSets = std::move(other.m_TextureSets);
+		m_VertexCount = std::move(other.m_VertexCount);
+		m_IndexCount = std::move(other.m_IndexCount);
+
+		other.Reset();
+
 		return *this;
 	}
 
 	Model::~Model()
 	{
-		if (m_Initialized)
-			Destroy();
+		Destroy();
 	}
 
 	void Model::Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance, VkPipelineLayout layout)
@@ -249,26 +273,19 @@ namespace Vulture
 		m_TextureSets[index]->Build();
 	}
 
-	void Model::Move(Model&& other)
+	void Model::Reset()
 	{
-		if (m_Initialized)
-			Destroy();
-
-		m_Initialized = true;
-		m_MeshesNames = std::move(other.m_MeshesNames);
-		m_Meshes = std::move(other.m_Meshes);
-		m_Materials = std::move(other.m_Materials);
-		m_AlbedoTextures = std::move(other.m_AlbedoTextures);
-		m_NormalTextures = std::move(other.m_NormalTextures);
-		m_RoughnessTextures = std::move(other.m_RoughnessTextures);
-		m_MetallnessTextures = std::move(other.m_MetallnessTextures);
-
-		m_TextureSets = std::move(other.m_TextureSets);
-
-		m_VertexCount = other.m_VertexCount;
-		m_IndexCount = other.m_IndexCount;
-
-		other.m_Initialized = false;
+		m_MeshesNames.clear();
+		m_Meshes.clear();
+		m_Materials.clear();
+		m_AlbedoTextures.clear();
+		m_NormalTextures.clear();
+		m_RoughnessTextures.clear();
+		m_MetallnessTextures.clear();
+		m_TextureSets.clear();
+		m_VertexCount = 0;
+		m_IndexCount = 0;
+		m_Initialized = false;
 	}
 
 }

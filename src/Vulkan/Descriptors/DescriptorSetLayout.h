@@ -28,14 +28,24 @@ namespace Vulture
 		DescriptorSetLayout(const std::vector<Binding>& bindings);
 		~DescriptorSetLayout();
 
+		DescriptorSetLayout(const DescriptorSetLayout&) = delete;
+		DescriptorSetLayout& operator=(const DescriptorSetLayout&) = delete;
+
+		DescriptorSetLayout(DescriptorSetLayout&&) noexcept;
+		DescriptorSetLayout& operator=(DescriptorSetLayout&&) noexcept;
+
 		inline VkDescriptorSetLayout GetDescriptorSetLayoutHandle() const { return m_DescriptorSetLayoutHandle; }
 		inline std::vector<Binding> GetDescriptorSetLayoutBindings() { return m_Bindings; }
+
+		inline bool IsInitialized() const { return m_Initialized; }
 
 	private:
 		VkDescriptorSetLayout m_DescriptorSetLayoutHandle;
 		std::vector<Binding> m_Bindings;
 
 		bool m_Initialized = false;
+
+		void Reset();
 
 		friend class DescriptorWriter;
 	};

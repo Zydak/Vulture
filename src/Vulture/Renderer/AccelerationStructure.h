@@ -45,11 +45,19 @@ namespace Vulture
 		void Destroy();
 		void Init(const CreateInfo& info);
 
+		AccelerationStructure(const CreateInfo& info);
 		AccelerationStructure() = default;
 		~AccelerationStructure();
 
-		AccelKHR GetTlas() const { return m_Tlas; }
-		AccelKHR GetBlas(int index) const { return m_Blas[index].As; }
+		AccelerationStructure(const AccelerationStructure& other) = delete;
+		AccelerationStructure& operator=(const AccelerationStructure& other) = delete;
+		AccelerationStructure(AccelerationStructure&& other) noexcept;
+		AccelerationStructure& operator=(AccelerationStructure&& other) noexcept;
+
+		inline AccelKHR GetTlas() const { return m_Tlas; }
+		inline AccelKHR GetBlas(int index) const { return m_Blas[index].As; }
+
+		inline bool IsInitialized() const { return m_Initialized; }
 
 	private:
 		void CreateTopLevelAS(const CreateInfo& info);
@@ -87,5 +95,7 @@ namespace Vulture
 		AccelKHR m_Tlas;
 
 		bool m_Initialized = false;
+
+		void Reset();
 	};
 }
