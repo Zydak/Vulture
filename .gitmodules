@@ -40,3 +40,6 @@
 [submodule "lib/shaderc"]
 	path = lib/shaderc
 	url = https://github.com/Zydak/shaderc
+[submodule "lib/ImNodeFlow"]
+	path = lib/ImNodeFlow
+	url = https://github.com/Zydak/ImNodeFlow
