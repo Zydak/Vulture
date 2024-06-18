@@ -272,7 +272,12 @@ namespace Vulture
 	void Image::GenerateMipmaps()
 	{
 		if (m_MipLevels <= 1)
+		{
+			if (m_Layout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+				TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
 			return;
+		}
 
 		VkCommandBuffer commandBuffer;
 		Device::BeginSingleTimeCommands(commandBuffer, Device::GetGraphicsCommandPool());

@@ -28,7 +28,6 @@ namespace Vulture
 
 		s_EnvToCubemapDescriptorSet.reset();
 
-		s_BloomImages.clear();
 		s_RendererLinearSampler.reset();
 		s_RendererNearestSampler.reset();
 
@@ -805,13 +804,9 @@ namespace Vulture
 	bool Renderer::s_Initialized = true;
 	Pipeline Renderer::s_HDRToPresentablePipeline;
 	Vulture::Pipeline Renderer::s_EnvToCubemapPipeline;
-	std::vector<Ref<Image>> Renderer::s_BloomImages;
 	Mesh Renderer::s_QuadMesh;
 	Scope<Sampler> Renderer::s_RendererLinearSampler;
 	Scope<Sampler> Renderer::s_RendererNearestSampler;
 	Ref<Vulture::DescriptorSet> Renderer::s_EnvToCubemapDescriptorSet;
-	VkExtent2D Renderer::s_MipSize = { 0, 0 };
-	int Renderer::m_MipsCount = 0;
-	int Renderer::m_PrevMipsCount = 0;
 	std::function<void()> Renderer::s_ImGuiFunction;
 }

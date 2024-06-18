@@ -58,6 +58,8 @@ namespace Vulture
 		static void BeginRenderPass(const std::vector<VkClearValue>& clearColors, VkFramebuffer framebuffer, const VkRenderPass& renderPass, VkExtent2D extent);
 		static void EndRenderPass();
 
+		static inline uint32_t GetMaxFramesInFlight() { return m_MaxFramesInFlight; }
+
 		static inline bool IsInitialized() { return s_Initialized; }
 
 	private:
@@ -87,9 +89,6 @@ namespace Vulture
 		// TODO: delete this from here
 		static Scene* s_CurrentSceneRendered;
 
-		static bool s_Initialized;
-	private:
-
 		static Mesh s_QuadMesh;
 		static Scope<Sampler> s_RendererLinearSampler;
 		static Scope<Sampler> s_RendererNearestSampler;
@@ -97,15 +96,10 @@ namespace Vulture
 		static Ref<DescriptorSet> s_EnvToCubemapDescriptorSet;
 
 		static Pipeline s_HDRToPresentablePipeline;
-
 		static Pipeline s_EnvToCubemapPipeline;
-
-		static std::vector<Ref<Image>> s_BloomImages;
 
 		static std::function<void()> s_ImGuiFunction;
 
-		static VkExtent2D s_MipSize;
-		static int m_MipsCount;
-		static int m_PrevMipsCount;
+		static bool s_Initialized;
 	};
 }

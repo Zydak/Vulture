@@ -77,9 +77,9 @@ namespace Vulture
 		ViewMat = glm::scale(ViewMat, glm::vec3(1.0f, -1.0f, 1.0f));
 	}
 
-	void PerspectiveCamera::UpdateViewMatrixCustom(const glm::mat4 mat)
+	void PerspectiveCamera::UpdateProjMatrix()
 	{
-		ViewMat = mat;
+		ProjMat = glm::perspective(glm::radians(FOV), AspectRatio, NearFar.x, NearFar.y);
 	}
 
 	glm::mat4 PerspectiveCamera::GetProjView()

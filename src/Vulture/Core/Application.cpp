@@ -5,7 +5,7 @@
 
 namespace Vulture
 {
-	Application::Application(const ApplicationInfo& appInfo, float width, float height)
+	Application::Application(const ApplicationInfo& appInfo)
 		: m_ApplicationInfo(appInfo)
 	{
 		if (!appInfo.WorkingDirectory.empty())
@@ -14,8 +14,8 @@ namespace Vulture
 		Logger::Init();
 		VL_CORE_TRACE("LOGGER INITIALIZED");
 		Window::CreateInfo winInfo;
-		winInfo.Width = (int)width;
-		winInfo.Height = (int)height;
+		winInfo.Width = (int)appInfo.WindowWidth;
+		winInfo.Height = (int)appInfo.WindowHeight;
 		winInfo.Name = appInfo.Name;
 		winInfo.Icon = appInfo.Icon;
 		m_Window = std::make_shared<Window>(winInfo);

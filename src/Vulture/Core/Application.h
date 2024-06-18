@@ -8,6 +8,8 @@ namespace Vulture
 {
 	struct ApplicationInfo
 	{
+		uint32_t WindowWidth = 600;
+		uint32_t WindowHeight = 600;
 		uint32_t MaxFramesInFlight = 2;
 		std::string WorkingDirectory = "";
 		std::string Name = "";
@@ -22,7 +24,7 @@ namespace Vulture
 	class Application
 	{
 	public:
-		Application(const ApplicationInfo& appInfo, float windowWidth = 600, float windowHeight = 600);
+		Application(const ApplicationInfo& appInfo);
 		virtual ~Application();
 
 		virtual void Destroy() = 0;

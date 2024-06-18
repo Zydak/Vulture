@@ -29,7 +29,7 @@ namespace Vulture
 		void SetPerspectiveMatrix(float fov, float aspectRatio, float _near, float _far);
 
 		void UpdateViewMatrix();
-		void UpdateViewMatrixCustom(const glm::mat4 mat);
+		void UpdateProjMatrix();
 
 		void AddRotation(const glm::vec3& vec);
 		void AddPitch(float pitch);
