@@ -19,7 +19,7 @@ namespace Vulture
 		glm::vec3 Translation{ 0.0f };
 		glm::mat4 ProjMat{ 1.0f };
 		glm::mat4 ViewMat{ 1.0f };
-		glm::vec2 NearFar;
+		glm::vec2 NearFar{ 0.0f, 0.0f };
 
 		float FOV = 45.0f;
 		float AspectRatio = 1.0f;

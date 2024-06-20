@@ -158,7 +158,7 @@ namespace Vulture
 		if (!m_InputIsOutput)
 			m_InputImages[imageIndex]->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
 
-		m_Pipeline.Bind(cmd, VK_PIPELINE_BIND_POINT_COMPUTE);
+		m_Pipeline.Bind(cmd);
 
 		m_Descriptors[imageIndex].Bind(
 			0,
@@ -230,7 +230,7 @@ namespace Vulture
 
 			for (int j = 0; j < createInfo.AdditionalTextures.size(); j++)
 			{
-				m_Bindings.push_back({ (uint32_t)j + 2, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT });
+				m_Bindings.push_back({ j + 2, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT });
 			}
 
 			m_InputIsOutput = createInfo.InputImages[i]->GetImage() == createInfo.OutputImages[i]->GetImage();

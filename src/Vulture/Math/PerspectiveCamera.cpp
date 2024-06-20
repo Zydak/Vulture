@@ -65,6 +65,8 @@ namespace Vulture
 	{
 		FOV = fov;
 		AspectRatio = aspectRatio;
+		NearFar.x = _near;
+		NearFar.y = _far;
 		ProjMat = glm::perspective(glm::radians(fov), aspectRatio, _near, _far);
 	}
 
