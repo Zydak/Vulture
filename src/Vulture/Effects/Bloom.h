@@ -18,14 +18,14 @@ namespace Vulture
 			Image* InputImage;
 			Image* OutputImage;
 
-			uint32_t MipsCount = 6;
+			uint32_t MipsCount = 10;
 		};
 
 		struct BloomInfo
 		{
 			float Threshold = 1.5f;
-			float Strength = 0.5f;
-			int MipCount = 6;
+			float Strength = 0.8f;
+			int MipCount = 10;
 		};
 
 		void Init(const CreateInfo& info);

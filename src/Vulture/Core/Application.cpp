@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Application.h"
 #include "Renderer/Renderer.h"
+#include "Asset/AssetManager.h"
 #include "Input.h"
 
 namespace Vulture
@@ -30,6 +31,9 @@ namespace Vulture
 		Device::Init(deviceInfo);
 		Renderer::Init(*m_Window, appInfo.MaxFramesInFlight);
 		Input::Init(m_Window->GetGLFWwindow());
+
+		const uint32_t coresCount = std::thread::hardware_concurrency();
+		AssetManager::Init({ coresCount / 2 });
 	}
 
 	Application::~Application()

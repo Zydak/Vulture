@@ -91,7 +91,7 @@ namespace Vulture
 					promise->set_value();
 				}, path, promise, handle);
 		}
-		else if (extension == ".gltf" || extension == ".obj")
+		else if (extension == ".gltf" || extension == ".obj" || extension == ".fbx")
 		{
 			s_ThreadPool.PushTask([](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
 				{

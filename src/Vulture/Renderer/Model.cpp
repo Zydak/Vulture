@@ -150,13 +150,13 @@ namespace Vulture
 			m_Materials.push_back(Material());
 			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 			aiColor4D emissiveColor(0.0f, 0.0f, 0.0f, 0.0f);
-			aiColor4D albedoColor(0.0f, 0.0f, 0.0f, 0.0f);
+			aiColor4D diffuseColor(0.0f, 0.0f, 0.0f, 0.0f);
 			float roughness = 1.0f;
 			float metallic = 0.0f;
 
 			material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor);
 			material->Get(AI_MATKEY_EMISSIVE_INTENSITY, emissiveColor.a);
-			material->Get(AI_MATKEY_COLOR_DIFFUSE, albedoColor);
+			material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor);
 			material->Get(AI_MATKEY_ROUGHNESS_FACTOR, roughness);
 			material->Get(AI_MATKEY_METALLIC_FACTOR, metallic);
 			material->Get(AI_MATKEY_REFRACTI, m_Materials[index].Ior);
@@ -205,7 +205,6 @@ namespace Vulture
 			{
 				m_NormalTextures.push_back(AssetManager::LoadAsset("assets/empty_normal.png"));
 			}
-			// TODO: specify format when loading texture
 			if (material->GetTextureCount(aiTextureType_METALNESS) == 0)
 			{
 				m_MetallnessTextures.push_back(AssetManager::LoadAsset("assets/white.png"));
@@ -215,10 +214,11 @@ namespace Vulture
 				m_RoughnessTextures.push_back(AssetManager::LoadAsset("assets/white.png"));
 			}
 
-			m_Materials[index].Color = glm::vec4(albedoColor.r, albedoColor.g, albedoColor.b, glm::max(glm::max(emissiveColor.r, emissiveColor.g), emissiveColor.b));
+			m_Materials[index].Color = glm::vec4(diffuseColor.r, diffuseColor.g, diffuseColor.b, 1.0f);
+			m_Materials[index].EmissiveColor = glm::vec4(emissiveColor.r, emissiveColor.g, emissiveColor.b, emissiveColor.a);
 			m_Materials[index].Metallic = metallic;
 			m_Materials[index].Roughness = roughness;
-			m_Materials[index].Transparency = 1.0f - albedoColor.a;
+			m_Materials[index].Transparency = 1.0f - diffuseColor.a;
 
 			index++;
 		}

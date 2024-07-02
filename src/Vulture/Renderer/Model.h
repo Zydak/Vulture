@@ -10,13 +10,13 @@ namespace Vulture
 	{
 	public:
 		glm::vec4 Color;
-		float Metallic;
-		float Roughness;
+		glm::vec4 EmissiveColor;
+		float Metallic = 0.0f;
+		float Roughness = 1.0f;
 		float SubsurfaceScattering = 0.0f;
 		float Anisotropy = 0.0f;
-		float Sheen = 0.0f;
-		float SheenTint = 0.0f;
-		float SpecularStrength = 1.0f;
+		float SpecularTint = 0.0f;
+		float SpecularStrength = 0.0f;
 
 		float Ior = 1.5f;
 		float Transparency = 0.0f;
