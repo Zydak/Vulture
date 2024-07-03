@@ -2,6 +2,7 @@
 #include "Bloom.h"
 
 #include "Renderer/Renderer.h"
+#include "Vulkan/DeleteQueue.h"
 
 namespace Vulture
 {
@@ -283,6 +284,10 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 
+			// Move Sets to trash queue in case they are currently in use
+			if (m_SeparateBrightValuesSet.IsInitialized())
+				DeleteQueue::TrashDescriptorSet(std::move(m_SeparateBrightValuesSet));
+
 			m_SeparateBrightValuesSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 			m_SeparateBrightValuesSet.AddImageSampler(
 				0,
@@ -303,6 +308,13 @@ namespace Vulture
 		{
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+
+			// Move Sets to trash queue in case they are currently in use
+			for (int i = 0; i < m_AccumulateSet.size(); i++)
+			{
+				if (m_AccumulateSet[i].IsInitialized())
+					DeleteQueue::TrashDescriptorSet(std::move(m_AccumulateSet[i]));
+			}
 
 			m_AccumulateSet.clear();
 			m_AccumulateSet.resize(mipsCount + 1);
@@ -328,6 +340,13 @@ namespace Vulture
 		{
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
+
+			// Move Sets to trash queue in case they are currently in use
+			for (int i = 0; i < m_DownSampleSet.size(); i++)
+			{
+				if (m_DownSampleSet[i].IsInitialized())
+					DeleteQueue::TrashDescriptorSet(std::move(m_DownSampleSet[i]));
+			}
 
 			m_DownSampleSet.clear();
 			m_DownSampleSet.resize(mipsCount);

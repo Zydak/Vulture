@@ -3,6 +3,7 @@
 
 #include "Vulkan/Swapchain.h"
 #include "Renderer/Renderer.h"
+#include "Vulkan/DeleteQueue.h"
 
 namespace Vulture
 {
@@ -84,8 +85,6 @@ namespace Vulture
 	{
 		// Pipeline
 		{
-			m_Push.Init({ VK_SHADER_STAGE_COMPUTE_BIT });
-
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout imageLayout({ bin, bin1 });
@@ -109,6 +108,7 @@ namespace Vulture
 			info.debugName = "Tone Map Pipeline";
 
 			// Create the graphics pipeline
+			DeleteQueue::TrashPipeline(std::move(m_Pipeline));
 			m_Pipeline.Init(info);
 		}
 	}

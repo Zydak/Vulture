@@ -24,7 +24,7 @@ namespace Vulture
 		struct BloomInfo
 		{
 			float Threshold = 1.5f;
-			float Strength = 0.8f;
+			float Strength = 0.4f;
 			int MipCount = 10;
 		};
 

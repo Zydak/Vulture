@@ -3,6 +3,7 @@
 #include "Renderer/Renderer.h"
 #include "Asset/AssetManager.h"
 #include "Input.h"
+#include "Vulkan/DeleteQueue.h"
 
 namespace Vulture
 {
@@ -34,6 +35,7 @@ namespace Vulture
 
 		const uint32_t coresCount = std::thread::hardware_concurrency();
 		AssetManager::Init({ coresCount / 2 });
+		DeleteQueue::Init({appInfo.MaxFramesInFlight});
 	}
 
 	Application::~Application()
@@ -54,6 +56,8 @@ namespace Vulture
 
 			OnUpdate(deltaTime);
 			deltaTime = timer.ElapsedSeconds();
+
+			DeleteQueue::UpdateQueue();
 		}
 
 		vkDeviceWaitIdle(Device::GetDevice());
