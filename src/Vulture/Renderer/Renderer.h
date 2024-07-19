@@ -49,7 +49,7 @@ namespace Vulture
 		static int GetFrameIndex();
 		inline static int GetImageIndex() { return s_CurrentImageIndex; };
 
-		static void SaveImageToFile(const std::string& filepath, Ref<Image> image);
+		static void SaveImageToFile(const std::string& filepath, Image* image);
 		static void ImGuiPass();
 		static void FramebufferCopyPassImGui(DescriptorSet* descriptorWithImageSampler);
 		static void FramebufferCopyPassBlit(Ref<Image> image);

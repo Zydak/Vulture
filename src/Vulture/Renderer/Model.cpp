@@ -77,6 +77,7 @@ namespace Vulture
 		m_TextureSets = std::move(other.m_TextureSets);
 		m_VertexCount = std::move(other.m_VertexCount);
 		m_IndexCount = std::move(other.m_IndexCount);
+		m_ModelMatrices = std::move(other.m_ModelMatrices);
 
 		other.Reset();
 	}
@@ -97,6 +98,7 @@ namespace Vulture
 		m_TextureSets = std::move(other.m_TextureSets);
 		m_VertexCount = std::move(other.m_VertexCount);
 		m_IndexCount = std::move(other.m_IndexCount);
+		m_ModelMatrices = std::move(other.m_ModelMatrices);
 
 		other.Reset();
 
@@ -144,6 +146,7 @@ namespace Vulture
 			m_MeshesNames.push_back(node->mName.C_Str());
 			m_Meshes.push_back(std::make_shared<Mesh>());
 			m_Meshes[index]->Init(mesh, scene, transform);
+			m_ModelMatrices.push_back(transform);
 			m_VertexCount += m_Meshes[index]->GetVertexCount();
 			m_IndexCount += m_Meshes[index]->GetIndexCount();
 
@@ -283,6 +286,7 @@ namespace Vulture
 		m_RoughnessTextures.clear();
 		m_MetallnessTextures.clear();
 		m_TextureSets.clear();
+		m_ModelMatrices.clear();
 		m_VertexCount = 0;
 		m_IndexCount = 0;
 		m_Initialized = false;

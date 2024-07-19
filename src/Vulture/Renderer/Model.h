@@ -17,6 +17,7 @@ namespace Vulture
 		float Anisotropy = 0.0f;
 		float SpecularTint = 0.0f;
 		float SpecularStrength = 0.0f;
+		float SpecularAngle = 0.0f;
 
 		float Ior = 1.5f;
 		float Transparency = 0.0f;
@@ -69,6 +70,7 @@ namespace Vulture
 		inline const std::vector<Material>& GetMaterials() const { return m_Materials; };
 		inline const std::vector<std::string>& GetNames() const { return m_MeshesNames; };
 		inline const std::vector<Ref<Vulture::DescriptorSet>>& GetDescriptors() const { return m_TextureSets; };
+		inline const glm::mat4& GetMatrix(int index) const { return m_ModelMatrices[index]; }
 
 		inline std::vector<Material>& GetMaterials() { return m_Materials; };
 	private:
@@ -78,6 +80,7 @@ namespace Vulture
 		std::vector<std::string> m_MeshesNames;
 		std::vector<Ref<Mesh>> m_Meshes;
 		std::vector<Material> m_Materials;
+		std::vector<glm::mat4> m_ModelMatrices;
 		std::vector<AssetHandle> m_AlbedoTextures;
 		std::vector<AssetHandle> m_NormalTextures;
 		std::vector<AssetHandle> m_RoughnessTextures;

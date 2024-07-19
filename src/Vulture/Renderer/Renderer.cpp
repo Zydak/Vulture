@@ -271,7 +271,7 @@ namespace Vulture
 	}
 
 	// TODO: description
-	void Renderer::SaveImageToFile(const std::string& filepath, Ref<Image> image)
+	void Renderer::SaveImageToFile(const std::string& filepath, Image* image)
 	{
 		VkCommandBuffer cmd;
 		Device::BeginSingleTimeCommands(cmd, Device::GetGraphicsCommandPool());
@@ -336,15 +336,14 @@ namespace Vulture
 			if (!std::filesystem::exists(path))
 				std::filesystem::create_directory(path);
 
-			uint32_t imagesCount = 0;
-			for (const auto& entry : std::filesystem::directory_iterator(path))
+			uint32_t ID = 0;
+			
+			while (std::filesystem::exists("Rendered_Images/Render" + std::to_string(ID) + ".png"))
 			{
-				if (std::filesystem::is_regular_file(entry.status()))
-				{
-					imagesCount++;
-				}
+				ID++;
 			}
-			WriteToFile(std::string("Rendered_Images/Render" + std::to_string(imagesCount) + ".png").c_str(), imageBuffer, width, height);
+
+			WriteToFile(std::string("Rendered_Images/Render" + std::to_string(ID) + ".png").c_str(), imageBuffer, width, height);
 		}
 		else
 		{
