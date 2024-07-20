@@ -9,6 +9,7 @@
 #include <stb_image.h>
 
 #include "Vulture/Math/Defines.h"
+#include "DeleteQueue.h"
 
 namespace Vulture
 {
@@ -67,16 +68,10 @@ namespace Vulture
 		if (!m_Initialized)
 			return;
 
+		DeleteQueue::TrashImage(*this);
+
 		if (m_ImportanceSmplAccel.IsInitialized())
 			m_ImportanceSmplAccel.Destroy();
-
-		for (auto view : m_ImageViews)
-		{
-			vkDestroyImageView(Device::GetDevice(), view, nullptr);
-		}
-
-		vmaDestroyImage(Device::GetAllocator(), m_ImageHandle, *m_Allocation);
-		delete m_Allocation;
 
 		Reset();
 	}
@@ -149,6 +144,26 @@ namespace Vulture
 	Image::~Image()
 	{
 		Destroy();
+	}
+
+	void Image::Resize(VkExtent2D newSize)
+	{
+		VL_CORE_ASSERT(m_Initialized, "Can't Resize Uninitialized Image!");
+
+		Vulture::Image::CreateInfo imageInfo{};
+		imageInfo.Width = newSize.width;
+		imageInfo.Height = newSize.height;
+		imageInfo.Format = m_Format;
+		imageInfo.Tiling = m_Tiling;
+		imageInfo.Usage = m_Usage;
+		imageInfo.Properties = m_MemoryProperties;
+		imageInfo.Aspect = m_Aspect;
+		imageInfo.LayerCount = m_LayerCount;
+		imageInfo.SamplerInfo = Vulture::SamplerInfo{}; // TODO
+		imageInfo.Type = m_Type;
+		imageInfo.DebugName = ""; // TODO
+
+		Init(imageInfo);
 	}
 
 	void Image::WritePixels(void* data, VkCommandBuffer cmd)

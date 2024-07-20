@@ -68,6 +68,8 @@ namespace Vulture
 		inline VkMemoryPropertyFlags GetMemoryPropertyFlags() const { return m_MemoryPropertyFlags; }
 		inline VkDeviceSize GetBufferSize() const { return m_BufferSize; }
 		inline bool GetNoPool() const { return m_NoPool; }
+		inline VmaAllocation* GetAllocation() { return m_Allocation; }
+		inline VmaPool* GetVmaPool() { return m_Pool; }
 
 		inline bool IsInitialized() const { return m_Initialized; }
 
@@ -77,7 +79,7 @@ namespace Vulture
 		void* m_Mapped = nullptr;
 		VkBuffer m_BufferHandle = VK_NULL_HANDLE;
 		VmaAllocation* m_Allocation = nullptr;
-		Scope<VmaPool> m_Pool = nullptr; // only for buffers that are allocated on their own pools
+		VmaPool* m_Pool = nullptr; // only for buffers that are allocated on their own pools
 
 		VkDeviceSize m_BufferSize = 0;
 		uint32_t m_InstanceCount = 0;

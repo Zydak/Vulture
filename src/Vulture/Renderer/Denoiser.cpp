@@ -42,38 +42,9 @@ namespace Vulture
 		VL_CORE_RETURN_ASSERT(optixDeviceContextCreate(cuCtx, &optixoptions, &m_OptixDevice), 0, "Couldn't Create optix device context");
 		VL_CORE_RETURN_ASSERT(optixDeviceContextSetLogCallback(m_OptixDevice, contextLogCb, nullptr, 4), 0, "Couldn't Set Log Callback");
 
-		// TODO: Maybe blit lower formats to higher formats before copying to buffer? Writing to buffer would be faster
 		m_PixelFormat = OPTIX_PIXEL_FORMAT_FLOAT4;
-		switch (m_PixelFormat)
-		{
-		case OPTIX_PIXEL_FORMAT_FLOAT3:
-			m_SizeofPixel = (uint32_t)3 * sizeof(float);
-			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_COPY;
-			break;
-		case OPTIX_PIXEL_FORMAT_FLOAT4:
-			m_SizeofPixel = (uint32_t)4 * sizeof(float);
-			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_DENOISE;
-			break;
-		case OPTIX_PIXEL_FORMAT_UCHAR3:
-			m_SizeofPixel = (uint32_t)3 * sizeof(uint8_t);
-			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_COPY;
-			break;
-		case OPTIX_PIXEL_FORMAT_UCHAR4:
-			m_SizeofPixel = (uint32_t)4 * sizeof(uint8_t);
-			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_DENOISE;
-			break;
-		case OPTIX_PIXEL_FORMAT_HALF3:
-			m_SizeofPixel = (uint32_t)3 * sizeof(uint16_t);
-			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_COPY;
-			break;
-		case OPTIX_PIXEL_FORMAT_HALF4:
-			m_SizeofPixel = (uint32_t)4 * sizeof(uint16_t);
-			m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_DENOISE;
-			break;
-		default:
-			VL_CORE_ASSERT(false, "Format Unsupported");
-			break;
-		}
+		m_SizeofPixel = (uint32_t)4 * sizeof(float);
+		m_DenoiserAlpha = OPTIX_DENOISER_ALPHA_MODE_DENOISE;
 
 		OptixDenoiserOptions d_options;
 		d_options.guideAlbedo = 1;
@@ -159,10 +130,13 @@ namespace Vulture
         }
 
         // Wait from Vulkan (Copy to Buffer)
-        cudaExternalSemaphoreWaitParams waitParams{};
-        waitParams.flags = 0;
-        waitParams.params.fence.value = fenceValue;
-        VL_CORE_RETURN_ASSERT(cudaWaitExternalSemaphoresAsync(&m_Semaphore.Cu, &waitParams, 1, nullptr), 0, "Waiting for semaphore failed");
+        if (fenceValue != UINT64_MAX)
+        {
+            cudaExternalSemaphoreWaitParams waitParams{};
+            waitParams.flags = 0;
+            waitParams.params.fence.value = fenceValue;
+            VL_CORE_RETURN_ASSERT(cudaWaitExternalSemaphoresAsync(&m_Semaphore.Cu, &waitParams, 1, nullptr), 0, "Waiting for semaphore failed");
+        }
 
         if (m_Intensity != 0)
         {
@@ -201,7 +175,7 @@ namespace Vulture
     *              - [1] Albedo.
     *              - [2] Normals.
     */
-    void Denoiser::ImageToBuffer(VkCommandBuffer& cmdBuf, const std::vector<Vulture::Image*>& imgIn)
+    void Denoiser::ImageToBuffer(VkCommandBuffer cmdBuf, const std::vector<Vulture::Image*>& imgIn)
     {
         VkBufferImageCopy region = {
             .imageSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .layerCount = 1},

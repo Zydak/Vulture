@@ -2,6 +2,7 @@
 #include "Utility/Utility.h"
 
 #include "Buffer.h"
+#include "DeleteQueue.h"
 
 namespace Vulture
 {
@@ -102,7 +103,7 @@ namespace Vulture
 		m_InstanceSize = createInfo.InstanceSize;
 		m_NoPool = createInfo.NoPool;
 		if (m_NoPool)
-			m_Pool = std::make_unique<VmaPool>();
+			m_Pool = new VmaPool();
 		m_MinOffsetAlignment = createInfo.MinOffsetAlignment;
 
 		// Calculate alignment size and total buffer size.
@@ -141,17 +142,9 @@ namespace Vulture
 		// Unmap the buffer memory if it was mapped.
 		Unmap();
 
-		// Destroy the Vulkan buffer and deallocate the buffer memory.
-		vmaDestroyBuffer(Device::GetAllocator(), m_BufferHandle, *m_Allocation);
+		DeleteQueue::TrashBuffer(*this);
 
-		// Deallocate the allocation object.
-		delete m_Allocation;
-
-		if (m_Pool != nullptr)
-		{
-			vmaDestroyPool(Device::GetAllocator(), *m_Pool);
-			m_Pool = nullptr;
-		}
+		m_Pool = nullptr;
 
 		Reset();
 	}

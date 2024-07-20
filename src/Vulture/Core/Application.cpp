@@ -10,6 +10,16 @@ namespace Vulture
 	Application::Application(const ApplicationInfo& appInfo)
 		: m_ApplicationInfo(appInfo)
 	{
+		float r1 = 0.1245f;
+		float r2 = 0.7f;
+
+		float theta = 2.0f * 3.14 * r1;
+		float phi = glm::acos(2.0f * r2 - 1.0f) - 0.5f * 3.14;
+
+		float x = glm::cos(phi) * glm::sin(theta);
+		float y = glm::cos(phi);
+		float z = glm::cos(phi) * glm::cos(theta);
+
 		if (!appInfo.WorkingDirectory.empty())
 			std::filesystem::current_path(appInfo.WorkingDirectory);
 
@@ -64,6 +74,7 @@ namespace Vulture
 
 		Renderer::Destroy();
 		Destroy();
+		DeleteQueue::Destroy();
 		Device::Destroy();
 	}
 }

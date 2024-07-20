@@ -4,6 +4,8 @@
 #include "Pipeline.h"
 #include <vulkan/vulkan_core.h>
 
+#include "DeleteQueue.h"
+
 namespace Vulture
 {
 	enum class ShaderType
@@ -243,8 +245,7 @@ namespace Vulture
 		if (!m_Initialized)
 			return;
 
-		vkDestroyPipeline(Device::GetDevice(), m_PipelineHandle, nullptr);
-		vkDestroyPipelineLayout(Device::GetDevice(), m_PipelineLayout, nullptr);
+		DeleteQueue::TrashPipeline(*this);
 
 		Reset();
 	}

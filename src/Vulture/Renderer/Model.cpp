@@ -12,6 +12,8 @@ namespace Vulture
 {
 	void Model::Init(const std::string& filepath)
 	{
+		Timer timer;
+
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile(filepath,
 			aiProcess_CalcTangentSpace |
@@ -29,8 +31,6 @@ namespace Vulture
 			VL_CORE_ERROR("Failed to load model: {0}", importer.GetErrorString());
 			return;
 		}
-
-		Timer timer;
 
 		int x = 0;
 		ProcessNode(scene->mRootNode, scene, x);

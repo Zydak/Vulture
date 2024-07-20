@@ -21,7 +21,6 @@ static void contextLogCb(unsigned int level, const char* tag, const char* messag
     VL_CORE_INFO("[{0}][{1}]:{2}", level, tag, message);
 }
 
-// TODO: rework this
 class Denoiser
 {
 public:
@@ -31,6 +30,12 @@ public:
 	Denoiser() = default;
 	~Denoiser();
 
+	Denoiser(const Denoiser& other) = delete;
+	Denoiser(Denoiser&& other) noexcept = delete;
+
+	Denoiser& operator=(const Denoiser& other) = delete;
+	Denoiser& operator=(Denoiser&& other) noexcept = delete;
+
 	void DenoiseImageBuffer(uint64_t& fenceValue, float blendFactor = 0.0f);
 	void CreateSemaphore();
 
@@ -38,7 +43,7 @@ public:
 
 	void AllocateBuffers(const VkExtent2D& imgSize);
 	void BufferToImage(const VkCommandBuffer& cmdBuf, Vulture::Image* imgOut);
-	void ImageToBuffer(VkCommandBuffer& cmdBuf, const std::vector<Vulture::Image*>& imgIn);
+	void ImageToBuffer(VkCommandBuffer cmdBuf, const std::vector<Vulture::Image*>& imgIn);
 
 	inline bool IsInitialized() const { return m_Initialized; }
 
@@ -66,11 +71,7 @@ private:
 	struct BufferCuda
 	{
 		Vulture::Buffer BufferVk;
-		#ifdef WIN
 		HANDLE Handle = nullptr;  // The Win32 handle
-		#else
-		int Handle = -1;
-		#endif
 		void* CudaPtr = nullptr;  // Pointer for cuda
 
 		void Destroy();
@@ -83,11 +84,7 @@ private:
 	{
 		VkSemaphore Vk{};  // Vulkan
 		cudaExternalSemaphore_t Cu{};  // Cuda version
-		#ifdef WIN
 		HANDLE Handle{ INVALID_HANDLE_VALUE };
-		#else
-		int Handle{ -1 };
-		#endif
 	};
 
 	Semaphore m_Semaphore;
