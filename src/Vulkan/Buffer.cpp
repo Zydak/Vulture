@@ -91,7 +91,7 @@ namespace Vulture
 		m_Allocation = new VmaAllocation();
 
 		// Assert the validity of the provided creation information.
-		VL_CORE_ASSERT(createInfo, "Incorrectly Initialized Buffer::CreateInfo! Values: InstanceCount: {0}, InstanceSize: {1}, UsageFlags: {2}, MemoryPropertyFlags: {3}", createInfo.InstanceCount, createInfo.InstanceSize, createInfo.UsageFlags, createInfo.MemoryPropertyFlags);
+ 		VL_CORE_ASSERT(createInfo, "Incorrectly Initialized Buffer::CreateInfo! Values: InstanceCount: {0}, InstanceSize: {1}, UsageFlags: {2}, MemoryPropertyFlags: {3}", createInfo.InstanceCount, createInfo.InstanceSize, createInfo.UsageFlags, createInfo.MemoryPropertyFlags);
 
 		// Mark the buffer as initialized.
 		m_Initialized = true;

@@ -245,7 +245,14 @@ namespace Vulture
 		if (!m_Initialized)
 			return;
 
-		DeleteQueue::TrashPipeline(*this);
+		// TODO: figure out why the fuck I can't have 2 ray tracing pipelines at the same time
+		if (m_PipelineType == PipelineType::RayTracing)
+		{
+			vkDestroyPipeline(Device::GetDevice(), m_PipelineHandle, nullptr);
+			vkDestroyPipelineLayout(Device::GetDevice(), m_PipelineLayout, nullptr);
+		}
+		else
+			DeleteQueue::TrashPipeline(*this);
 
 		Reset();
 	}

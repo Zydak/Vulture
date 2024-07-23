@@ -13,20 +13,13 @@ namespace Vulture
 		glm::vec4 EmissiveColor;
 		float Metallic = 0.0f;
 		float Roughness = 1.0f;
-		float SubsurfaceScattering = 0.0f;
-		float Anisotropy = 0.0f;
 		float SpecularTint = 0.0f;
 		float SpecularStrength = 0.0f;
-		float SpecularAngle = 0.0f;
 
 		float Ior = 1.5f;
 		float Transparency = 0.0f;
-		float Clearcoat = 0.0f;
-		float ClearcoatRoughness = 0.0f;
 	private:
 		float eta = 0.0f;
-		float ax = 0.0f;
-		float ay = 0.0f;
 	};
 
 	class Model
