@@ -16,8 +16,8 @@ namespace Vulture
 		{
 			std::string ShaderPath;
 
-			std::vector<Image*> InputImages;
-			std::vector<Image*> OutputImages;
+			Image* InputImage;
+			Image* OutputImage;
 
 			std::vector<Image*> AdditionalTextures;
 
@@ -36,7 +36,7 @@ namespace Vulture
 
 		void RecompileShader(std::vector<Shader::Define> defines);
 
-		void Run(VkCommandBuffer cmd, uint32_t imageIndex = 0);
+		void Run(VkCommandBuffer cmd);
 
 		Effect() = default;
 		Effect(const CreateInfo& createInfo);
@@ -48,15 +48,15 @@ namespace Vulture
 
 		~Effect();
 	private:
-		std::vector<DescriptorSet> m_Descriptors;
+		DescriptorSet m_Descriptor;
 		Pipeline m_Pipeline;
 
 		PushConstant<T> m_Push;
 		std::string m_ShaderPath;
 		std::vector<Vulture::DescriptorSetLayout::Binding> m_Bindings;
 
-		std::vector<Image*> m_InputImages;
-		std::vector<Image*> m_OutputImages;
+		Image* m_InputImage;
+		Image* m_OutputImage;
 		std::vector<Image*> m_AdditionalImages;
 		VkExtent2D m_ImageSize;
 		std::string m_DebugName;
@@ -76,11 +76,11 @@ namespace Vulture
 
 		m_Pipeline			= std::move(other.m_Pipeline);
 		m_Push				= std::move(other.m_Push);
-		m_Descriptors		= std::move(other.m_Descriptors);
+		m_Descriptor		= std::move(other.m_Descriptor);
 		m_ShaderPath		= std::move(other.m_ShaderPath);
 		m_Bindings			= std::move(other.m_Bindings);
-		m_InputImages		= std::move(other.m_InputImages);
-		m_OutputImages		= std::move(other.m_OutputImages);
+		m_InputImage		= std::move(other.m_InputImage);
+		m_OutputImage		= std::move(other.m_OutputImage);
 		m_AdditionalImages	= std::move(other.m_AdditionalImages);
 		m_ImageSize			= std::move(other.m_ImageSize);
 		m_DebugName			= std::move(other.m_DebugName);
@@ -98,11 +98,11 @@ namespace Vulture
 
 		m_Pipeline = std::move(other.m_Pipeline);
 		m_Push = std::move(other.m_Push);
-		m_Descriptors = std::move(other.m_Descriptors);
+		m_Descriptor = std::move(other.m_Descriptor);
 		m_ShaderPath = std::move(other.m_ShaderPath);
 		m_Bindings = std::move(other.m_Bindings);
-		m_InputImages = std::move(other.m_InputImages);
-		m_OutputImages = std::move(other.m_OutputImages);
+		m_InputImage = std::move(other.m_InputImage);
+		m_OutputImage = std::move(other.m_OutputImage);
 		m_AdditionalImages = std::move(other.m_AdditionalImages);
 		m_ImageSize = std::move(other.m_ImageSize);
 		m_DebugName = std::move(other.m_DebugName);
@@ -123,11 +123,9 @@ namespace Vulture
 	template<typename T>
 	void Vulture::Effect<T>::Reset()
 	{
-		m_Descriptors.clear();
 		m_ShaderPath = "";
+		m_Descriptor.Destroy();
 		m_Bindings.clear();
-		m_InputImages.clear();
-		m_OutputImages.clear();
 		m_AdditionalImages.clear();
 		m_ImageSize = { 0, 0 };
 		m_DebugName = "";
@@ -142,9 +140,9 @@ namespace Vulture
 	}
 
 	template<typename T>
-	void Vulture::Effect<T>::Run(VkCommandBuffer cmd, uint32_t imageIndex /*= 0*/)
+	void Vulture::Effect<T>::Run(VkCommandBuffer cmd)
 	{
-		m_OutputImages[imageIndex]->TransitionImageLayout(
+		m_OutputImage->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL,
 			Vulture::Renderer::GetCurrentCommandBuffer()
 		);
@@ -156,11 +154,11 @@ namespace Vulture
 		}
 
 		if (!m_InputIsOutput)
-			m_InputImages[imageIndex]->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
+			m_InputImage->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, Vulture::Renderer::GetCurrentCommandBuffer());
 
 		m_Pipeline.Bind(cmd);
 
-		m_Descriptors[imageIndex].Bind(
+		m_Descriptor.Bind(
 			0,
 			m_Pipeline.GetPipelineLayout(),
 			VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -215,15 +213,14 @@ namespace Vulture
 			Destroy();
 
 		m_ShaderPath = createInfo.ShaderPath;
-		m_InputImages = createInfo.InputImages;
-		m_OutputImages = createInfo.OutputImages;
+		m_InputImage = createInfo.InputImage;
+		m_OutputImage = createInfo.OutputImage;
 		m_AdditionalImages = createInfo.AdditionalTextures;
 		m_DebugName = createInfo.DebugName;
 
-		m_ImageSize = createInfo.OutputImages[0]->GetImageSize();
+		m_ImageSize = createInfo.OutputImage->GetImageSize();
 
-		m_Descriptors.resize(m_OutputImages.size());
-		for (int i = 0; i < m_OutputImages.size(); i++)
+		m_Bindings.clear();
 		{
 			m_Bindings.push_back({ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT });
 			m_Bindings.push_back({ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT });
@@ -233,26 +230,26 @@ namespace Vulture
 				m_Bindings.push_back({ j + 2, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT });
 			}
 
-			m_InputIsOutput = createInfo.InputImages[i]->GetImage() == createInfo.OutputImages[i]->GetImage();
+			m_InputIsOutput = createInfo.InputImage->GetImage() == createInfo.OutputImage->GetImage();
 			VkImageLayout inputLayout = m_InputIsOutput ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-			m_Descriptors[i].Init(&Vulture::Renderer::GetDescriptorPool(), m_Bindings);
-			m_Descriptors[i].AddImageSampler(
+			m_Descriptor.Init(&Vulture::Renderer::GetDescriptorPool(), m_Bindings);
+			m_Descriptor.AddImageSampler(
 				0,
 				{ Vulture::Renderer::GetLinearSamplerHandle(),
-				createInfo.InputImages[i]->GetImageView(),
+				createInfo.InputImage->GetImageView(),
 				inputLayout }
 			);
-			m_Descriptors[i].AddImageSampler(
+			m_Descriptor.AddImageSampler(
 				1,
 				{ Vulture::Renderer::GetLinearSamplerHandle(),
-				createInfo.OutputImages[i]->GetImageView(),
+				createInfo.OutputImage->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL }
 			);
 
 			for (int j = 0; j < createInfo.AdditionalTextures.size(); j++)
 			{
-				m_Descriptors[i].AddImageSampler(
+				m_Descriptor.AddImageSampler(
 					j + 2,
 					{ Vulture::Renderer::GetLinearSamplerHandle(),
 					createInfo.AdditionalTextures[j]->GetImageView(),
@@ -260,7 +257,7 @@ namespace Vulture
 				);
 			}
 
-			m_Descriptors[i].Build();
+			m_Descriptor.Build();
 		}
 
 		// Pipeline
