@@ -25,13 +25,13 @@ namespace Vulture
 			m_Descriptor.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 			m_Descriptor.AddImageSampler(
 				0,
-				{ Vulture::Renderer::GetLinearSamplerHandle(),
+				{ Vulture::Renderer::GetLinearSampler().GetSamplerHandle(),
 				info.InputImage->GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 			);
 			m_Descriptor.AddImageSampler(
 				1,
-				{ Vulture::Renderer::GetLinearSamplerHandle(),
+				{ Vulture::Renderer::GetLinearSampler().GetSamplerHandle(),
 				info.OutputImage->GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL }
 			);
@@ -108,7 +108,6 @@ namespace Vulture
 			info.debugName = "Tone Map Pipeline";
 
 			// Create the graphics pipeline
-			DeleteQueue::TrashPipeline(std::move(m_Pipeline));
 			m_Pipeline.Init(info);
 		}
 	}

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "DescriptorSetLayout.h"
+#include "../DeleteQueue.h"
 
 namespace Vulture
 {
@@ -66,7 +67,7 @@ namespace Vulture
 		m_Initialized = false;
 
 		// Destroy the Vulkan descriptor set layout object.
-		vkDestroyDescriptorSetLayout(Device::GetDevice(), m_DescriptorSetLayoutHandle, nullptr);
+		DeleteQueue::TrashDescriptorSetLayout(*this);
 
 		Reset();
 	}

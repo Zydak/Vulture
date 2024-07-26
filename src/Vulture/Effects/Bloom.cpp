@@ -253,7 +253,7 @@ namespace Vulture
 
 		m_SeparateBrightValuesSet.UpdateImageSampler(
 			0,
-			{ Vulture::Renderer::GetLinearSamplerHandle(), // input image is copied to output at the start of bloom pass
+			{ Vulture::Renderer::GetLinearSampler().GetSamplerHandle(), // input image is copied to output at the start of bloom pass
 			m_OutputImage->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
@@ -261,7 +261,7 @@ namespace Vulture
 		// TODO: detect error when accidentally calling AddImageSampelr instead of Update, could be useful
 		m_AccumulateSet[info.MipsCount].UpdateImageSampler(
 			1,
-			{ Vulture::Renderer::GetLinearSamplerHandle(),
+			{ Vulture::Renderer::GetLinearSampler().GetSamplerHandle(),
 			m_OutputImage->GetImageView(),
 			VK_IMAGE_LAYOUT_GENERAL }
 		);
@@ -284,20 +284,16 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 
-			// Move Sets to trash queue in case they are currently in use
-			if (m_SeparateBrightValuesSet.IsInitialized())
-				DeleteQueue::TrashDescriptorSet(std::move(m_SeparateBrightValuesSet));
-
 			m_SeparateBrightValuesSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 			m_SeparateBrightValuesSet.AddImageSampler(
 				0,
-				{ Vulture::Renderer::GetLinearSamplerHandle(), // input image is copied to output at the start of bloom pass
+				{ Vulture::Renderer::GetLinearSampler().GetSamplerHandle(), // input image is copied to output at the start of bloom pass
 				m_OutputImage->GetImageView(),
 				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 			);
 			m_SeparateBrightValuesSet.AddImageSampler(
 				1,
-				{ Vulture::Renderer::GetLinearSamplerHandle(),
+				{ Vulture::Renderer::GetLinearSampler().GetSamplerHandle(),
 				m_BloomImages[0].GetImageView(),
 				VK_IMAGE_LAYOUT_GENERAL }
 			);
@@ -309,13 +305,6 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 
-			// Move Sets to trash queue in case they are currently in use
-			for (int i = 0; i < m_AccumulateSet.size(); i++)
-			{
-				if (m_AccumulateSet[i].IsInitialized())
-					DeleteQueue::TrashDescriptorSet(std::move(m_AccumulateSet[i]));
-			}
-
 			m_AccumulateSet.clear();
 			m_AccumulateSet.resize(mipsCount + 1);
 			int j;
@@ -325,14 +314,14 @@ namespace Vulture
 				descIdx = (mipsCount)-j;
 				m_AccumulateSet[j].Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 
-				m_AccumulateSet[j].AddImageSampler(0, { Vulture::Renderer::GetLinearSamplerHandle(), m_BloomImages[descIdx].GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
-				m_AccumulateSet[j].AddImageSampler(1, { Vulture::Renderer::GetLinearSamplerHandle(), m_BloomImages[descIdx - 1].GetImageView(), VK_IMAGE_LAYOUT_GENERAL });
+				m_AccumulateSet[j].AddImageSampler(0, { Vulture::Renderer::GetLinearSampler().GetSamplerHandle(), m_BloomImages[descIdx].GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+				m_AccumulateSet[j].AddImageSampler(1, { Vulture::Renderer::GetLinearSampler().GetSamplerHandle(), m_BloomImages[descIdx - 1].GetImageView(), VK_IMAGE_LAYOUT_GENERAL });
 				m_AccumulateSet[j].Build();
 			}
 			m_AccumulateSet[j].Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
 
-			m_AccumulateSet[j].AddImageSampler(0, { Vulture::Renderer::GetLinearSamplerHandle(), m_BloomImages[descIdx].GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
-			m_AccumulateSet[j].AddImageSampler(1, { Vulture::Renderer::GetLinearSamplerHandle(), m_OutputImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL });
+			m_AccumulateSet[j].AddImageSampler(0, { Vulture::Renderer::GetLinearSampler().GetSamplerHandle(), m_BloomImages[descIdx].GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+			m_AccumulateSet[j].AddImageSampler(1, { Vulture::Renderer::GetLinearSampler().GetSamplerHandle(), m_OutputImage->GetImageView(), VK_IMAGE_LAYOUT_GENERAL });
 			m_AccumulateSet[j].Build();
 		}
 
@@ -341,22 +330,15 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 
-			// Move Sets to trash queue in case they are currently in use
-			for (int i = 0; i < m_DownSampleSet.size(); i++)
-			{
-				if (m_DownSampleSet[i].IsInitialized())
-					DeleteQueue::TrashDescriptorSet(std::move(m_DownSampleSet[i]));
-			}
-
 			m_DownSampleSet.clear();
 			m_DownSampleSet.resize(mipsCount);
 			for (int j = 0; j < m_DownSampleSet.size(); j++)
 			{
 				m_DownSampleSet[j].Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-				m_DownSampleSet[j].AddImageSampler(0, { Vulture::Renderer::GetLinearSamplerHandle(), m_BloomImages[j].GetImageView() ,
+				m_DownSampleSet[j].AddImageSampler(0, { Vulture::Renderer::GetLinearSampler().GetSamplerHandle(), m_BloomImages[j].GetImageView() ,
 					VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 				);
-				m_DownSampleSet[j].AddImageSampler(1, { Vulture::Renderer::GetLinearSamplerHandle(), m_BloomImages[j + 1].GetImageView(),
+				m_DownSampleSet[j].AddImageSampler(1, { Vulture::Renderer::GetLinearSampler().GetSamplerHandle(), m_BloomImages[j + 1].GetImageView(),
 					VK_IMAGE_LAYOUT_GENERAL }
 				);
 				m_DownSampleSet[j].Build();

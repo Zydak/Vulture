@@ -28,8 +28,9 @@ namespace Vulture
 
 		s_EnvToCubemapDescriptorSet.reset();
 
-		s_RendererLinearSampler.reset();
-		s_RendererNearestSampler.reset();
+		s_RendererLinearSampler.Destroy();
+		s_RendererLinearSamplerRepeat.Destroy();
+		s_RendererNearestSampler.Destroy();
 
 		s_HDRToPresentablePipeline.Destroy();
 		s_EnvToCubemapPipeline.Destroy();
@@ -55,8 +56,9 @@ namespace Vulture
 		m_MaxFramesInFlight = maxFramesInFlight;
 
 		CreatePool();
-		s_RendererLinearSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR));
-		s_RendererNearestSampler = std::make_unique<Sampler>(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST));
+		s_RendererLinearSampler.Init(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR));
+		s_RendererLinearSamplerRepeat.Init(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR));
+		s_RendererNearestSampler.Init(SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_NEAREST, VK_SAMPLER_MIPMAP_MODE_NEAREST));
 
 		s_Initialized = true;
 		s_Window = &window;
@@ -476,8 +478,8 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			s_EnvToCubemapDescriptorSet = std::make_shared<Vulture::DescriptorSet>();
 			s_EnvToCubemapDescriptorSet->Init(&Vulture::Renderer::GetDescriptorPool(), { bin, bin1 });
-			s_EnvToCubemapDescriptorSet->AddImageSampler(0, { GetLinearSamplerHandle(), envMap->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
-			s_EnvToCubemapDescriptorSet->AddImageSampler(1, { GetLinearSamplerHandle(), cubemap->GetImageView(), VK_IMAGE_LAYOUT_GENERAL });
+			s_EnvToCubemapDescriptorSet->AddImageSampler(0, { GetLinearSampler().GetSamplerHandle(), envMap->GetImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+			s_EnvToCubemapDescriptorSet->AddImageSampler(1, { GetLinearSampler().GetSamplerHandle(), cubemap->GetImageView(), VK_IMAGE_LAYOUT_GENERAL });
 			s_EnvToCubemapDescriptorSet->Build();
 		}
 
@@ -804,8 +806,9 @@ namespace Vulture
 	Pipeline Renderer::s_HDRToPresentablePipeline;
 	Vulture::Pipeline Renderer::s_EnvToCubemapPipeline;
 	Mesh Renderer::s_QuadMesh;
-	Scope<Sampler> Renderer::s_RendererLinearSampler;
-	Scope<Sampler> Renderer::s_RendererNearestSampler;
+	Sampler Renderer::s_RendererLinearSampler;
+	Sampler Renderer::s_RendererLinearSamplerRepeat;
+	Sampler Renderer::s_RendererNearestSampler;
 	Ref<Vulture::DescriptorSet> Renderer::s_EnvToCubemapDescriptorSet;
 	std::function<void()> Renderer::s_ImGuiFunction;
 }

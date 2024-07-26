@@ -28,7 +28,7 @@ namespace Vulture
 		Sampler(Sampler&& other) noexcept;
 		Sampler& operator=(Sampler&& other) noexcept;
 
-		inline VkSampler GetLinearSamplerHandle() const { return m_SamplerHandle; }
+		inline VkSampler GetSamplerHandle() const { return m_SamplerHandle; }
 
 		inline bool IsInitialized() const { return m_Initialized; }
 

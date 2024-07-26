@@ -127,21 +127,20 @@ namespace Vulture
 		// process each mesh located at the current node
 		for (unsigned int i = 0; i < node->mNumMeshes; i++)
 		{
-			glm::mat4 transform = *(glm::mat4*)(&node->mTransformation);
+			glm::mat4 transform = glm::transpose(*(glm::mat4*)(&node->mTransformation));
 			aiNode* currNode = node;
 			while (true)
 			{
 				if (currNode->mParent)
 				{
 					currNode = currNode->mParent;
-					transform *= *(glm::mat4*)(&currNode->mTransformation);
+					transform *= glm::transpose(*(glm::mat4*)(&currNode->mTransformation));
 				}
 				else
 				{
 					break;
 				}
 			}
-			//transform = glm::transpose(transform);
 			aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
 			m_MeshesNames.push_back(node->mName.C_Str());
 			m_Meshes.push_back(std::make_shared<Mesh>());
@@ -245,28 +244,28 @@ namespace Vulture
 		m_AlbedoTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			0,
-			{ Vulture::Renderer::GetLinearSamplerHandle(),
+			{ Vulture::Renderer::GetLinearRepeatSampler().GetSamplerHandle(),
 			m_AlbedoTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
 		m_NormalTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			1,
-			{ Vulture::Renderer::GetLinearSamplerHandle(),
+			{ Vulture::Renderer::GetLinearRepeatSampler().GetSamplerHandle(),
 			m_NormalTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
 		m_RoughnessTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			2,
-			{ Vulture::Renderer::GetLinearSamplerHandle(),
+			{ Vulture::Renderer::GetLinearRepeatSampler().GetSamplerHandle(),
 			m_RoughnessTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);
 		m_MetallnessTextures[index].WaitToLoad();
 		m_TextureSets[index]->AddImageSampler(
 			3,
-			{ Vulture::Renderer::GetLinearSamplerHandle(),
+			{ Vulture::Renderer::GetLinearRepeatSampler().GetSamplerHandle(),
 			m_MetallnessTextures[index].GetImage()->GetImageView(),
 			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
 		);

@@ -43,7 +43,8 @@ namespace Vulture
 		{
 			if (s_SetQueue[i].second == 0)
 			{
-				s_SetQueue[i].first.Destroy();
+				vkDestroyDescriptorSetLayout(Device::GetDevice(), s_SetQueue[i].first.DescriptorSetLayoutHandle, nullptr);
+
 				s_SetQueue.erase(s_SetQueue.begin() + i);
 				i = -1; // Go back to the beginning of the vector
 			}
@@ -103,7 +104,7 @@ namespace Vulture
 
 	void DeleteQueue::TrashPipeline(const Pipeline& pipeline)
 	{
-		PipelineInfo info;
+		PipelineInfo info{};
 		info.Handle = pipeline.GetPipeline();
 		info.Layout = pipeline.GetPipelineLayout();
 
@@ -112,7 +113,7 @@ namespace Vulture
 
 	void DeleteQueue::TrashImage(Image& image)
 	{
-		ImageInfo info;
+		ImageInfo info{};
 		info.Handle = image.GetImage();
 		info.Views = image.GetImageViews();
 		info.Allocation = image.GetAllocation();
@@ -122,7 +123,7 @@ namespace Vulture
 
 	void DeleteQueue::TrashBuffer(Buffer& buffer)
 	{
-		BufferInfo info;
+		BufferInfo info{};
 		info.Handle = buffer.GetBuffer();
 		info.Allocation = buffer.GetAllocation();
 		info.Pool = buffer.GetVmaPool();
@@ -130,9 +131,12 @@ namespace Vulture
 		s_BufferQueue.push_back(std::make_pair(info, s_FramesInFlight));
 	}
 
-	void DeleteQueue::TrashDescriptorSet(DescriptorSet&& set)
+	void DeleteQueue::TrashDescriptorSetLayout(DescriptorSetLayout& set)
 	{
-		s_SetQueue.push_back(std::make_pair(std::move(set), s_FramesInFlight));
+		DescriptorInfo info{};
+		info.DescriptorSetLayoutHandle = set.GetDescriptorSetLayoutHandle();
+
+		s_SetQueue.push_back(std::make_pair(info, s_FramesInFlight));
 	}
 
 	uint32_t DeleteQueue::s_FramesInFlight = 0;
@@ -140,6 +144,6 @@ namespace Vulture
 	std::vector<std::pair<Vulture::DeleteQueue::PipelineInfo, uint32_t>> DeleteQueue::s_PipelineQueue;
 	std::vector<std::pair<Vulture::DeleteQueue::ImageInfo, uint32_t>> DeleteQueue::s_ImageQueue;
 	std::vector<std::pair<Vulture::DeleteQueue::BufferInfo, uint32_t>> DeleteQueue::s_BufferQueue;
-	std::vector<std::pair<Vulture::DescriptorSet, uint32_t>> DeleteQueue::s_SetQueue;
+	std::vector<std::pair<Vulture::DeleteQueue::DescriptorInfo, uint32_t>> DeleteQueue::s_SetQueue;
 
 }

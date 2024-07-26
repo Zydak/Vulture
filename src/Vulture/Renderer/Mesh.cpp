@@ -60,7 +60,7 @@ namespace Vulture
 			vector.x = mesh->mVertices[i].x;
 			vector.y = mesh->mVertices[i].y;
 			vector.z = mesh->mVertices[i].z;
-			vertex.Position = glm::transpose(mat) * glm::vec4(vector, 1.0f);
+			vertex.Position = mat * glm::vec4(vector, 1.0f);
 
 			// normals
 			if (mesh->HasNormals())
@@ -68,7 +68,7 @@ namespace Vulture
 				vector.x = mesh->mNormals[i].x;
 				vector.y = mesh->mNormals[i].y;
 				vector.z = mesh->mNormals[i].z;
-				vertex.Normal = glm::normalize(glm::vec3((glm::transpose(mat)) * glm::vec4(vector, 0.0f)));
+				vertex.Normal = glm::normalize(glm::vec3(mat * glm::vec4(vector, 0.0f)));
 			}
 
 			// texture coordinates

@@ -26,7 +26,7 @@ namespace Vulture
 		static void TrashPipeline(const Pipeline& pipeline);
 		static void TrashImage(Image& image);
 		static void TrashBuffer(Buffer& buffer);
-		static void TrashDescriptorSet(DescriptorSet&& set);
+		static void TrashDescriptorSetLayout(DescriptorSetLayout& set);
 	private:
 		static uint32_t s_FramesInFlight;
 
@@ -52,12 +52,12 @@ namespace Vulture
 
 		struct DescriptorInfo
 		{
-
+			VkDescriptorSetLayout DescriptorSetLayoutHandle;
 		};
 
 		static std::vector<std::pair<PipelineInfo, uint32_t>> s_PipelineQueue;
 		static std::vector<std::pair<ImageInfo, uint32_t>> s_ImageQueue;
 		static std::vector<std::pair<BufferInfo, uint32_t>> s_BufferQueue;
-		static std::vector<std::pair<DescriptorSet, uint32_t>> s_SetQueue;
+		static std::vector<std::pair<DescriptorInfo, uint32_t>> s_SetQueue;
 	};
 }

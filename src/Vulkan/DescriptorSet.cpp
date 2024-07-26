@@ -32,7 +32,7 @@ namespace Vulture
 				VkDescriptorImageInfo emptyInfo{};
 				emptyInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 				emptyInfo.imageView = VK_NULL_HANDLE;
-				emptyInfo.sampler = samplerForEmptyBindings == nullptr ? VK_NULL_HANDLE : samplerForEmptyBindings->GetLinearSamplerHandle();
+				emptyInfo.sampler = samplerForEmptyBindings == nullptr ? VK_NULL_HANDLE : samplerForEmptyBindings->GetSamplerHandle();
 
 				Binding binding{};
 				binding.m_Type = bindings[i].Type;
