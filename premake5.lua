@@ -58,6 +58,8 @@ project "Vulture"
     }
 
     defines { "_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS" }
+    
+    buildoptions { "/MP" }
 
     filter "platforms:Windows"
         system "Windows"
