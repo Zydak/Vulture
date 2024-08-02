@@ -327,16 +327,16 @@ namespace Vulture
         cudaExtMemHandleDesc.type = cudaExternalMemoryHandleTypeOpaqueWin32;
         cudaExtMemHandleDesc.handle.win32.handle = buf.Handle;
         
-		cudaExternalMemory_t cudaExtMemVertexBuffer{};
-		VL_CORE_RETURN_ASSERT(cudaImportExternalMemory(&cudaExtMemVertexBuffer, &cudaExtMemHandleDesc), 0, "Importing External Memory Failed");
+		cudaExternalMemory_t cudaExtMemBuffer{};
+		VL_CORE_RETURN_ASSERT(cudaImportExternalMemory(&cudaExtMemBuffer, &cudaExtMemHandleDesc), 0, "Importing External Memory Failed");
         
         cudaExternalMemoryBufferDesc cudaExtBufferDesc{};
         cudaExtBufferDesc.offset = 0;
         cudaExtBufferDesc.size = memoryReq.size;
         cudaExtBufferDesc.flags = 0;
-        VL_CORE_RETURN_ASSERT(cudaExternalMemoryGetMappedBuffer(&buf.CudaPtr, cudaExtMemVertexBuffer, &cudaExtBufferDesc), 0, "Cuda Getting Mapped Memory Failed");
+        VL_CORE_RETURN_ASSERT(cudaExternalMemoryGetMappedBuffer(&buf.CudaPtr, cudaExtMemBuffer, &cudaExtBufferDesc), 0, "Cuda Getting Mapped Memory Failed");
     
-        cudaDestroyExternalMemory(cudaExtMemVertexBuffer);
+        cudaDestroyExternalMemory(cudaExtMemBuffer);
     }
 
     /**

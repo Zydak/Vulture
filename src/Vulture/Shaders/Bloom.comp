@@ -21,10 +21,14 @@ layout (push_constant) uniform PushContants
 
 float kernel[3][3] = float[3][3]
 (
-    float[3](1, 2, 1),
-    float[3](2, 4, 2),
-    float[3](1, 2, 1)
+    float[3](2, 2, 2),
+    float[3](2, 1, 2),
+    float[3](2, 2, 2)
 );
+
+//    float[3](1, 2, 1),
+//    float[3](2, 4, 2),
+//    float[3](1, 2, 1)
 
 void main()
 {
