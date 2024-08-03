@@ -77,11 +77,11 @@ project "Vulture"
     filter "configurations:Release"
         defines { "NDEBUG" }
 		runtime "Release"
-        optimize "speed"
+        optimize "Full"
         links {"lib/shaderc/shadercRelease.lib"}
 
     filter "configurations:Distribution"
 		defines "DISTRIBUTION"
 		runtime "Release"
-		optimize "on"
+		optimize "Full"
         links {"lib/shaderc/shadercRelease.lib"}
