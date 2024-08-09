@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 
 #include "AccelerationStructure.h"
@@ -198,7 +201,6 @@ namespace Vulture
 		// Allocate the scratch memory
 		Buffer::CreateInfo BufferInfo{};
 		BufferInfo.InstanceSize = sizeInfo.buildScratchSize;
-		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		BufferInfo.MinMemoryAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
@@ -228,7 +230,6 @@ namespace Vulture
 		// Create a Vulkan buffer for the acceleration structure
 		Buffer::CreateInfo BufferInfo{};
 		BufferInfo.InstanceSize = createInfo.size;
-		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		BufferInfo.MinOffsetAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
@@ -364,7 +365,6 @@ namespace Vulture
 		Buffer stagingBuffer{};
 		Buffer::CreateInfo BufferInfo{};
 		BufferInfo.InstanceSize = instanceCount * sizeof(VkAccelerationStructureInstanceKHR); // change instance count?
-		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 		BufferInfo.MinOffsetAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
@@ -374,7 +374,6 @@ namespace Vulture
 
 		Buffer instancesBuffer{};
 		BufferInfo.InstanceSize = instanceCount * sizeof(VkAccelerationStructureInstanceKHR); // change instance count?
-		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		BufferInfo.MinOffsetAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;
@@ -420,18 +419,19 @@ namespace Vulture
 		for (uint32_t i = 0; i < blasCount; i++)
 		{
 			// Filling partially the VkAccelerationStructureBuildGeometryInfoKHR for querying the build sizes.
-			buildAs[i].BuildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
-			buildAs[i].BuildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-			buildAs[i].BuildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-			buildAs[i].BuildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
-			buildAs[i].BuildInfo.geometryCount = (uint32_t)blases[i].AsGeometry.size();
-			buildAs[i].BuildInfo.pGeometries = blases[i].AsGeometry.data();
+			auto& buildAsRef = buildAs[i];
+			buildAsRef.BuildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+			buildAsRef.BuildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+			buildAsRef.BuildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+			buildAsRef.BuildInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+			buildAsRef.BuildInfo.geometryCount = (uint32_t)blases[i].AsGeometry.size();
+			buildAsRef.BuildInfo.pGeometries = blases[i].AsGeometry.data();
 
 			// Build range information
-			buildAs[i].RangeInfo = blases[i].AsRange.data();
+			buildAsRef.RangeInfo = blases[i].AsRange.data();
 
 			// Build size information
-			buildAs[i].SizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+			buildAsRef.SizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
 
 			// Finding sizes to create acceleration structures
 			std::vector<uint32_t> trianglesCount(blases[i].AsRange.size());
@@ -443,15 +443,15 @@ namespace Vulture
 			Device::vkGetAccelerationStructureBuildSizesKHR(
 				Device::GetDevice(),
 				VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
-				&buildAs[i].BuildInfo,
+				&buildAsRef.BuildInfo,
 				trianglesCount.data(),
-				&buildAs[i].SizeInfo
+				&buildAsRef.SizeInfo
 			);
 
 			// Extra info
-			totalSize += buildAs[i].SizeInfo.accelerationStructureSize;
-			scratchSize = std::max(scratchSize, buildAs[i].SizeInfo.buildScratchSize);
-			if ((buildAs[i].BuildInfo.flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR) != 0)
+			totalSize += buildAsRef.SizeInfo.accelerationStructureSize;
+			scratchSize = std::max(scratchSize, buildAsRef.SizeInfo.buildScratchSize);
+			if ((buildAsRef.BuildInfo.flags & VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR) != 0)
 			{
 				compactionsCount++;
 			}
@@ -461,7 +461,6 @@ namespace Vulture
 		Buffer scratchBuffer{};
 		Buffer::CreateInfo BufferInfo{};
 		BufferInfo.InstanceSize = scratchSize; // change instance count?
-		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		BufferInfo.MinMemoryAlignment = Device::GetAccelerationProperties().minAccelerationStructureScratchOffsetAlignment;

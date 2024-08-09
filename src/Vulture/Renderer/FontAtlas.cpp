@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "FontAtlas.h"
 
@@ -9,7 +12,7 @@ namespace Vulture
 {
 	// T and S are types, N number of channels
 	template<typename T, typename S, int N, msdf_atlas::GeneratorFunction<S, N> GenFunc>
-	static std::shared_ptr<Image> CreateAtlas(const std::vector<msdf_atlas::GlyphGeometry>& glyphs, const float& width, const float& height)
+	static std::shared_ptr<Image> CreateAtlas(const std::vector<msdf_atlas::GlyphGeometry>& glyphs, float width, float height)
 	{
 		// Configuration of signed distance field generator
 		msdf_atlas::GeneratorAttributes attributes;
@@ -28,7 +31,6 @@ namespace Vulture
 		info.Width = bitmap.width;
 		info.Height = bitmap.height;
 		info.Format = VK_FORMAT_R8G8B8A8_UNORM;
-		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		info.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -36,7 +38,6 @@ namespace Vulture
 		
 		Buffer::CreateInfo BufferInfo{};
 		BufferInfo.InstanceSize = bitmap.width * bitmap.height * 4;
-		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 		Buffer pixelBuffer;
@@ -50,7 +51,7 @@ namespace Vulture
 		return tex;
 	}
 
-	void FontAtlas::Init(const std::string& filepath, const std::string& fontName, float fontSize, glm::vec2 atlasSize)
+	void FontAtlas::Init(const std::string& filepath, const std::string& fontName, float fontSize, const glm::vec2& atlasSize)
 	{
 		if (m_Initialized)
 			Destroy();
@@ -134,7 +135,7 @@ namespace Vulture
 		Reset();
 	}
 
-	FontAtlas::FontAtlas(const std::string& filepath, const std::string& fontName, float fontSize, glm::vec2 atlasSize)
+	FontAtlas::FontAtlas(const std::string& filepath, const std::string& fontName, float fontSize, const glm::vec2& atlasSize)
 		: m_FontName(fontName), m_Sampler({})
 	{
 		Init(filepath, fontName, fontSize, atlasSize);
@@ -181,7 +182,7 @@ namespace Vulture
 
 	void FontAtlas::Reset()
 	{
-		m_FontName = "";
+		m_FontName.clear();
 		m_Glyphs.clear();
 		m_FontGeometry = {};
 		m_AtlasTexture = nullptr;

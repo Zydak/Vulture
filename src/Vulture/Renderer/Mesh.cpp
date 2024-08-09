@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Mesh.h"
 
@@ -13,7 +16,7 @@ namespace Vulture
 		m_Initialized = true;
 	}
 
-	void Mesh::Init(aiMesh* mesh, const aiScene* scene, glm::mat4 mat, VkBufferUsageFlags customUsageFlags)
+	void Mesh::Init(aiMesh* mesh, const aiScene* scene, const glm::mat4& mat, VkBufferUsageFlags customUsageFlags)
 	{
 		if (m_Initialized)
 			Destroy();
@@ -111,7 +114,7 @@ namespace Vulture
 		CreateIndexBuffer(&indices);
 	}
 
-	void Mesh::CreateVertexBuffer(const std::vector<Vertex>* const  vertices, VkBufferUsageFlags customUsageFlags)
+	void Mesh::CreateVertexBuffer(const std::vector<Vertex>* const vertices, VkBufferUsageFlags customUsageFlags)
 	{
 		m_VertexCount = (uint32_t)vertices->size();
 		VkDeviceSize bufferSize = sizeof(Vertex) * m_VertexCount;
@@ -152,8 +155,6 @@ namespace Vulture
 		if (Device::UseRayTracing())
 			usageFlags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		
-		bufferInfo.InstanceSize = vertexSize;
-		bufferInfo.InstanceCount = m_VertexCount;
 		bufferInfo.UsageFlags = usageFlags | customUsageFlags;
 		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		m_VertexBuffer.Init(bufferInfo);
@@ -308,12 +309,13 @@ namespace Vulture
 	*/
 	std::vector<VkVertexInputAttributeDescription> Mesh::Vertex::GetAttributeDescriptions()
 	{
-		std::vector<VkVertexInputAttributeDescription> attributeDescriptions{};
-		attributeDescriptions.push_back({ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Position) });
-		attributeDescriptions.push_back({ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Normal) });
-		attributeDescriptions.push_back({ 2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Tangent) });
-		attributeDescriptions.push_back({ 3, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Bitangent) });
-		attributeDescriptions.push_back({ 4, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, TexCoord) });
+		std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+		attributeDescriptions.reserve(5);
+		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Position) });
+		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Normal) });
+		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Tangent) });
+		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 3, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Bitangent) });
+		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 4, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, TexCoord) });
 
 		return attributeDescriptions;
 	}

@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "DescriptorSetLayout.h"
 #include "../DeleteQueue.h"
@@ -10,7 +13,7 @@ namespace Vulture
 	 * @param bindings - Vector containing Binding objects representing the bindings 
 	 *					 to be associated with this descriptor set layout.
 	 */
-	void DescriptorSetLayout::Init(std::vector<Binding> bindings)
+	void DescriptorSetLayout::Init(const std::vector<Binding>& bindings)
 	{
 		// Check if the descriptor set layout has already been initialized.
 		if (m_Initialized)
@@ -115,7 +118,7 @@ namespace Vulture
 		m_DescriptorSetLayoutHandle = VK_NULL_HANDLE;
 		m_Bindings.clear();
 
-		bool m_Initialized = false;
+		m_Initialized = false;
 	}
 
 	/**

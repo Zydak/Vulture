@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Utility/Utility.h"
 
@@ -49,7 +52,7 @@ namespace Vulture
 		}
 
 		int width, height, channels;
-		if (createInfo.Icon == "")
+		if (createInfo.Icon.empty())
 		{
 			createInfo.Icon = "../Vulture/assets/Icon.png";
 		}
@@ -178,7 +181,7 @@ namespace Vulture
 	{
 		m_Width = 0;
 		m_Height = 0;
-		m_Name = "";
+		m_Name.clear();
 		m_Resized = false;
 		m_Window = nullptr;
 		m_Monitors.clear();

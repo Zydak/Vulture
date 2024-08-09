@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 
 #include "Device.h"
@@ -13,11 +16,11 @@ namespace Vulture
 			VkShaderStageFlags Stage;
 		};
 
-		void Init(const CreateInfo& createInfo);
+		void Init(CreateInfo createInfo);
 		void Destroy();
 
 		PushConstant() = default;
-		PushConstant(const CreateInfo& createInfo);
+		PushConstant(CreateInfo createInfo);
 		~PushConstant();
 
 		PushConstant(const PushConstant& other) = delete;
@@ -47,7 +50,7 @@ namespace Vulture
 	template<typename T>
 	PushConstant<T>& PushConstant<T>::operator=(PushConstant<T>&& other) noexcept
 	{
-		T m_Data		= std::move(other.m_Data);
+		m_Data			= std::move(other.m_Data);
 		m_Range			= std::move(other.m_Range);
 		m_Stage			= std::move(other.m_Stage);
 		m_Initialized	= std::move(other.m_Initialized);
@@ -60,7 +63,7 @@ namespace Vulture
 	template<typename T>
 	PushConstant<T>::PushConstant(PushConstant&& other) noexcept
 	{
-		T m_Data = std::move(other.m_Data);
+		m_Data = std::move(other.m_Data);
 		m_Range = std::move(other.m_Range);
 		m_Stage = std::move(other.m_Stage);
 		m_Initialized = std::move(other.m_Initialized);
@@ -71,7 +74,7 @@ namespace Vulture
 	template<typename T>
 	void Vulture::PushConstant<T>::Reset()
 	{
-		T m_Data = T{};
+		m_Data = T{};
 
 		m_Range = {};
 		m_Stage = {};
@@ -94,7 +97,7 @@ namespace Vulture
 	}
 
 	template<typename T>
-	void Vulture::PushConstant<T>::Init(const CreateInfo& createInfo)
+	void Vulture::PushConstant<T>::Init(CreateInfo createInfo)
 	{
 		if (m_Initialized)
 			Destroy();
@@ -129,7 +132,7 @@ namespace Vulture
 	}
 
 	template<typename T>
-	Vulture::PushConstant<T>::PushConstant(const CreateInfo& createInfo)
+	Vulture::PushConstant<T>::PushConstant(CreateInfo createInfo)
 	{
 		Init(createInfo);
 	}

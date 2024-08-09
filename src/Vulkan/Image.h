@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 #include "pch.h"
 
@@ -22,22 +25,23 @@ namespace Vulture
 
 		struct CreateInfo
 		{
-			uint32_t Width = 0;
-			uint32_t Height = 0;
+			void* Data = nullptr;
+			const char* DebugName = "";
+
 			VkFormat Format = VK_FORMAT_MAX_ENUM;
 			VkImageUsageFlags Usage = 0;
 			VkMemoryPropertyFlags Properties = 0;
 			VkImageAspectFlagBits Aspect = VK_IMAGE_ASPECT_NONE;
 			VkImageTiling Tiling = VK_IMAGE_TILING_OPTIMAL;
-			Vulture::SamplerInfo SamplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR };
-			int LayerCount = 1;
+			uint32_t Height = 0;
+			uint32_t Width = 0;
 			ImageType Type = ImageType::Image2D;
+			int LayerCount = 1;
 			int MipMapCount = 0;
 
-			void* Data = nullptr;
-			bool HDR = false;
+			Vulture::SamplerInfo SamplerInfo = { VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR };
 
-			const char* DebugName = "";
+			bool HDR = false;
 
 			operator bool() const
 			{
@@ -62,8 +66,8 @@ namespace Vulture
 		~Image();
 		void Resize(VkExtent2D newSize);
 
-		void TransitionImageLayout(const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer = 0, VkAccessFlags srcAccess = 0, VkAccessFlags dstAccess = 0, VkPipelineStageFlags srcStage = 0, VkPipelineStageFlags dstStage = 0);
-		static void TransitionImageLayout(const VkImage& image, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkCommandBuffer cmdBuffer = 0, const VkImageSubresourceRange& subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+		void TransitionImageLayout(VkImageLayout newLayout, VkCommandBuffer cmdBuffer = 0, VkAccessFlags srcAccess = 0, VkAccessFlags dstAccess = 0, VkPipelineStageFlags srcStage = 0, VkPipelineStageFlags dstStage = 0);
+		static void TransitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkCommandBuffer cmdBuffer = 0, const VkImageSubresourceRange& subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 		void CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkCommandBuffer cmd = 0, VkOffset3D offset = {0, 0, 0});
 		void CopyImageToImage(VkImage image, uint32_t width, uint32_t height, VkImageLayout layout, VkCommandBuffer cmd, VkOffset3D srcOffset = { 0, 0, 0 }, VkOffset3D dstOffset = {0, 0, 0});
 		void BlitImageToImage(Image* srcImage, VkCommandBuffer cmd);
@@ -91,7 +95,7 @@ namespace Vulture
 		void CreateImageView(VkFormat format, VkImageAspectFlagBits aspect, int layerCount = 1, VkImageViewType imageType = VK_IMAGE_VIEW_TYPE_2D);
 		void CreateImage(const CreateInfo& createInfo);
 		
-		float GetLuminance(glm::vec3 color);
+		float GetLuminance(const glm::vec3& color);
 
 		void CreateHDRSamplingBuffer(void* pixels);
 		struct EnvAccel

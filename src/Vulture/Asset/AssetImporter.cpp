@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "AssetImporter.h"
 
@@ -33,9 +36,7 @@ namespace Vulture
 		info.Format = HDR ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R8G8B8A8_UNORM;
 		info.Height = sizeY;
 		info.Width = sizeX;
-		info.LayerCount = 1;
 		info.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		info.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		info.Data = (void*)pixels;
 		info.HDR = HDR;

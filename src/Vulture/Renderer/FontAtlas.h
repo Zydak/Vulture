@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 
 #include "pch.h"
@@ -15,11 +18,11 @@ namespace Vulture
 	class FontAtlas
 	{
 	public:
-		void Init(const std::string& filepath, const std::string& fontName, float fontSize, glm::vec2 atlasSize);
+		void Init(const std::string& filepath, const std::string& fontName, float fontSize, const glm::vec2& atlasSize);
 		void Destroy();
 
 		FontAtlas() = default;
-		FontAtlas(const std::string& filepath, const std::string& fontName, float fontSize, glm::vec2 atlasSize);
+		FontAtlas(const std::string& filepath, const std::string& fontName, float fontSize, const glm::vec2& atlasSize);
 		~FontAtlas();
 
 		FontAtlas(const FontAtlas& other) = delete;

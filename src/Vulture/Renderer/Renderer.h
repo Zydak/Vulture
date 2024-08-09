@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 #include "pch.h"
 #include "../Utility/Utility.h"
@@ -54,7 +57,7 @@ namespace Vulture
 		static void FramebufferCopyPassBlit(Ref<Image> image);
 		static void EnvMapToCubemapPass(Ref<Image> envMap, Ref<Image> cubemap);
 
-		static void BeginRenderPass(const std::vector<VkClearValue>& clearColors, VkFramebuffer framebuffer, const VkRenderPass& renderPass, VkExtent2D extent);
+		static void BeginRenderPass(const std::vector<VkClearValue>& clearColors, VkFramebuffer framebuffer, VkRenderPass renderPass, VkExtent2D extent);
 		static void EndRenderPass();
 
 		static inline uint32_t GetMaxFramesInFlight() { return m_MaxFramesInFlight; }
@@ -73,6 +76,7 @@ namespace Vulture
 		static void WriteToFile(const char* filename, std::vector<unsigned char>& image, unsigned width, unsigned height);
 
 		static void InitImGui();
+		static void DestroyImGui();
 
 		static uint32_t m_MaxFramesInFlight;
 		

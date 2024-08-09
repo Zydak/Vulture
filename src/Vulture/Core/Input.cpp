@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Input.h"
 
@@ -12,10 +15,7 @@ namespace Vulture
 		scrollValue += (float)yoffset;
 
 		ImGuiIO* io = &ImGui::GetIO();
-		if (io != nullptr)
-		{
-			io->MouseWheel += (float)yoffset;
-		}
+		io->MouseWheel += (float)yoffset;
 	}
 
 	void Input::Init(GLFWwindow* window)

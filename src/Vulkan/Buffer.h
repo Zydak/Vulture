@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 #include "pch.h"
 
@@ -13,11 +16,11 @@ namespace Vulture
 		struct CreateInfo
 		{
 			VkDeviceSize InstanceSize = 0;
-			uint32_t InstanceCount = 1;
-			VkBufferUsageFlags UsageFlags = 0;
-			VkMemoryPropertyFlags MemoryPropertyFlags = 0;
 			VkDeviceSize MinOffsetAlignment = 1;
 			VkDeviceSize MinMemoryAlignment = 1;
+			VkMemoryPropertyFlags MemoryPropertyFlags = 0;
+			VkBufferUsageFlags UsageFlags = 0;
+			uint32_t InstanceCount = 1;
 			bool NoPool = false;
 
 			operator bool() const
@@ -76,18 +79,20 @@ namespace Vulture
 	private:
 		static VkDeviceSize GetAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment);
 
-		void* m_Mapped = nullptr;
 		VkBuffer m_BufferHandle = VK_NULL_HANDLE;
 		VmaAllocation* m_Allocation = nullptr;
-		VmaPool* m_Pool = nullptr; // only for buffers that are allocated on their own pools
 
+		VmaPool* m_Pool = nullptr; // only for buffers that are allocated on their own pools
+		void* m_Mapped = nullptr;
 		VkDeviceSize m_BufferSize = 0;
-		uint32_t m_InstanceCount = 0;
 		VkDeviceSize m_InstanceSize = 0;
 		VkDeviceSize m_AlignmentSize = 1;
+		VkDeviceSize m_MinOffsetAlignment = 1;
 		VkBufferUsageFlags m_UsageFlags = 0;
 		VkMemoryPropertyFlags m_MemoryPropertyFlags = 0;
-		VkDeviceSize m_MinOffsetAlignment = 1; // Stored only for copies of the buffer
+
+		uint32_t m_InstanceCount = 0;
+
 		bool m_NoPool = false;
 
 		bool m_Initialized = false;

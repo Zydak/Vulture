@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 
 #include <array>
@@ -41,8 +44,8 @@ public:
 
 	inline VkSemaphore GetTLSemaphore() const { return m_Semaphore.Vk; }
 
-	void AllocateBuffers(const VkExtent2D& imgSize);
-	void BufferToImage(const VkCommandBuffer& cmdBuf, Vulture::Image* imgOut);
+	void AllocateBuffers(VkExtent2D imgSize);
+	void BufferToImage(VkCommandBuffer cmdBuf, Vulture::Image* imgOut);
 	void ImageToBuffer(VkCommandBuffer cmdBuf, const std::vector<Vulture::Image*>& imgIn);
 
 	inline bool IsInitialized() const { return m_Initialized; }

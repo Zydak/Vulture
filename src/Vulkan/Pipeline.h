@@ -1,3 +1,9 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 #include "pch.h"
 
@@ -48,16 +54,16 @@ namespace Vulture
 			std::vector<VkVertexInputBindingDescription> BindingDesc;
 			std::vector<VkVertexInputAttributeDescription> AttributeDesc;
 			VkPolygonMode PolygonMode = VK_POLYGON_MODE_FILL;
-			uint32_t Width;
-			uint32_t Height;
-			VkPrimitiveTopology Topology;
-			VkCullModeFlags CullMode;
-			bool DepthTestEnable;
+			uint32_t Width = 0;
+			uint32_t Height = 0;
+			VkPrimitiveTopology Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+			VkCullModeFlags CullMode = VK_CULL_MODE_NONE;
+			bool DepthTestEnable = false;
 			bool DepthClamp = false;
-			bool BlendingEnable;
+			bool BlendingEnable = false;
 			std::vector<VkDescriptorSetLayout> DescriptorSetLayouts;
-			VkPushConstantRange* PushConstants;
-			VkRenderPass RenderPass;
+			VkPushConstantRange* PushConstants = nullptr;
+			VkRenderPass RenderPass = VK_NULL_HANDLE;
 			int ColorAttachmentCount = 1;
 
 			const char* debugName = "";
@@ -65,9 +71,9 @@ namespace Vulture
 
 		struct ComputeCreateInfo
 		{
-			Vulture::Shader* Shader;
+			Vulture::Shader* Shader = nullptr;
 			std::vector<VkDescriptorSetLayout> DescriptorSetLayouts;
-			VkPushConstantRange* PushConstants;
+			VkPushConstantRange* PushConstants = nullptr;
 
 			const char* debugName = "";
 		};
@@ -77,7 +83,7 @@ namespace Vulture
 			std::vector<Shader*> RayGenShaders;
 			std::vector<Shader*> MissShaders;
 			std::vector<Shader*> HitShaders;
-			VkPushConstantRange* PushConstants;
+			VkPushConstantRange* PushConstants = nullptr;
 			std::vector<VkDescriptorSetLayout> DescriptorSetLayouts;
 
 			const char* debugName = "";
@@ -87,14 +93,14 @@ namespace Vulture
 
 		struct PipelineConfigInfo
 		{
-			VkViewport Viewport;
-			VkRect2D Scissor;
-			VkPipelineInputAssemblyStateCreateInfo InputAssemblyInfo;
-			VkPipelineRasterizationStateCreateInfo RasterizationInfo;
-			VkPipelineMultisampleStateCreateInfo MultisampleInfo;
+			VkViewport Viewport = {};
+			VkRect2D Scissor = { 0, 0 };
+			VkPipelineInputAssemblyStateCreateInfo InputAssemblyInfo = {};
+			VkPipelineRasterizationStateCreateInfo RasterizationInfo = {};
+			VkPipelineMultisampleStateCreateInfo MultisampleInfo = {};
 			std::vector<VkPipelineColorBlendAttachmentState> ColorBlendAttachment;
-			VkPipelineColorBlendStateCreateInfo ColorBlendInfo;
-			VkPipelineDepthStencilStateCreateInfo DepthStencilInfo;
+			VkPipelineColorBlendStateCreateInfo ColorBlendInfo = {};
+			VkPipelineDepthStencilStateCreateInfo DepthStencilInfo = {};
 			VkPipelineLayout PipelineLayout = 0;
 			uint32_t Subpass = 0;
 			bool DepthClamp = false;

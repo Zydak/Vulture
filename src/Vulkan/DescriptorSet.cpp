@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Utility/Utility.h"
 
@@ -149,7 +152,7 @@ namespace Vulture
 	}
 
 	// TODO
-	void DescriptorSet::AddImageSampler(uint32_t binding, VkDescriptorImageInfo info)
+	void DescriptorSet::AddImageSampler(uint32_t binding, const VkDescriptorImageInfo& info)
 	{
 		// Check if the DescriptorSet has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
@@ -183,7 +186,7 @@ namespace Vulture
 	 * @param binding - Binding number to which the acceleration structure will be added.
 	 * @param asInfo - VkWriteDescriptorSetAccelerationStructureKHR structure containing acceleration structure info.
 	 */
-	void DescriptorSet::AddAccelerationStructure(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR asInfo)
+	void DescriptorSet::AddAccelerationStructure(uint32_t binding, const VkWriteDescriptorSetAccelerationStructureKHR& asInfo)
 	{
 		// Check if the descriptor set has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
@@ -211,7 +214,7 @@ namespace Vulture
 	}
 
 	// TODO
-	void DescriptorSet::AddBuffer(uint32_t binding, VkDescriptorBufferInfo info)
+	void DescriptorSet::AddBuffer(uint32_t binding, const VkDescriptorBufferInfo& info)
 	{
 		// Check if the descriptor set has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
@@ -279,7 +282,7 @@ namespace Vulture
 	}
 
 	// TODO
-	void DescriptorSet::UpdateImageSampler(uint32_t binding, VkDescriptorImageInfo info)
+	void DescriptorSet::UpdateImageSampler(uint32_t binding, VkDescriptorImageInfo& info)
 	{
 		// Check if the descriptor set has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
@@ -295,7 +298,7 @@ namespace Vulture
 	}
 
 	// TODO
-	void DescriptorSet::UpdateBuffer(uint32_t binding, VkDescriptorBufferInfo info)
+	void DescriptorSet::UpdateBuffer(uint32_t binding, VkDescriptorBufferInfo& info)
 	{
 		// Check if the descriptor set has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
@@ -318,7 +321,7 @@ namespace Vulture
 	 * @param bindPoint - Vulkan pipeline bind point (e.g., VK_PIPELINE_BIND_POINT_GRAPHICS or VK_PIPELINE_BIND_POINT_COMPUTE).
 	 * @param cmdBuffer - Vulkan command buffer to which the descriptor set is bound.
 	 */
-	void DescriptorSet::Bind(const uint32_t& set, const VkPipelineLayout& layout, const VkPipelineBindPoint& bindPoint, const VkCommandBuffer& cmdBuffer) const
+	void DescriptorSet::Bind(uint32_t set, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, VkCommandBuffer cmdBuffer) const
 	{
 		// Check if the DescriptorSet has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
@@ -343,7 +346,7 @@ namespace Vulture
 
 		m_Pool = nullptr;
 
-		bool m_Initialized = false;
+		m_Initialized = false;
 	}
 
 }

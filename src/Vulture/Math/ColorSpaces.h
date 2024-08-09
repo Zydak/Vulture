@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 #include "glm/glm.hpp"
 
@@ -14,14 +17,15 @@ namespace Vulture
 		+0.2158037573f, -0.0638541728f, -1.2914855480f);
 
 
-	static glm::vec3 OKLABtoRGB(glm::vec3 col) {
-		col = cone2lrgb * col;
-		col = col * col * col;
-		col = lab2cone * col;
-		return col;
+	static glm::vec3 OKLABtoRGB(const glm::vec3& col) {
+		glm::vec3 rgb = col;
+		rgb = cone2lrgb * rgb;
+		rgb = rgb * rgb * rgb;
+		rgb = lab2cone * rgb;
+		return rgb;
 	}
 
-	static glm::vec3 OKLCHtoRGB(glm::vec3 col)
+	static glm::vec3 OKLCHtoRGB(const glm::vec3& col)
 	{
 		glm::vec3 oklab = glm::vec3(0.0f);
 		oklab.r = col.r;

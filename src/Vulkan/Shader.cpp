@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 
 #include "Shader.h"
@@ -99,7 +102,7 @@ namespace Vulture
 		return str; // Return the original string if no slash is found or if the last character is a slash
 	}
 
-	std::vector<uint32_t> Shader::CompileSource(const std::string& filepath, std::vector<Define> defines)
+	std::vector<uint32_t> Shader::CompileSource(const std::string& filepath, const std::vector<Define>& defines)
 	{
 		CreateCacheDir();
 		std::string sourceToCache = ReadShaderFile(filepath);
@@ -216,17 +219,17 @@ namespace Vulture
 			if (includePos != std::string::npos)
 			{
 				// Find the position of the first double quote after "#include"
-				size_t startQuotePos = source.find("\"", includePos);
+				size_t startQuotePos = source.find('\"', includePos);
 				if (startQuotePos != std::string::npos)
 				{
 					// Find the position of the second double quote after "#include"
-					size_t endQuotePos = source.find("\"", startQuotePos + 1);
+					size_t endQuotePos = source.find('\"', startQuotePos + 1);
 					if (endQuotePos != std::string::npos)
 					{
 						// Extract the substring between the double quotes
 						std::string includedFile = source.substr(startQuotePos + 1, endQuotePos - startQuotePos - 1);
 						
-						std::string includedFilePath = filepath.substr(0, filepath.find_last_of("/")) + "/" + includedFile;
+						std::string includedFilePath = filepath.substr(0, filepath.find_last_of('/')) + "/" + includedFile;
 
 						size_t size = (endQuotePos + 1) - includePos;
 						source.erase(includePos, size);

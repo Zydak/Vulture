@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 #include "pch.h"
 
@@ -34,20 +37,20 @@ namespace Vulture
 
 		inline bool IsInitialized() const { return m_Initialized; }
 
-		void AddImageSampler(uint32_t binding, VkDescriptorImageInfo info);
-		void AddAccelerationStructure(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR asInfo);
-		void AddBuffer(uint32_t binding, VkDescriptorBufferInfo info);
+		void AddImageSampler(uint32_t binding, const VkDescriptorImageInfo& info);
+		void AddAccelerationStructure(uint32_t binding, const VkWriteDescriptorSetAccelerationStructureKHR& asInfo);
+		void AddBuffer(uint32_t binding, const VkDescriptorBufferInfo& info);
 		void Build();
-		void UpdateImageSampler(uint32_t binding, VkDescriptorImageInfo info);
-		void UpdateBuffer(uint32_t binding, VkDescriptorBufferInfo info);
+		void UpdateImageSampler(uint32_t binding, VkDescriptorImageInfo& info);
+		void UpdateBuffer(uint32_t binding, VkDescriptorBufferInfo& info);
 
-		void Bind(const uint32_t& set, const VkPipelineLayout& layout, const VkPipelineBindPoint& bindPoint, const VkCommandBuffer& cmdBuffer) const;
+		void Bind(uint32_t set, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, VkCommandBuffer cmdBuffer) const;
 
 	private:
 
 		struct Binding
 		{
-			VkDescriptorType m_Type;
+			VkDescriptorType m_Type = {};
 			uint32_t m_DescriptorCount = 0;
 			std::vector<VkDescriptorImageInfo> m_ImageInfo;
 			std::vector<VkDescriptorBufferInfo> m_BufferInfo;
@@ -56,9 +59,9 @@ namespace Vulture
 
 		std::vector<Binding> m_BindingsWriteInfo;
 		Vulture::DescriptorSetLayout m_DescriptorSetLayout;
-		VkDescriptorSet m_DescriptorSetHandle;
+		VkDescriptorSet m_DescriptorSetHandle = VK_NULL_HANDLE;
 
-		DescriptorPool* m_Pool;
+		DescriptorPool* m_Pool = nullptr;
 
 		bool m_Initialized = false;
 

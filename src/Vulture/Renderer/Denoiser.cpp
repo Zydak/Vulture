@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 
 #include <sstream>
@@ -201,14 +204,14 @@ namespace Vulture
     * @param cmdBuf - Vulkan command buffer for recording commands.
     * @param imgOut - Output image where data will be copied to.
     */
-    void Denoiser::BufferToImage(const VkCommandBuffer& cmdBuf, Vulture::Image* imgOut)
+    void Denoiser::BufferToImage(VkCommandBuffer cmdBuf, Vulture::Image* imgOut)
     {
         VkBufferImageCopy region = {
             .imageSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .layerCount = 1},
             .imageExtent = {.width = m_ImageSize.width, .height = m_ImageSize.height, .depth = 1},
         };
 
-        imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,cmdBuf);
+        imgOut->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmdBuf);
         
         vkCmdCopyBufferToImage(cmdBuf, m_PixelBufferOut.BufferVk.GetBuffer(), imgOut->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
     }
@@ -247,7 +250,7 @@ namespace Vulture
      * @note This function must be called before calling DenoiseImageBuffer().
      * @note This function should be called after each screen resize.
      */
-    void Denoiser::AllocateBuffers(const VkExtent2D& imgSize)
+    void Denoiser::AllocateBuffers(VkExtent2D imgSize)
     {
         m_ImageSize = imgSize;
 
@@ -260,7 +263,6 @@ namespace Vulture
 
 		Buffer::CreateInfo BufferInfo{};
 		BufferInfo.InstanceSize = outputBufferSize;
-		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = usage;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		BufferInfo.NoPool = true; // Important

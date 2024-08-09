@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 
 #include "Model.h"
@@ -149,7 +152,7 @@ namespace Vulture
 			m_VertexCount += m_Meshes[index]->GetVertexCount();
 			m_IndexCount += m_Meshes[index]->GetIndexCount();
 
-			m_Materials.push_back(Material());
+			m_Materials.emplace_back(Material());
 			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 			aiColor4D emissiveColor(0.0f, 0.0f, 0.0f, 0.0f);
 			aiColor4D diffuseColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -168,7 +171,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE, i, &str);
-				m_AlbedoTextures.push_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
+				m_AlbedoTextures.emplace_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -176,7 +179,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_NORMALS, i, &str);
-				m_NormalTextures.push_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
+				m_NormalTextures.emplace_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -184,7 +187,7 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, i, &str);
-				m_RoughnessTextures.push_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
+				m_RoughnessTextures.emplace_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
@@ -192,26 +195,26 @@ namespace Vulture
 			{
 				aiString str;
 				material->GetTexture(aiTextureType_METALNESS, i, &str);
-				m_MetallnessTextures.push_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
+				m_MetallnessTextures.emplace_back(AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str())));
 				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
 			// Create Empty Texture if none are found
 			if (material->GetTextureCount(aiTextureType_DIFFUSE) == 0)
 			{
-				m_AlbedoTextures.push_back(AssetManager::LoadAsset("assets/white.png"));
+				m_AlbedoTextures.emplace_back(AssetManager::LoadAsset("assets/white.png"));
 			}
 			if (material->GetTextureCount(aiTextureType_NORMALS) == 0)
 			{
-				m_NormalTextures.push_back(AssetManager::LoadAsset("assets/empty_normal.png"));
+				m_NormalTextures.emplace_back(AssetManager::LoadAsset("assets/empty_normal.png"));
 			}
 			if (material->GetTextureCount(aiTextureType_METALNESS) == 0)
 			{
-				m_MetallnessTextures.push_back(AssetManager::LoadAsset("assets/white.png"));
+				m_MetallnessTextures.emplace_back(AssetManager::LoadAsset("assets/white.png"));
 			}
 			if (material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS) == 0)
 			{
-				m_RoughnessTextures.push_back(AssetManager::LoadAsset("assets/white.png"));
+				m_RoughnessTextures.emplace_back(AssetManager::LoadAsset("assets/white.png"));
 			}
 
 			m_Materials[index].Color = glm::vec4(diffuseColor.r, diffuseColor.g, diffuseColor.b, 1.0f);

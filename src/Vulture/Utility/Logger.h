@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 
 #include "pch.h"
@@ -48,3 +51,4 @@ namespace Vulture
 #define VL_INFO(...)	::Vulture::Logger::GetClientLogger()->info(__VA_ARGS__)
 #define VL_TRACE(...)	::Vulture::Logger::GetClientLogger()->trace(__VA_ARGS__)
 #endif
+#define VL_DIST_ERROR(...)	::Vulture::Logger::GetClientLogger()->error(__VA_ARGS__)

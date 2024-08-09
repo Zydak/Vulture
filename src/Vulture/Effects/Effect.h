@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 
 #include "Vulkan/Device.h"
@@ -14,16 +17,16 @@ namespace Vulture
 	public:
 		struct CreateInfo
 		{
-			std::string ShaderPath;
+			std::string ShaderPath = "";
 
-			Image* InputImage;
-			Image* OutputImage;
+			Image* InputImage = nullptr;
+			Image* OutputImage = nullptr;
 
 			std::vector<Image*> AdditionalTextures;
 
 			std::vector<Vulture::Shader::Define> Defines;
 
-			std::string DebugName = "Post Process";
+			std::string DebugName = "";
 		};
 
 		inline PushConstant<T>& GetPush() { return m_Push; }
@@ -88,6 +91,8 @@ namespace Vulture
 		m_Initialized		= std::move(other.m_Initialized);
 
 		other.Reset();
+
+		return *this;
 	}
 
 	template<typename T>
@@ -123,12 +128,12 @@ namespace Vulture
 	template<typename T>
 	void Vulture::Effect<T>::Reset()
 	{
-		m_ShaderPath = "";
+		m_ShaderPath.clear();
 		m_Descriptor.Destroy();
 		m_Bindings.clear();
 		m_AdditionalImages.clear();
 		m_ImageSize = { 0, 0 };
-		m_DebugName = "";
+		m_DebugName.clear();
 		m_InputIsOutput = false;
 		m_Initialized = false;
 	}
@@ -181,12 +186,9 @@ namespace Vulture
 		Shader shader({ m_ShaderPath , VK_SHADER_STAGE_COMPUTE_BIT, defines });
 		info.Shader = &shader;
 
-		// Descriptor set layouts for the pipeline
-		std::vector<VkDescriptorSetLayout> layouts
-		{
+		info.DescriptorSetLayouts = {
 			imageLayout.GetDescriptorSetLayoutHandle()
-		};
-		info.DescriptorSetLayouts = layouts;
+		};;
 		info.PushConstants = m_Push.GetRangePtr();
 		std::string name = (m_DebugName + " Pipeline");
 		info.debugName = name.c_str();
@@ -270,17 +272,13 @@ namespace Vulture
 			Shader shader({ createInfo.ShaderPath , VK_SHADER_STAGE_COMPUTE_BIT, createInfo.Defines });
 			info.Shader = &shader;
 
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
+			info.DescriptorSetLayouts = {
 				imageLayout.GetDescriptorSetLayoutHandle()
-			};
-			info.DescriptorSetLayouts = layouts;
+			};;
 			info.PushConstants = m_Push.GetRangePtr();
 			std::string name = (createInfo.DebugName + " Pipeline");
 			info.debugName = name.c_str();
 
-			// Create the graphics pipeline
 			m_Pipeline.Init(info);
 		}
 

@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Renderer.h"
 #include "Scene/Scene.h"
@@ -42,6 +45,7 @@ namespace Vulture
 		ImGui_ImplVulkan_DestroyDeviceObjects();
 #endif
 
+		DestroyImGui();
 	}
 
 	static void CheckVkResult(VkResult err)
@@ -67,7 +71,7 @@ namespace Vulture
 		CreateCommandBuffers();
 
 		// Vertices for a simple quad
-		const std::vector<Mesh::Vertex> vertices =
+		const std::vector<Mesh::Vertex> vertices = //-V826
 		{
 			Mesh::Vertex(glm::vec3(-1.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 1.0f)),  // Vertex 1 Bottom Left
 			Mesh::Vertex(glm::vec3(-1.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 0.0f)), // Vertex 2 Top Left
@@ -75,7 +79,7 @@ namespace Vulture
 			Mesh::Vertex(glm::vec3(1.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(1.0f, 1.0f))    // Vertex 4 Bottom Right
 		};
 
-		const std::vector<uint32_t> indices =
+		const std::vector<uint32_t> indices = //-V826
 		{
 			0, 1, 2,  // First triangle
 			0, 2, 3   // Second triangle
@@ -152,7 +156,7 @@ namespace Vulture
 
 			return false;
 		}
-		VL_CORE_ASSERT((result == VK_SUCCESS && result != VK_SUBOPTIMAL_KHR), "failed to acquire swap chain image!");
+		VL_CORE_ASSERT(result == VK_SUCCESS, "failed to acquire swap chain image!");
 
 		s_IsFrameStarted = true;
 		auto commandBuffer = GetCurrentCommandBuffer();
@@ -223,7 +227,7 @@ namespace Vulture
 	 * @param renderPass - The render pass to begin.
 	 * @param extent - The extent (width and height) of the render area.
 	 */
-	void Renderer::BeginRenderPass(const std::vector<VkClearValue>& clearColors, VkFramebuffer framebuffer, const VkRenderPass& renderPass, VkExtent2D extent)
+	void Renderer::BeginRenderPass(const std::vector<VkClearValue>& clearColors, VkFramebuffer framebuffer, VkRenderPass renderPass, VkExtent2D extent)
 	{
 		VL_CORE_ASSERT(s_IsFrameStarted, "Cannot call BeginSwapchainRenderPass while frame is not in progress");
 
@@ -267,8 +271,7 @@ namespace Vulture
 	void Renderer::EndRenderPass()
 	{
 		VL_CORE_ASSERT(s_IsFrameStarted, "Can't call EndSwapchainRenderPass while frame is not in progress");
-		VL_CORE_ASSERT(GetCurrentCommandBuffer() == GetCurrentCommandBuffer(), "Can't end render pass on command buffer from different frame");
-
+		
 		vkCmdEndRenderPass(GetCurrentCommandBuffer());
 	}
 
@@ -280,19 +283,17 @@ namespace Vulture
 
 		image->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, cmd);
 
-		int width = image->GetImageSize().width;
-		int height = image->GetImageSize().height;
+		VkExtent2D s = image->GetImageSize();
+		int width = s.width;
+		int height = s.height;
 
 		Image::CreateInfo imageInfo{};
 		imageInfo.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		imageInfo.Format = VK_FORMAT_R8G8B8A8_UNORM;
-		imageInfo.Height = image->GetImageSize().height;
-		imageInfo.Width = image->GetImageSize().width;
-		imageInfo.LayerCount = 1;
+		imageInfo.Height = height;
+		imageInfo.Width = width;
 		imageInfo.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		imageInfo.SamplerInfo = SamplerInfo{};
-		imageInfo.Tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.Type = Image::ImageType::Image2D;
 		imageInfo.Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		Image image8Bit(imageInfo);
 		image8Bit.TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmd);
@@ -309,7 +310,6 @@ namespace Vulture
 		image8Bit.TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, cmd);
 
 		Buffer::CreateInfo info{};
-		info.InstanceCount = 1;
 		info.InstanceSize = width * height * 4;
 		info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 		info.UsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -332,7 +332,7 @@ namespace Vulture
 		std::vector<unsigned char> imageBuffer(width * height * 4);
 		memcpy(imageBuffer.data(), bufferData, width * height * 4);
 
-		if (filepath == "")
+		if (filepath.empty())
 		{
 			std::string path = "Rendered_Images/";
 			if (!std::filesystem::exists(path))
@@ -363,7 +363,7 @@ namespace Vulture
 	void Renderer::FramebufferCopyPassImGui(DescriptorSet* descriptorWithImageSampler)
 	{
 		std::vector<VkClearValue> clearColors;
-		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
+		clearColors.emplace_back(VkClearValue{ 0.0f, 0.0f, 0.0f, 0.0f });
 		// Begin the render pass
 		BeginRenderPass(
 			clearColors,
@@ -402,7 +402,7 @@ namespace Vulture
 	{
 #ifdef VL_IMGUI
 		std::vector<VkClearValue> clearColors;
-		clearColors.push_back({ 0.0f, 0.0f, 0.0f, 0.0f });
+		clearColors.emplace_back(VkClearValue{ 0.0f, 0.0f, 0.0f, 0.0f });
 		BeginRenderPass(
 			clearColors,
 			s_Swapchain->GetPresentableFrameBuffer(s_CurrentImageIndex),
@@ -568,13 +568,15 @@ namespace Vulture
 	void Renderer::CreatePool()
 	{
 		// Create and initialize the descriptor pool
-		std::vector<DescriptorPool::PoolSize> poolSizes;
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (m_MaxFramesInFlight) * 100 });
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (m_MaxFramesInFlight) * 10000 });
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, (m_MaxFramesInFlight) * 100 });
-		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, (m_MaxFramesInFlight) * 100 });
+		std::vector<DescriptorPool::PoolSize> poolSizes = {
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (m_MaxFramesInFlight) * 100 },
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (m_MaxFramesInFlight) * 10000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, (m_MaxFramesInFlight) * 100 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, (m_MaxFramesInFlight) * 100 },
+		};
+
 		if (Device::UseRayTracing())
-			poolSizes.push_back({ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, (m_MaxFramesInFlight) * 100 });
+			poolSizes.emplace_back(DescriptorPool::PoolSize{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, (m_MaxFramesInFlight) * 100 });
 		s_Pool = std::make_unique<DescriptorPool>(poolSizes, (m_MaxFramesInFlight) * 10000, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 	}
 
@@ -599,21 +601,15 @@ namespace Vulture
 			Vulture::Shader shader2({ "../Vulture/src/Vulture/Shaders/HDRToPresentable.frag", VK_SHADER_STAGE_FRAGMENT_BIT });
 			info.Shaders.push_back(&shader1);
 			info.Shaders.push_back(&shader2);
-			info.BlendingEnable = false;
-			info.DepthTestEnable = false;
 			info.CullMode = VK_CULL_MODE_BACK_BIT;
-			info.Topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 			info.Width = s_Swapchain->GetWidth();
 			info.Height = s_Swapchain->GetHeight();
-			info.PushConstants = nullptr;
 			info.RenderPass = s_Swapchain->GetSwapchainRenderPass();
 
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
+			info.DescriptorSetLayouts = {
 				imageLayout.GetDescriptorSetLayoutHandle()
 			};
-			info.DescriptorSetLayouts = layouts;
+
 			info.debugName = "HDR To Presentable Pipeline";
 
 			// Create the graphics pipeline
@@ -631,11 +627,9 @@ namespace Vulture
 			info.Shader = &shader;
 
 			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
+			info.DescriptorSetLayouts = {
 				imageLayout.GetDescriptorSetLayoutHandle()
 			};
-			info.DescriptorSetLayouts = layouts;
 			info.debugName = "Env To Cubemap Pipeline";
 
 			// Create the graphics pipeline
@@ -769,6 +763,13 @@ namespace Vulture
 		style.LogSliderDeadzone = 4;
 		style.TabRounding = 4;
 #endif
+	}
+
+	void Renderer::DestroyImGui()
+	{
+		ImGui_ImplVulkan_Shutdown();
+		ImGui_ImplGlfw_Shutdown();
+		ImGui::DestroyContext();
 	}
 
 	/**

@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Tonemap.h"
 
@@ -52,16 +55,12 @@ namespace Vulture
 			Shader shader({ "../Vulture/src/Vulture/Shaders/Tonemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT, { {currentTonemapper, ""} } });
 			info.Shader = &shader;
 
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
+			info.DescriptorSetLayouts = {
 				imageLayout.GetDescriptorSetLayoutHandle()
-			};
-			info.DescriptorSetLayouts = layouts;
+			};;
 			info.PushConstants = m_Push.GetRangePtr();
 			info.debugName = "Tone Map Pipeline";
 
-			// Create the graphics pipeline
 			m_Pipeline.Init(info);
 		}
 
@@ -92,22 +91,18 @@ namespace Vulture
 			std::string currentTonemapper = GetTonemapperMacroDefinition(tonemapper);
 			std::vector<Shader::Define> defines = { {currentTonemapper, ""} };
 			if (chromaticAberration)
-				defines.push_back({ "USE_CHROMATIC_ABERRATION", ""});
+				defines.emplace_back(Shader::Define{ "USE_CHROMATIC_ABERRATION", ""});
 
 			Pipeline::ComputeCreateInfo info{};
 			Shader shader({ "../Vulture/src/Vulture/Shaders/Tonemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT, defines });
 			info.Shader = &shader;
 
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
+			info.DescriptorSetLayouts = {
 				imageLayout.GetDescriptorSetLayoutHandle()
-			};
-			info.DescriptorSetLayouts = layouts;
+			};;
 			info.PushConstants = m_Push.GetRangePtr();
 			info.debugName = "Tone Map Pipeline";
 
-			// Create the graphics pipeline
 			m_Pipeline.Init(info);
 		}
 	}

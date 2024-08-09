@@ -1,19 +1,17 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Quaternion.h"
 
 namespace Vulture
 {
-	Quaternion::Quaternion(glm::vec3 angles)
+	Quaternion::Quaternion(const glm::vec3& angles)
 	{
 		Init(angles);
 	}
 
-	Quaternion::~Quaternion()
-	{
-
-	}
-
-	void Quaternion::Init(glm::vec3 angles)
+	void Quaternion::Init(const glm::vec3& angles)
 	{
 		m_Quat = glm::quat(glm::radians(angles));
 	}
@@ -26,7 +24,7 @@ namespace Vulture
 		m_RightVec = { 1.0f, 0.0f, 0.0f };
 	}
 
-	void Quaternion::SetAngles(glm::vec3 angles)
+	void Quaternion::SetAngles(const glm::vec3& angles)
 	{
 		m_Quat = glm::quat(glm::radians(angles));
 		m_Quat = glm::normalize(m_Quat);
@@ -34,7 +32,7 @@ namespace Vulture
 		UpdateVectors();
 	}
 
-	void Quaternion::AddAngles(glm::vec3 angles)
+	void Quaternion::AddAngles(const glm::vec3& angles)
 	{
 		AddPitch(angles.x);
 		AddYaw(angles.y);
@@ -48,7 +46,7 @@ namespace Vulture
 		return glm::degrees(glm::eulerAngles(m_Quat));
 	}
 
-	void Quaternion::SetQuaternion(glm::quat quat)
+	void Quaternion::SetQuaternion(const glm::quat& quat)
 	{
 		m_Quat = quat;
 

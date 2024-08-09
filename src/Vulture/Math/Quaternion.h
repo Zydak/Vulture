@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 
 #define GLM_FORCE_RADIANS
@@ -11,18 +14,18 @@ namespace Vulture
 	{
 	public:
 		Quaternion() = default;
-		Quaternion(glm::vec3 angles);
-		~Quaternion();
+		Quaternion(const glm::vec3& angles);
+		~Quaternion() = default;
 
-		void Init(glm::vec3 angles);
+		void Init(const glm::vec3& angles);
 
 		void Reset();
 
-		void SetAngles(glm::vec3 angles);
-		void AddAngles(glm::vec3 angles);
+		void SetAngles(const glm::vec3& angles);
+		void AddAngles(const glm::vec3& angles);
 		glm::vec3 GetAngles() const;
 
-		void SetQuaternion(glm::quat quat);
+		void SetQuaternion(const glm::quat& quat);
 
 		void AddPitch(float angle);
 		void AddYaw(float angle);

@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Utility/Utility.h"
 
@@ -40,7 +43,7 @@ namespace Vulture
 		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
 		for (int i = 0; i < info.Shaders.size(); i++)
 		{
-			shaderStages.push_back(info.Shaders[i]->GetStageCreateInfo());
+			shaderStages.emplace_back(info.Shaders[i]->GetStageCreateInfo());
 		}
 
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -94,7 +97,7 @@ namespace Vulture
 			"failed to create graphics pipeline!"
 		);
 
-		if (info.debugName != "")
+		if (std::string(info.debugName) != std::string())
 		{
 			VL_SET_NAME(VK_OBJECT_TYPE_PIPELINE, (uint64_t)m_PipelineHandle, info.debugName);
 		}
@@ -115,8 +118,7 @@ namespace Vulture
 		int count = (int)info.RayGenShaders.size() + (int)info.MissShaders.size() + (int)info.HitShaders.size();
 		std::vector<VkPipelineShaderStageCreateInfo> stages(count);
 		VkPipelineShaderStageCreateInfo stage{ VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
-		stage.pName = "main";  // All the same entry point
-		stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		stage.pName = "main";  // All have the same entry point
 
 		int stageCount = 0;
 
@@ -201,7 +203,7 @@ namespace Vulture
 
 		Device::vkCreateRayTracingPipelinesKHR(Device::GetDevice(), {}, {}, 1, &rayPipelineInfo, nullptr, &m_PipelineHandle);
 
-		if (info.debugName != "")
+		if (std::string(info.debugName) != std::string())
 		{
 			Device::SetObjectName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)m_PipelineHandle, info.debugName);
 		}
@@ -232,7 +234,7 @@ namespace Vulture
 			"failed to create graphics pipeline!"
 		);
 
-		if (info.debugName != "")
+		if (std::string(info.debugName) != std::string())
 		{
 			Device::SetObjectName(VK_OBJECT_TYPE_PIPELINE, (uint64_t)m_PipelineHandle, info.debugName);
 		}
@@ -451,25 +453,27 @@ namespace Vulture
 		{
 			if (blendingEnable)
 			{
-				configInfo.ColorBlendAttachment[i].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-				configInfo.ColorBlendAttachment[i].blendEnable = VK_TRUE;
-				configInfo.ColorBlendAttachment[i].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-				configInfo.ColorBlendAttachment[i].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-				configInfo.ColorBlendAttachment[i].colorBlendOp = VK_BLEND_OP_ADD;
-				configInfo.ColorBlendAttachment[i].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-				configInfo.ColorBlendAttachment[i].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-				configInfo.ColorBlendAttachment[i].alphaBlendOp = VK_BLEND_OP_ADD;
+				auto& blendAttachment = configInfo.ColorBlendAttachment[i];
+				blendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+				blendAttachment.blendEnable = VK_TRUE;
+				blendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+				blendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+				blendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+				blendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+				blendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+				blendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 			}
 			else
 			{
-				configInfo.ColorBlendAttachment[i].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-				configInfo.ColorBlendAttachment[i].blendEnable = VK_FALSE;
-				configInfo.ColorBlendAttachment[i].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-				configInfo.ColorBlendAttachment[i].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-				configInfo.ColorBlendAttachment[i].colorBlendOp = VK_BLEND_OP_ADD;
-				configInfo.ColorBlendAttachment[i].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-				configInfo.ColorBlendAttachment[i].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-				configInfo.ColorBlendAttachment[i].alphaBlendOp = VK_BLEND_OP_ADD;
+				auto& blendAttachment = configInfo.ColorBlendAttachment[i];
+				blendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+				blendAttachment.blendEnable = VK_FALSE;
+				blendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+				blendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+				blendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+				blendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+				blendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+				blendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
 			}
 		}
 

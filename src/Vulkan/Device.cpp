@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Utility/Utility.h"
 
@@ -82,7 +85,7 @@ namespace Vulture
 		s_DeviceExtensions = createInfo.DeviceExtensions;
 		for (int i = 0; i < createInfo.OptionalExtensions.size(); i++)
 		{
-			s_OptionalExtensions.push_back({ createInfo.OptionalExtensions[i], false });
+			s_OptionalExtensions.emplace_back(Extension{ createInfo.OptionalExtensions[i], false });
 		}
 
 		// Perform initialization steps
@@ -1187,13 +1190,13 @@ namespace Vulture
 		// Ensure that the device is initialized
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
-		std::mutex* queueMutex;
+		std::mutex* queueMutex = nullptr;
 		if (queue == s_GraphicsQueue)
 			queueMutex = &s_GraphicsQueueMutex;
 		else if (queue == s_ComputeQueue)
 			queueMutex = &s_ComputeQueueMutex;
-		else
-			VL_CORE_ASSERT(false, "?????");
+
+		VL_CORE_ASSERT(queueMutex != nullptr, "?????");
 
 		std::unique_lock<std::mutex> queueLock(*queueMutex);
 

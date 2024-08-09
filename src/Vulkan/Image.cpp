@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Utility/Utility.h"
 
@@ -46,7 +49,7 @@ namespace Vulture
 			CreateImageView(createInfo.Format, createInfo.Aspect, createInfo.LayerCount, VK_IMAGE_VIEW_TYPE_2D);
 		}
 
-		if (createInfo.DebugName != "")
+		if (std::string(createInfo.DebugName) != std::string())
 		{
 			Device::SetObjectName(VK_OBJECT_TYPE_IMAGE, (uint64_t)m_ImageHandle, createInfo.DebugName);
 		}
@@ -181,7 +184,6 @@ namespace Vulture
 		Buffer buffer = Buffer();
 		Buffer::CreateInfo BufferInfo{};
 		BufferInfo.InstanceSize = imageSize;
-		BufferInfo.InstanceCount = 1;
 		BufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		BufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 		buffer.Init(BufferInfo);
@@ -264,7 +266,6 @@ namespace Vulture
 		std::vector<EnvAccel> envAccel = CreateEnvAccel((float*)pixels, m_Size.width, m_Size.height, average, integral);
 
 		Buffer::CreateInfo bufferInfo{};
-		bufferInfo.InstanceCount = 1;
 		bufferInfo.InstanceSize = sizeof(EnvAccel) * envAccel.size();
 		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 		bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
@@ -392,7 +393,7 @@ namespace Vulture
 	 * @param newLayout - The new layout to transition the image to.
 	 * @param cmdBuffer - Optional command buffer for the transition (useful for custom command buffer recording).
 	 */
-	void Image::TransitionImageLayout(const VkImageLayout& newLayout, VkCommandBuffer cmdBuffer, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
+	void Image::TransitionImageLayout(VkImageLayout newLayout, VkCommandBuffer cmdBuffer, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
 	{
 		if (newLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 			return;
@@ -484,7 +485,7 @@ namespace Vulture
 		m_Layout = newLayout;
 	}
 
-	void Image::TransitionImageLayout(const VkImage& image, const VkImageLayout& oldLayout, const VkImageLayout& newLayout, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkCommandBuffer cmdBuffer /*= 0*/, const VkImageSubresourceRange& subresourceRange /*= { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }*/)
+	void Image::TransitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkCommandBuffer cmdBuffer /*= 0*/, const VkImageSubresourceRange& subresourceRange /*= { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }*/)
 	{
 		VkCommandBuffer commandBuffer;
 
@@ -619,7 +620,7 @@ namespace Vulture
 	}
 
 	// TODO description
-	float Image::GetLuminance(glm::vec3 color)
+	float Image::GetLuminance(const glm::vec3& color)
 	{
 		return color.r * 0.2126F + color.g * 0.7152F + color.b * 0.0722F;
 	}
@@ -799,19 +800,19 @@ namespace Vulture
 		switch (format)
 		{
 		case VK_FORMAT_R8_UNORM:
-			return 1 * 1;
+			return 1 * 1; //-V1037
 			break;
 		case VK_FORMAT_R8_SRGB:
 			return 1 * 1;
 			break;
 		case VK_FORMAT_R8G8_UNORM:
-			return 2 * 1;
+			return 2 * 1; //-V1037
 			break;
 		case VK_FORMAT_R8G8_SRGB:
 			return 2 * 1;
 			break;
 		case VK_FORMAT_R8G8B8_UNORM:
-			return 3 * 1;
+			return 3 * 1; //-V1037
 			break;
 		case VK_FORMAT_R8G8B8_SRGB:
 			return 3 * 1;
@@ -820,7 +821,7 @@ namespace Vulture
 			return 3 * 1;
 			break;
 		case VK_FORMAT_R8G8B8A8_UNORM:
-			return 4 * 1;
+			return 4 * 1; //-V1037
 			break;
 		case VK_FORMAT_R8G8B8A8_SRGB:
 			return 4 * 1;
@@ -829,25 +830,25 @@ namespace Vulture
 			return 4 * 1;
 			break;
 		case VK_FORMAT_R16_UNORM:
-			return 1 * 2;
+			return 1 * 2; //-V1037
 			break;
 		case VK_FORMAT_R16_SFLOAT:
 			return 1 * 2;
 			break;
 		case VK_FORMAT_R16G16_UNORM:
-			return 2 * 2;
+			return 2 * 2; //-V1037
 			break;
 		case VK_FORMAT_R16G16_SFLOAT:
 			return 2 * 2;
 			break;
 		case VK_FORMAT_R16G16B16_UNORM:
-			return 3 * 2;
+			return 3 * 2; //-V1037
 			break;
 		case VK_FORMAT_R16G16B16_SFLOAT:
 			return 3 * 2;
 			break;
 		case VK_FORMAT_R16G16B16A16_UNORM:
-			return 4 * 2;
+			return 4 * 2; //-V1037
 			break;
 		case VK_FORMAT_R16G16B16A16_SFLOAT:
 			return 4 * 2;

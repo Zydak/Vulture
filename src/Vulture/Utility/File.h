@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 
 #include "pch.h"
@@ -46,7 +49,7 @@ namespace Vulture
 			file.read(reinterpret_cast<char*>(data.data()), fileSize);
 		}
 
-		static std::string ReadFromFile(const std::string filepath)
+		static std::string ReadFromFile(const std::string& filepath)
 		{
 			std::ifstream file(filepath, std::ios::ate | std::ios::binary);
 			VL_CORE_ASSERT(file.is_open(), "failed to open file: " + filepath);

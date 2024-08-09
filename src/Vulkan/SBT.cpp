@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 
 #include "sbt.h"
@@ -46,14 +49,11 @@ namespace Vulture
 
 		Vulture::Buffer::CreateInfo bufferInfo{};
 		bufferInfo.InstanceSize = sbtSize;
-		bufferInfo.InstanceCount = 1;
 		bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
 		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 		Vulture::Buffer stagingBuffer;
 		stagingBuffer.Init(bufferInfo);
 
-		bufferInfo.InstanceSize = sbtSize;
-		bufferInfo.InstanceCount = 1;
 		bufferInfo.UsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
 		bufferInfo.MemoryPropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		m_RtSBTBuffer.Init(bufferInfo);

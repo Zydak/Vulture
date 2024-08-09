@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 #include "pch.h"
 
@@ -28,9 +31,9 @@ namespace Vulture
 
 		struct CreateInfo
 		{
-			VkExtent2D WindowExtent;
-			PresentModes PrefferedPresentMode;
-			uint32_t MaxFramesInFlight;
+			VkExtent2D WindowExtent = { 0, 0 };
+			PresentModes PrefferedPresentMode = PresentModes::VSync;
+			uint32_t MaxFramesInFlight = 0;
 			Ref<Swapchain> PreviousSwapchain = nullptr;
 		};
 

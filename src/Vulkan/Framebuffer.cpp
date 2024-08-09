@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Utility/Utility.h"
 
@@ -215,12 +218,10 @@ namespace Vulture
 		imageInfo.Width = m_Extent.width;
 		imageInfo.Height = m_Extent.height;
 		imageInfo.Format = format;
-		imageInfo.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		imageInfo.Usage = customBits | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		imageInfo.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		imageInfo.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		imageInfo.SamplerInfo = SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR);
-		imageInfo.LayerCount = 1;
 		imageInfo.Type = type;
 		imageInfo.DebugName = "Framebuffer Image";
 
@@ -242,12 +243,10 @@ namespace Vulture
 		imageInfo.Width = m_Extent.width;
 		imageInfo.Height = m_Extent.height;
 		imageInfo.Format = depthFormat;
-		imageInfo.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		imageInfo.Usage = customBits | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 		imageInfo.Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 		imageInfo.Aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
 		imageInfo.SamplerInfo = SamplerInfo(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_LINEAR);
-		imageInfo.LayerCount = 1;
 		imageInfo.Type = type;
 
 		m_Images.emplace_back(std::make_shared<Image>(imageInfo));

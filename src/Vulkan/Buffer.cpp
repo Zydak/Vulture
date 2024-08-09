@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Utility/Utility.h"
 
@@ -135,9 +138,6 @@ namespace Vulture
 	{
 		if (!m_Initialized)
 			return;
-
-		// Check if the buffer is initialized.
-		VL_CORE_ASSERT(m_Initialized, "Can't destroy buffer that is not initialized!");
 
 		// Unmap the buffer memory if it was mapped.
 		Unmap();
@@ -369,7 +369,6 @@ namespace Vulture
 		{
 			// Create a staging buffer.
 			Buffer::CreateInfo info{};
-			info.InstanceCount = 1;
 			info.InstanceSize = size == VK_WHOLE_SIZE ? m_BufferSize : size;
 			info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 			info.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;

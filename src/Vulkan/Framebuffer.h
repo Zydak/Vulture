@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 #include "pch.h"
 
@@ -19,7 +22,6 @@ namespace Vulture
 		ColorRGB8,
 		ColorRGB16,
 		ColorRGBA32,
-		ColorRGBA32Float,
 		ColorRG8,
 		ColorRG16,
 		ColorRG32,
@@ -76,7 +78,7 @@ namespace Vulture
 		inline VkFramebuffer GetFramebufferHandle() const { return m_FramebufferHandle; }
 		inline VkImageView GetImageView(int index) const { return m_Images[index]->GetImageView(); }
 		inline VkImage GetImage(int index) const { return m_Images[index]->GetImage(); }
-		inline const Ref<Image> GetImageNoVk(int index) const { return m_Images[index]; }
+		inline Ref<Image> GetImageNoVk(int index) const { return m_Images[index]; }
 		inline Ref<Image> GetImageNoVk(int index) { return m_Images[index]; }
 		
 		inline uint32_t GetAttachmentCount() const { return (uint32_t)m_Images.size(); }

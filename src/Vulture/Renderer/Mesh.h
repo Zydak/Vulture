@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 #include "pch.h"
 #include "Vulkan/Buffer.h"
@@ -27,15 +30,15 @@ namespace Vulture
 
 		struct CreateInfo
 		{
-			const std::vector<Vertex>* Vertices;
-			const std::vector<uint32_t>* Indices;
+			const std::vector<Vertex>* Vertices = nullptr;
+			const std::vector<uint32_t>* Indices = nullptr;
 
 			VkBufferUsageFlags vertexUsageFlags = 0;
 			VkBufferUsageFlags indexUsageFlags = 0;
 		};
 
 		void Init(const CreateInfo& createInfo);
-		void Init(aiMesh* mesh, const aiScene* scene, glm::mat4 mat = glm::mat4(1.0f), VkBufferUsageFlags customUsageFlags = 0);
+		void Init(aiMesh* mesh, const aiScene* scene, const glm::mat4& mat = glm::mat4(1.0f), VkBufferUsageFlags customUsageFlags = 0);
 		void Destroy();
 
 		Mesh(const CreateInfo& createInfo);

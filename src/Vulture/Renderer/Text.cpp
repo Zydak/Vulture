@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Text.h"
 
@@ -118,18 +121,16 @@ namespace Vulture
 
 	void Text::GetTextVertices(std::vector<Mesh::Vertex>& vertices, std::vector<uint32_t>& indices)
 	{
-		m_Width = 0;
-		m_Height = 0;
-
 		const auto& fontGeometry = m_FontAtlas->GetGeometry();
 		const auto& metrics = fontGeometry.getMetrics();
 		std::shared_ptr<Image> fontAtlas = m_FontAtlas->GetAtlasTexture();
 
+		m_Width = 0;
+		m_Height = (float)metrics.ascenderY;
+
 		float x = 0.0f;                                              // font advance
 		float y = 0.0f;                                              // font advance
 		float fontScale = 1.0f / ((float)metrics.ascenderY - (float)metrics.descenderY);    // ascender = from baseline to the highest point. descender = to the lowest point (all glyphs)
-
-		m_Height = (float)metrics.ascenderY;
 
 		int glyphCount = -1;
 
@@ -233,7 +234,7 @@ namespace Vulture
 		m_Height = 0;
 		m_FontAtlas = nullptr;
 		m_KerningOffset = 0.0f;
-		m_Text = "";
+		m_Text.clear();
 		m_Color = { 0.0f, 0.0f, 0.0f, 0.0f };
 		m_Resizable = false;
 		m_Initialized = false;

@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #pragma warning(push, 0)
 //
@@ -33,7 +36,7 @@
 #else
 #define VL_CORE_ASSERT(condition, ...)\
 		if(!(condition)) {\
-			VL_CORE_ERROR(__VA_ARGS__);\
+			VL_CORE_DIST_ERROR(__VA_ARGS__);\
 			__builtin_trap();\
 		}
 #endif 
@@ -86,6 +89,20 @@
 #else
 #define VL_ASSERT(condition, ...)
 #endif
+
+#if defined(WIN)
+#define VL_CHECK(condition, ...)\
+		if(!(condition)) {\
+			VL_DIST_ERROR(__VA_ARGS__);\
+			__debugbreak();\
+		}
+#else
+#define VL_ASSERT(condition, ...)\
+		if(!(condition)) {\
+			VL_DIST_ERROR(__VA_ARGS__);\
+			__builtin_trap();\
+		}
+#endif 
 
 // return value assert
 #ifndef DISTRIBUTION

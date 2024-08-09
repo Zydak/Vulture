@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 
 #include "pch.h"
@@ -45,7 +48,7 @@ namespace Vulture
 
 		std::string ReadShaderFile(const std::string& filepath);
 		void CreateCacheDir();
-		std::vector<uint32_t> CompileSource(const std::string& filepath, std::vector<Define> defines);
+		std::vector<uint32_t> CompileSource(const std::string& filepath, const std::vector<Define>& defines);
 		shaderc_shader_kind VkStageToScStage(VkShaderStageFlagBits stage);
 
 		VkShaderModule m_ModuleHandle = VK_NULL_HANDLE;

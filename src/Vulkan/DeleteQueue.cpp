@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "DeleteQueue.h"
 
@@ -80,24 +83,25 @@ namespace Vulture
 		// Buffers
 		for (int i = 0; i < s_BufferQueue.size(); i++)
 		{
-			if (s_BufferQueue[i].second == 0)
+			auto& buf = s_BufferQueue[i];
+			if (buf.second == 0)
 			{
 				// Destroy the Vulkan buffer and deallocate the buffer memory.
-				vmaDestroyBuffer(Device::GetAllocator(), s_BufferQueue[i].first.Handle, *s_BufferQueue[i].first.Allocation);
+				vmaDestroyBuffer(Device::GetAllocator(), buf.first.Handle, *buf.first.Allocation);
 
-				if (s_BufferQueue[i].first.Pool != nullptr)
+				if (buf.first.Pool != nullptr)
 				{
-					vmaDestroyPool(Device::GetAllocator(), *s_BufferQueue[i].first.Pool);
+					vmaDestroyPool(Device::GetAllocator(), *buf.first.Pool);
 				}
 
-				delete s_BufferQueue[i].first.Allocation;
+				delete buf.first.Allocation;
 
 				s_BufferQueue.erase(s_BufferQueue.begin() + i);
 				i = -1; // Go back to the beginning of the vector
 			}
 			else
 			{
-				s_BufferQueue[i].second--;
+				buf.second--;
 			}
 		}
 	}
@@ -108,7 +112,7 @@ namespace Vulture
 		info.Handle = pipeline.GetPipeline();
 		info.Layout = pipeline.GetPipelineLayout();
 
-		s_PipelineQueue.push_back(std::make_pair(info, s_FramesInFlight));
+		s_PipelineQueue.emplace_back(std::make_pair(info, s_FramesInFlight));
 	}
 
 	void DeleteQueue::TrashImage(Image& image)
@@ -118,7 +122,7 @@ namespace Vulture
 		info.Views = image.GetImageViews();
 		info.Allocation = image.GetAllocation();
 
-		s_ImageQueue.push_back(std::make_pair(info, s_FramesInFlight));
+		s_ImageQueue.emplace_back(std::make_pair(info, s_FramesInFlight));
 	}
 
 	void DeleteQueue::TrashBuffer(Buffer& buffer)
@@ -128,7 +132,7 @@ namespace Vulture
 		info.Allocation = buffer.GetAllocation();
 		info.Pool = buffer.GetVmaPool();
 
-		s_BufferQueue.push_back(std::make_pair(info, s_FramesInFlight));
+		s_BufferQueue.emplace_back(std::make_pair(info, s_FramesInFlight));
 	}
 
 	void DeleteQueue::TrashDescriptorSetLayout(DescriptorSetLayout& set)
@@ -136,7 +140,7 @@ namespace Vulture
 		DescriptorInfo info{};
 		info.DescriptorSetLayoutHandle = set.GetDescriptorSetLayoutHandle();
 
-		s_SetQueue.push_back(std::make_pair(info, s_FramesInFlight));
+		s_SetQueue.emplace_back(std::make_pair(info, s_FramesInFlight));
 	}
 
 	uint32_t DeleteQueue::s_FramesInFlight = 0;

@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 #include "pch.h"
 
@@ -20,9 +23,9 @@ namespace Vulture
 
 	struct QueueFamilyIndices
 	{
-		uint32_t GraphicsFamily;
-		uint32_t PresentFamily;
-		uint32_t ComputeFamily;
+		uint32_t GraphicsFamily = 0;
+		uint32_t PresentFamily = 0;
+		uint32_t ComputeFamily = 0;
 		bool GraphicsFamilyHasValue = false;
 		bool PresentFamilyHasValue = false;
 		bool ComputeFamilyHasValue = false;
@@ -32,7 +35,7 @@ namespace Vulture
 
 	struct Extension
 	{
-		const char* Name;
+		const char* Name = "";
 		bool supported = false;
 	};
 
@@ -47,10 +50,10 @@ namespace Vulture
 	public:
 		struct CreateInfo
 		{
-			Window* Window;
+			Window* Window = nullptr;
 			std::vector<const char*> DeviceExtensions;
 			std::vector<const char*> OptionalExtensions;
-			VkPhysicalDeviceFeatures2 Features;
+			VkPhysicalDeviceFeatures2 Features = {};
 			
 			bool UseMemoryAddress = true;
 			bool UseRayTracing = false;

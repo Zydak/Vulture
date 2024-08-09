@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "DescriptorPool.h"
 
@@ -249,7 +252,7 @@ namespace Vulture
 		m_MaxSets = 0;
 		m_PoolFlags = 0;
 
-		bool m_Initialized = false;
+		m_Initialized = false;
 	}
 
 }

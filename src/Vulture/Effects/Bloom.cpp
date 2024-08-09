@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "Bloom.h"
 
@@ -31,15 +34,12 @@ namespace Vulture
 			info.Shader = &shader;
 			info.PushConstants = m_Push.GetRangePtr();
 
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
+			info.DescriptorSetLayouts = {
 				imageLayout.GetDescriptorSetLayoutHandle()
 			};
-			info.DescriptorSetLayouts = layouts;
+
 			info.debugName = "Bloom Separate Bright Values Pipeline";
 
-			// Create the graphics pipeline
 			m_SeparateBrightValuesPipeline.Init(info);
 		}
 
@@ -54,15 +54,12 @@ namespace Vulture
 			info.Shader = &shader;
 			info.PushConstants = m_Push.GetRangePtr();
 
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
-				imageLayout.GetDescriptorSetLayoutHandle()
+			info.DescriptorSetLayouts = {
+					imageLayout.GetDescriptorSetLayoutHandle()
 			};
-			info.DescriptorSetLayouts = layouts;
+
 			info.debugName = "Bloom Accumulate Pipeline";
 
-			// Create the graphics pipeline
 			m_AccumulatePipeline.Init(info);
 		}
 
@@ -77,15 +74,12 @@ namespace Vulture
 			info.Shader = &shader;
 			info.PushConstants = m_Push.GetRangePtr();
 
-			// Descriptor set layouts for the pipeline
-			std::vector<VkDescriptorSetLayout> layouts
-			{
+			info.DescriptorSetLayouts = {
 				imageLayout.GetDescriptorSetLayoutHandle()
 			};
-			info.DescriptorSetLayouts = layouts;
+
 			info.debugName = "Bloom Down Sample Pipeline";
 
-			// Create the graphics pipeline
 			m_DownSamplePipeline.Init(info);
 		}
 
@@ -187,9 +181,10 @@ namespace Vulture
 			return;
 		}
 
-		m_Push.GetDataPtr()->MipCount = bloomInfo.MipCount;
-		m_Push.GetDataPtr()->Strength = bloomInfo.Strength;
-		m_Push.GetDataPtr()->Threshold = bloomInfo.Threshold;
+		auto* data = m_Push.GetDataPtr();
+		data->MipCount = bloomInfo.MipCount;
+		data->Strength = bloomInfo.Strength;
+		data->Threshold = bloomInfo.Threshold;
 
 		m_BloomImages[0].TransitionImageLayout(VK_IMAGE_LAYOUT_GENERAL, cmd);
 
@@ -251,19 +246,27 @@ namespace Vulture
 		m_InputImage = info.InputImage;
 		m_OutputImage = info.OutputImage;
 
+		VkDescriptorImageInfo imageInfo = { 
+			Vulture::Renderer::GetLinearSampler().GetSamplerHandle(), // input image is copied to output at the start of bloom pass
+			m_OutputImage->GetImageView(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+		};
+
 		m_SeparateBrightValuesSet.UpdateImageSampler(
 			0,
-			{ Vulture::Renderer::GetLinearSampler().GetSamplerHandle(), // input image is copied to output at the start of bloom pass
-			m_OutputImage->GetImageView(),
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+			imageInfo
 		);
+
+		imageInfo = { 
+			Vulture::Renderer::GetLinearSampler().GetSamplerHandle(),
+			m_OutputImage->GetImageView(),
+			VK_IMAGE_LAYOUT_GENERAL 
+		};
 
 		// TODO: detect error when accidentally calling AddImageSampelr instead of Update, could be useful
 		m_AccumulateSet[info.MipsCount].UpdateImageSampler(
 			1,
-			{ Vulture::Renderer::GetLinearSampler().GetSamplerHandle(),
-			m_OutputImage->GetImageView(),
-			VK_IMAGE_LAYOUT_GENERAL }
+			imageInfo
 		);
 	}
 
@@ -354,14 +357,9 @@ namespace Vulture
 		info.Height = m_InputImage->GetImageSize().height;
 		info.Aspect = VK_IMAGE_ASPECT_COLOR_BIT;
 		info.Usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-		info.Tiling = VK_IMAGE_TILING_OPTIMAL;
 		info.Properties = m_InputImage->GetMemoryProperties();
-		info.LayerCount = 1;
 		info.SamplerInfo = SamplerInfo{};
-		info.Type = Image::ImageType::Image2D;
 
-		info.Width = m_InputImage->GetImageSize().width;
-		info.Height = m_InputImage->GetImageSize().height;
 		m_BloomImages.resize(10 + 1); // TODO: Don't create 11 images, just create mipCount images
 		// First Image is just a copy with separated bright values
 		info.DebugName = "Bright Values Image";

@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #include "pch.h"
 #include "OrthographicCamera.h"
 
@@ -58,7 +61,7 @@ namespace Vulture
 		UpdateViewMatrix();
 	}
 
-	void OrthographicCamera::SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far)
+	void OrthographicCamera::SetOrthographicMatrix(const glm::vec4& leftRightBottomTop, float _near, float _far)
 	{
 		LeftRightBottomTopOrtho = leftRightBottomTop;
 		NearFar = { _near, _far };

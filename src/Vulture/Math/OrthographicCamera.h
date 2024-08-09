@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
+
 #pragma once
 #include "Quaternion.h"
 
@@ -25,7 +28,7 @@ namespace Vulture
 
 		void Reset();
 
-		void SetOrthographicMatrix(glm::vec4 leftRightBottomTop, float _near, float _far);
+		void SetOrthographicMatrix(const glm::vec4& leftRightBottomTop, float _near, float _far);
 		void SetZoom(float zoom);
 
 		void UpdateViewMatrix();
