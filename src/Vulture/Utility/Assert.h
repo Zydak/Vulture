@@ -56,10 +56,14 @@
 }
 #else
 #define VL_CORE_RETURN_ASSERT(function, value, ...)\
-		if(function != value) {\
+{\
+		auto val = function;\
+		if(val != value) {\
+			VL_CORE_ERROR("Expected: {}, Actual: {}", value, val);\
 			VL_CORE_ERROR(__VA_ARGS__);\
 			__builtin_trap();\
-		}
+		}\
+}
 #endif 
 
 #else

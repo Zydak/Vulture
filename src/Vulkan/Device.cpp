@@ -446,7 +446,7 @@ namespace Vulture
 			allocatorInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 
 		// Create the memory allocator
-		vmaCreateAllocator(&allocatorInfo, &s_Allocator);
+		VL_CORE_RETURN_ASSERT(vmaCreateAllocator(&allocatorInfo, &s_Allocator), VK_SUCCESS, "Failed to create VMA allocator");
 	}
 
 	/**
@@ -491,7 +491,7 @@ namespace Vulture
 		}
 
 		// Create the memory pool
-		vmaCreatePool(s_Allocator, &poolInfo, &pool);
+		VL_CORE_RETURN_ASSERT(vmaCreatePool(s_Allocator, &poolInfo, &pool), VK_SUCCESS, "Failed to create memory pool!");
 	}
 
 	/**
@@ -510,7 +510,7 @@ namespace Vulture
 		allocInfo.priority = 0.5f;
 
 		// Find the memory type index matching the specified flags
-		vmaFindMemoryTypeIndex(s_Allocator, flags, &allocInfo, &memoryIndex);
+		VL_CORE_RETURN_ASSERT(vmaFindMemoryTypeIndex(s_Allocator, flags, &allocInfo, &memoryIndex), VK_SUCCESS, "Failed to find memory type index!");
 	}
 
 	/**
@@ -529,7 +529,7 @@ namespace Vulture
 		allocInfo.requiredFlags = flags;
 
 		// Find the memory type index suitable for the buffer
-		vmaFindMemoryTypeIndexForBufferInfo(s_Allocator, &createInfo, &allocInfo, &memoryIndex);
+		VL_CORE_RETURN_ASSERT(vmaFindMemoryTypeIndexForBufferInfo(s_Allocator, &createInfo, &allocInfo, &memoryIndex), VK_SUCCESS, "Failed to find memory type index for buffer info!");
 	}
 
 	/**
@@ -548,7 +548,7 @@ namespace Vulture
 		allocInfo.requiredFlags = flags;
 
 		// Find the memory type index suitable for the image
-		vmaFindMemoryTypeIndexForImageInfo(s_Allocator, &createInfo, &allocInfo, &memoryIndex);
+		VL_CORE_RETURN_ASSERT(vmaFindMemoryTypeIndexForImageInfo(s_Allocator, &createInfo, &allocInfo, &memoryIndex), VK_SUCCESS, "Failed to find memory type index for image info!");
 	}
 
 	/**
@@ -675,6 +675,8 @@ namespace Vulture
 	 */
 	void Device::SetObjectName(VkObjectType type, uint64_t handle, const char* name)
 	{
+#ifndef DISTRIBUTION
+
 		// Assert that the device has been initialized before setting the object name
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
@@ -686,6 +688,8 @@ namespace Vulture
 
 		// Set the debug name for the Vulkan object
 		Device::vkSetDebugUtilsObjectNameEXT(Device::GetDevice(), &name_info);
+
+#endif
 	}
 
 	/**
@@ -699,7 +703,6 @@ namespace Vulture
 	 */
 	void Device::BeginLabel(VkCommandBuffer cmd, const char* name, glm::vec4 color)
 	{
-		// Check if debug or release mode is enabled (not in distribution mode)
 #ifndef DISTRIBUTION
 
 		// Assert that the device has been initialized before beginning the label
