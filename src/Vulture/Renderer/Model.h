@@ -5,10 +5,11 @@
 #include "pch.h"
 #include "Mesh.h"
 #include "Vulkan/Image.h"
-#include "Asset/Asset.h"
 
 namespace Vulture
 {
+	class AssetHandle;
+
 	struct Material
 	{
 	public:
@@ -43,17 +44,18 @@ namespace Vulture
 
 		void Draw(VkCommandBuffer commandBuffer, uint32_t instanceCount, uint32_t firstInstance = 0, VkPipelineLayout layout = 0);
 
-		inline uint32_t GetAlbedoTextureCount() const { return (uint32_t)m_AlbedoTextures.size(); }
-		inline Image* GetAlbedoTexture(int index) const { return m_AlbedoTextures[index].GetImage(); }
+		// Defined in .cpp file due to forward declaration of AssetHandle
+		uint32_t GetAlbedoTextureCount() const;
+		Image* GetAlbedoTexture(int index) const;
 
-		inline uint32_t GetNormalTextureCount() const { return (uint32_t)m_NormalTextures.size(); }
-		inline Image* GetNormalTexture(int index) const { return m_NormalTextures[index].GetImage(); }
+		uint32_t GetNormalTextureCount() const;
+		Image* GetNormalTexture(int index) const;
 
-		inline uint32_t GetRoughnessTextureCount() const { return (uint32_t)m_RoughnessTextures.size(); }
-		inline Image* GetRoughnessTexture(int index) const { return m_RoughnessTextures[index].GetImage(); }
+		uint32_t GetRoughnessTextureCount() const;
+		Image* GetRoughnessTexture(int index) const;
 
-		inline uint32_t GetMetallnessTextureCount() const { return (uint32_t)m_MetallnessTextures.size(); }
-		inline Image* GetMetallnessTexture(int index) const { return m_MetallnessTextures[index].GetImage(); }
+		uint32_t GetMetallnessTextureCount() const;
+		Image* GetMetallnessTexture(int index) const;
 
 		inline uint32_t GetVertexCount() const { return m_VertexCount; }
 		inline uint32_t GetIndexCount() const { return m_IndexCount; }
@@ -92,18 +94,4 @@ namespace Vulture
 		void Reset();
 	};
 	
-
-	class ModelAsset : public Asset
-	{
-	public:
-		ModelAsset(Model&& model) { Model = std::move(model); };
-
-		explicit ModelAsset(const ModelAsset& other) = delete;
-		explicit ModelAsset(ModelAsset&& other) noexcept { Model = std::move(other.Model); };
-		ModelAsset& operator=(const ModelAsset& other) = delete;
-		ModelAsset& operator=(ModelAsset&& other) noexcept { Model = std::move(other.Model); return *this; };
-
-		virtual AssetType GetAssetType() { return AssetType::Model; }
-		Vulture::Model Model;
-	};
 }

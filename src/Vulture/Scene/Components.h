@@ -19,6 +19,13 @@
 
 namespace Vulture
 {
+	class SerializeBaseClass
+	{
+	public:
+		virtual std::vector<char> Serialize() { return {}; }
+		virtual void Deserialize(const std::vector<char>& bytes) {  }
+	};
+
 	class ScriptInterface
 	{
 	public:
@@ -37,19 +44,33 @@ namespace Vulture
 		Entity m_Entity;
 	};
 
-	class ScriptComponent
+	class ScriptComponent : public SerializeBaseClass
 	{
 	public:
+		ScriptComponent() = default;
 
 		~ScriptComponent();
 
+		ScriptComponent(ScriptComponent&& other) noexcept;
+
 		// TODO delete vector from here
 		std::vector<ScriptInterface*> Scripts;
+
+		// This vector is holding indexes into g_ScriptNames vec so that the overall structure takes less memory.
+		// And since it's used only during serialization, memory indirection doesn't really affect performance
+		std::vector<uint32_t> ScriptClassesNames;
 
 		template<typename T>
 		void AddScript()
 		{
 			Scripts.push_back(new T());
+
+			std::string name = typeid(T).name();
+			if (name.find("class ") != std::string::npos)
+				name = name.substr(6, name.size() - 6);
+
+			ScriptClassesNames.push_back(g_ScriptNames.size());
+			g_ScriptNames.push_back(name);
 		}
 
 		void InitializeScripts();
@@ -80,15 +101,12 @@ namespace Vulture
 		}
 
 		inline uint32_t GetScriptCount() const { return (uint32_t)Scripts.size(); }
-	};
 
-	class SpriteComponent
-	{
-	public:
-		glm::vec2 AtlasOffsets;
+		std::vector<char> Serialize() override;
+		void Deserialize(const std::vector<char>& bytes) override;
 
-		SpriteComponent(const glm::vec2 atlasOffsets);
 
-		void Draw();
+		// It's used to save names for serialization and deserialization of script components
+		static std::vector<std::string> g_ScriptNames;
 	};
 }

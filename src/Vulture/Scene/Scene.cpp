@@ -11,13 +11,12 @@
 
 namespace Vulture
 {
-	void Scene::Init(Ref<Window> window)
+	void Scene::Init()
 	{
 		if (m_Initialized)
 			Destroy();
 
 		m_Registry = std::make_shared<entt::registry>();
-		m_Window = window;
 		m_Initialized = true;
 	}
 
@@ -29,9 +28,9 @@ namespace Vulture
 		Reset();
 	}
 
-	Scene::Scene(Ref<Window> window)
+	Scene::Scene()
 	{
-		Init(window);
+		Init();
 	}
 
 	Scene::Scene(Scene&& other) noexcept
@@ -39,7 +38,6 @@ namespace Vulture
 		if (m_Initialized)
 			Destroy();
 
-		m_Window = std::move(other.m_Window);
 		m_Registry = std::move(other.m_Registry);
 		m_Systems = std::move(other.m_Systems);
 		m_Initialized = std::move(other.m_Initialized);
@@ -52,7 +50,6 @@ namespace Vulture
 		if (m_Initialized)
 			Destroy();
 
-		m_Window = std::move(other.m_Window);
 		m_Registry = std::move(other.m_Registry);
 		m_Systems = std::move(other.m_Systems);
 		m_Initialized = std::move(other.m_Initialized);
@@ -144,7 +141,6 @@ namespace Vulture
 
 	void Scene::Reset()
 	{
-		m_Window = nullptr;
 		m_Registry = nullptr;
 		m_Systems.clear();
 		m_Initialized = false;

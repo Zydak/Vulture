@@ -282,7 +282,7 @@ namespace Vulture
 	}
 
 	// TODO
-	void DescriptorSet::UpdateImageSampler(uint32_t binding, VkDescriptorImageInfo& info)
+	void DescriptorSet::UpdateImageSampler(uint32_t binding, const VkDescriptorImageInfo& info)
 	{
 		// Check if the descriptor set has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");
@@ -298,7 +298,7 @@ namespace Vulture
 	}
 
 	// TODO
-	void DescriptorSet::UpdateBuffer(uint32_t binding, VkDescriptorBufferInfo& info)
+	void DescriptorSet::UpdateBuffer(uint32_t binding, const VkDescriptorBufferInfo& info)
 	{
 		// Check if the descriptor set has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorSet Not Initialized!");

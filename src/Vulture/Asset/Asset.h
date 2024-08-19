@@ -5,6 +5,8 @@
 #include "Utility/Utility.h"
 #include <future>
 #include "Vulkan/Image.h"
+#include "Renderer/Model.h"
+#include "Scene/Scene.h"
 
 namespace Vulture
 {
@@ -15,6 +17,7 @@ namespace Vulture
 	{
 		Model,
 		Texture,
+		Scene,
 	};
 
 	class Asset
@@ -45,8 +48,37 @@ namespace Vulture
 		explicit TextureAsset(TextureAsset&& other) noexcept { Image = std::move(other.Image); }
 		TextureAsset& operator=(TextureAsset&& other) noexcept { Image = std::move(other.Image); return *this; };
 
-		virtual AssetType GetAssetType() { return AssetType::Texture; }
+		virtual AssetType GetAssetType() override { return AssetType::Texture; }
 		Image Image;
+	};
+
+	class ModelAsset : public Asset
+	{
+	public:
+		ModelAsset(Model&& model) { Model = std::move(model); };
+
+		explicit ModelAsset(const ModelAsset& other) = delete;
+		explicit ModelAsset(ModelAsset&& other) noexcept { Model = std::move(other.Model); };
+		ModelAsset& operator=(const ModelAsset& other) = delete;
+		ModelAsset& operator=(ModelAsset&& other) noexcept { Model = std::move(other.Model); return *this; };
+
+		virtual AssetType GetAssetType() override { return AssetType::Model; }
+		Vulture::Model Model;
+	};
+
+	class SceneAsset : public Asset
+	{
+	public:
+		SceneAsset(Vulture::Scene&& scene) { Scene = std::move(scene); };
+
+		explicit SceneAsset(const SceneAsset& other) = delete;
+		explicit SceneAsset(SceneAsset&& other) noexcept { Scene = std::move(other.Scene); };
+		SceneAsset& operator=(const SceneAsset& other) = delete;
+		SceneAsset& operator=(SceneAsset&& other) noexcept { Scene = std::move(other.Scene); return *this; };
+
+		virtual AssetType GetAssetType() override { return AssetType::Scene; }
+
+		Vulture::Scene Scene;
 	};
 
 	class AssetHandle
@@ -72,6 +104,7 @@ namespace Vulture
 		Asset* GetAsset() const;
 		AssetType GetAssetType() const;
 		Model* GetModel() const;
+		Scene* GetScene() const;
 		Image* GetImage() const;
 		bool IsAssetValid() const;
 		bool IsAssetLoaded() const;

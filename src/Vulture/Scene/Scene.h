@@ -19,11 +19,10 @@ namespace Vulture
 	class Scene
 	{
 	public:
-		void Init(Ref<Window> window);
+		void Init();
 		void Destroy();
 
-		Scene() = default;
-		Scene(Ref<Window> window);
+		Scene();
 		~Scene();
 
 		Scene(const Scene& other) = delete;
@@ -49,12 +48,10 @@ namespace Vulture
 		void UpdateSystems(double deltaTime);
 
 		inline entt::registry& GetRegistry() { return *m_Registry; }
-		inline Ref<Window> GetWindow() const { return m_Window; }
 
 		inline bool IsInitialized() const { return m_Initialized; }
 
 	private:
-		Ref<Window> m_Window = nullptr;
 		Ref<entt::registry> m_Registry = nullptr;
 		std::vector<SystemInterface*> m_Systems;
 

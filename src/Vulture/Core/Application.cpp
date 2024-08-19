@@ -8,6 +8,9 @@
 #include "Input.h"
 #include "Vulkan/DeleteQueue.h"
 
+#include "Scene/Components.h"
+#include "Asset/Serializer.h"
+
 namespace Vulture
 {
 	Application::Application(const ApplicationInfo& appInfo)
@@ -38,7 +41,9 @@ namespace Vulture
 
 		const uint32_t coresCount = std::thread::hardware_concurrency();
 		AssetManager::Init({ coresCount / 2 });
-		DeleteQueue::Init({appInfo.MaxFramesInFlight});
+		DeleteQueue::Init({ appInfo.MaxFramesInFlight });
+
+		REGISTER_CLASS_IN_SERIALIZER(ScriptComponent);
 	}
 
 	Application::~Application()

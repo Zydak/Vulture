@@ -28,3 +28,4 @@
 #include <functional>
 #include <cassert>
 #include <numeric>
+#include <xhash>

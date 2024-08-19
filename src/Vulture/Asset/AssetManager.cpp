@@ -4,7 +4,6 @@
 #include "pch.h"
 #include "AssetManager.h"
 #include "AssetImporter.h"
-#include <future>
 
 namespace Vulture
 {

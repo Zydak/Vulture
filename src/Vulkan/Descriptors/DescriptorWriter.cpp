@@ -94,7 +94,7 @@ namespace Vulture
 	 *
 	 * @note The 'bufferInfo' parameter must remain valid until the DescriptorWriter::Build function is called.
 	 */
-	void DescriptorWriter::WriteBuffer(uint32_t binding, VkDescriptorBufferInfo* bufferInfo)
+	void DescriptorWriter::WriteBuffer(uint32_t binding, const VkDescriptorBufferInfo* bufferInfo)
 	{
 		// Check if the DescriptorWriter has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorWriter Not Initialized!");
@@ -125,7 +125,7 @@ namespace Vulture
 	 *
 	 * @note The 'asInfo' parameter must remain valid until the DescriptorWriter::Build function is called.
 	 */
-	void DescriptorWriter::WriteAs(uint32_t binding, VkWriteDescriptorSetAccelerationStructureKHR* asInfo)
+	void DescriptorWriter::WriteAs(uint32_t binding, const VkWriteDescriptorSetAccelerationStructureKHR* asInfo)
 	{
 		// Check if the DescriptorWriter has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorWriter Not Initialized!");
@@ -156,7 +156,7 @@ namespace Vulture
 	 *
 	 * @note The 'imageInfo' parameter must remain valid until the DescriptorWriter::Build function is called.
 	 */
-	void DescriptorWriter::WriteImage(uint32_t binding, VkDescriptorImageInfo* imageInfo)
+	void DescriptorWriter::WriteImage(uint32_t binding, const VkDescriptorImageInfo* imageInfo)
 	{
 		// Check if the DescriptorWriter has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "DescriptorWriter Not Initialized!");

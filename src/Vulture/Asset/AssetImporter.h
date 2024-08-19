@@ -4,6 +4,9 @@
 #pragma once
 #include "Vulkan/Image.h"
 #include "Renderer/Model.h"
+#include "Scene/Scene.h"
+
+#include "Serializer.h"
 
 namespace Vulture
 {
@@ -14,6 +17,16 @@ namespace Vulture
 	public:
 		static Image ImportTexture(const std::string& path, bool HDR);
 		static Model ImportModel(const std::string& path);
+
+		template<typename ... T>
+		static Scene ImportScene(const std::string& path)
+		{
+			Scene scene;
+
+			Serializer::DeserializeScene<T...>(path, &scene);
+
+			return scene;
+		}
 	private:
 	};
 

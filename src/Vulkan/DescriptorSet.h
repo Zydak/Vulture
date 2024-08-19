@@ -41,8 +41,8 @@ namespace Vulture
 		void AddAccelerationStructure(uint32_t binding, const VkWriteDescriptorSetAccelerationStructureKHR& asInfo);
 		void AddBuffer(uint32_t binding, const VkDescriptorBufferInfo& info);
 		void Build();
-		void UpdateImageSampler(uint32_t binding, VkDescriptorImageInfo& info);
-		void UpdateBuffer(uint32_t binding, VkDescriptorBufferInfo& info);
+		void UpdateImageSampler(uint32_t binding, const VkDescriptorImageInfo& info);
+		void UpdateBuffer(uint32_t binding, const VkDescriptorBufferInfo& info);
 
 		void Bind(uint32_t set, VkPipelineLayout layout, VkPipelineBindPoint bindPoint, VkCommandBuffer cmdBuffer) const;
 

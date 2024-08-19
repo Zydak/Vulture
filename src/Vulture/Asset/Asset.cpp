@@ -94,6 +94,13 @@ namespace Vulture
 		return &reinterpret_cast<ModelAsset*>( AssetManager::GetAsset(*this))->Model;
 	}
 
+	Scene* AssetHandle::GetScene() const
+	{
+		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
+
+		return &reinterpret_cast<SceneAsset*>(AssetManager::GetAsset(*this))->Scene;
+	}
+
 	Image* AssetHandle::GetImage() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");

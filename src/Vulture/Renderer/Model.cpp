@@ -125,6 +125,46 @@ namespace Vulture
 		}
 	}
 
+	uint32_t Model::GetAlbedoTextureCount() const
+	{
+		return (uint32_t)m_AlbedoTextures.size();
+	}
+
+	Image* Model::GetAlbedoTexture(int index) const
+	{
+		return m_AlbedoTextures[index].GetImage();
+	}
+
+	uint32_t Model::GetNormalTextureCount() const
+	{
+		return (uint32_t)m_NormalTextures.size();
+	}
+
+	Image* Model::GetNormalTexture(int index) const
+	{
+		return m_NormalTextures[index].GetImage();
+	}
+
+	uint32_t Model::GetRoughnessTextureCount() const
+	{
+		return (uint32_t)m_RoughnessTextures.size();
+	}
+
+	Image* Model::GetRoughnessTexture(int index) const
+	{
+		return m_RoughnessTextures[index].GetImage();
+	}
+
+	uint32_t Model::GetMetallnessTextureCount() const
+	{
+		return (uint32_t)m_MetallnessTextures.size();
+	}
+
+	Image* Model::GetMetallnessTexture(int index) const
+	{
+		return m_MetallnessTextures[index].GetImage();
+	}
+
 	void Model::ProcessNode(aiNode* node, const aiScene* scene, int& index)
 	{
 		// process each mesh located at the current node

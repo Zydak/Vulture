@@ -157,19 +157,22 @@ void main()
 
 #ifdef USE_CHROMATIC_ABERRATION
     // Chromatic aberration
-    float aberrationVignette = length(texCoord - vec2(0.5f)) * pTonemapInfo.AberrationVignette;
-    ivec2 uvRed     = clamp(ivec2(gl_GlobalInvocationID.xy) + ivec2(pTonemapInfo.AberrationOffsets[0].x * aberrationVignette, pTonemapInfo.AberrationOffsets[0].y * aberrationVignette), ivec2(0, 0), ivec2(textureSize) - 1);
-    ivec2 uvGreen   = clamp(ivec2(gl_GlobalInvocationID.xy) + ivec2(pTonemapInfo.AberrationOffsets[1].x * aberrationVignette, pTonemapInfo.AberrationOffsets[1].y * aberrationVignette), ivec2(0, 0), ivec2(textureSize) - 1);
-    ivec2 uvBlue    = clamp(ivec2(gl_GlobalInvocationID.xy) + ivec2(pTonemapInfo.AberrationOffsets[2].x * aberrationVignette, pTonemapInfo.AberrationOffsets[2].y * aberrationVignette), ivec2(0, 0), ivec2(textureSize) - 1);
+    float aberrationVignette = clamp(length(texCoord - vec2(0.5f)) * pTonemapInfo.AberrationVignette, 0.0f, 1.0f);
 
-    vec2 uvRedF = uvRed / textureSize;
-    vec2 uvGreenF = uvGreen / textureSize;
-    vec2 uvBlueF = uvBlue / textureSize;
-    
+    vec3 inputOffsetsX = vec3(pTonemapInfo.AberrationOffsets[0].x, pTonemapInfo.AberrationOffsets[1].x, pTonemapInfo.AberrationOffsets[2].x);
+    vec3 inputOffsetsY = vec3(pTonemapInfo.AberrationOffsets[0].y, pTonemapInfo.AberrationOffsets[1].y, pTonemapInfo.AberrationOffsets[2].y);
+
+    inputOffsetsX /= textureSize.x;
+    inputOffsetsY /= textureSize.y;
+
+    vec2 uvRed = texCoord + (vec2(inputOffsetsX.x, inputOffsetsY.x) * aberrationVignette);
+    vec2 uvGreen = texCoord + (vec2(inputOffsetsX.y, inputOffsetsY.y) * aberrationVignette);
+    vec2 uvBlue = texCoord + (vec2(inputOffsetsX.z, inputOffsetsY.z) * aberrationVignette);
+
     vec3 hdrColor;
-    hdrColor.r = texture(uInput, uvRedF).r;
-    hdrColor.g = texture(uInput, uvGreenF).g;
-    hdrColor.b = texture(uInput, uvBlueF).b;
+    hdrColor.r = texture(uInput, uvRed).r;
+    hdrColor.g = texture(uInput, uvGreen).g;
+    hdrColor.b = texture(uInput, uvBlue).b;
 #else
     vec3 hdrColor = texelFetch(uInput, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
 #endif
