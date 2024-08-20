@@ -43,6 +43,12 @@ namespace Vulture
 		return iter->second.Asset->IsValid();
 	}
 
+	bool AssetManager::DoesHandleExist(const AssetHandle& handle)
+	{
+		auto iter = s_Assets.find(handle);
+		return iter != s_Assets.end();
+	}
+
 	void AssetManager::WaitToLoad(const AssetHandle& handle)
 	{
 		auto iter = s_Assets.find(handle);
@@ -59,7 +65,7 @@ namespace Vulture
 		return iter->second.Future.wait_for(std::chrono::duration<float>(0)) == std::future_status::ready;
 	}
 
-	AssetHandle AssetManager::LoadAsset(const std::string& path)
+	AssetHandle AssetManager::LoadAsset(std::string path)
 	{
 		std::hash<std::string> hash;
 		AssetHandle handle(AssetHandle::CreateInfo{hash(path)});
@@ -77,53 +83,80 @@ namespace Vulture
 
 		std::shared_ptr<std::promise<void>> promise = std::make_shared<std::promise<void>>();
 
+		std::unique_lock<std::mutex> lock(s_AssetsMutex);
 		s_Assets[handle] = { promise->get_future(), nullptr };
+		lock.unlock();
+
 		if (extension == ".png" || extension == ".jpg")
 		{
-			s_ThreadPool.PushTask([](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
+			s_ThreadPool.PushTask([](std::string path, std::shared_ptr<std::promise<void>> promise, AssetHandle handle)
 				{
 					Scope<Asset> asset = std::make_unique<TextureAsset>(std::move(AssetImporter::ImportTexture(path, false)));
 					asset->SetValid(true);
 					asset->SetPath(path);
-
+		
 					std::unique_lock<std::mutex> lock(s_AssetsMutex);
 					s_Assets[handle].Asset = std::move(asset);
 					lock.unlock();
-
+		
 					promise->set_value();
 				}, path, promise, handle);
 		}
 		else if (extension == ".gltf" || extension == ".obj" || extension == ".fbx")
 		{
-			s_ThreadPool.PushTask([](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
+			s_ThreadPool.PushTask([](std::string path, std::shared_ptr<std::promise<void>> promise, AssetHandle handle)
 				{
 					Scope<Asset> asset = std::make_unique<ModelAsset>(std::move(AssetImporter::ImportModel(path)));
 					asset->SetValid(true);
 					asset->SetPath(path);
-
+		
 					std::unique_lock<std::mutex> lock(s_AssetsMutex);
 					s_Assets[handle].Asset = std::move(asset);
 					lock.unlock();
-
+		
 					promise->set_value();
 				}, path, promise, handle);
 		}
 		else if (extension == ".hdr")
 		{
-			s_ThreadPool.PushTask([](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
+			s_ThreadPool.PushTask([](std::string path, std::shared_ptr<std::promise<void>> promise, AssetHandle handle)
 				{
 					Scope<Asset> asset = std::make_unique<TextureAsset>(std::move(AssetImporter::ImportTexture(path, true)));
 					asset->SetValid(true);
 					asset->SetPath(path);
-
+		
 					std::unique_lock<std::mutex> lock(s_AssetsMutex);
 					s_Assets[handle].Asset = std::move(asset);
 					lock.unlock();
-
+		
 					promise->set_value();
 				}, path, promise, handle);
 		}
 		else { VL_CORE_ASSERT(false, "Extension not supported! Extension: {}", extension); }
+
+		return AssetHandle(handle);
+	}
+
+	Vulture::AssetHandle AssetManager::AddAsset(const std::string path, std::unique_ptr<Asset>&& asset)
+	{
+		std::hash<std::string> hash;
+		AssetHandle handle(AssetHandle::CreateInfo{ hash(path) });
+		if (s_Assets.contains(handle))
+		{
+			// Asset with this path is already loaded
+			return AssetHandle(handle);
+		}
+
+		std::shared_ptr<std::promise<void>> promise = std::make_shared<std::promise<void>>();
+
+		asset->SetValid(true);
+		asset->SetPath(path);
+
+		std::unique_lock<std::mutex> lock(s_AssetsMutex);
+		s_Assets[handle] = { promise->get_future(), std::move(asset) };
+		lock.unlock();
+
+		promise->set_value();
 
 		return AssetHandle(handle);
 	}

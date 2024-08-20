@@ -349,13 +349,13 @@ namespace Vulture
 		VL_CORE_ASSERT(m_Initialized, "Buffer Not Initialized!");
 
 		// Check if the data size is valid.
-		VL_CORE_ASSERT((size == VK_WHOLE_SIZE || size <= m_BufferSize), "Data size is larger than buffer size, either resize the buffer or create a larger one");
+		VL_CORE_ASSERT((size == VK_WHOLE_SIZE || size + offset <= m_BufferSize), "Data size is larger than buffer size, either resize the buffer or create a larger one");
 
 		// Check if the data pointer is valid.
 		VL_CORE_ASSERT(data != nullptr, "Invalid data pointer");
 
 		if (size == VK_WHOLE_SIZE)
-			size = m_BufferSize;
+			size = m_BufferSize - offset;
 
 		// If no command buffer is provided, begin a temporary single time command buffer.
 		VkCommandBuffer cmd;
@@ -369,7 +369,7 @@ namespace Vulture
 		{
 			// Create a staging buffer.
 			Buffer::CreateInfo info{};
-			info.InstanceSize = size == VK_WHOLE_SIZE ? m_BufferSize : size;
+			info.InstanceSize = size;
 			info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 			info.UsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 			Buffer stagingBuffer(info);
@@ -395,15 +395,71 @@ namespace Vulture
 			char* memOffset = reinterpret_cast<char*>(m_Mapped) + offset;
 
 			// Copy data to the buffer.
-			if (size == VK_WHOLE_SIZE)
-			{
-				memcpy(m_Mapped, data, m_BufferSize);
-			}
-			else
-			{
-				memcpy(memOffset, data, size);
-			}
+			memcpy(memOffset, data, size);
 		}
+
+		// If no command buffer was provided, end the temporary single time command buffer and submit it.
+		if (cmdBuffer == VK_NULL_HANDLE)
+			Device::EndSingleTimeCommands(cmd, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
+	}
+
+	void Buffer::ReadFromBuffer(void* outData, VkDeviceSize size /*= VK_WHOLE_SIZE*/, VkDeviceSize offset /*= 0*/, VkCommandBuffer cmdBuffer /*= 0*/)
+	{
+		// Check if the Buffer has been initialized.
+		VL_CORE_ASSERT(m_Initialized, "Buffer Not Initialized!");
+
+		// Check if the data size is valid.
+		VL_CORE_ASSERT((size == VK_WHOLE_SIZE || size + offset <= m_BufferSize), "Data size is larger than buffer size on reading!");
+
+		// Check if the data pointer is valid.
+		VL_CORE_ASSERT(outData != nullptr, "Invalid outData pointer");
+
+		if (size == VK_WHOLE_SIZE)
+			size = m_BufferSize - offset;
+
+		// If no command buffer is provided, begin a temporary single time command buffer.
+		VkCommandBuffer cmd;
+		if (cmdBuffer == VK_NULL_HANDLE)
+			Device::BeginSingleTimeCommands(cmd, Device::GetGraphicsCommandPool());
+		else
+			cmd = cmdBuffer;
+
+		// If the buffer is device local, use a staging buffer to transfer the data.
+		if (m_MemoryPropertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+		{
+			VL_CORE_ASSERT((m_UsageFlags & VK_BUFFER_USAGE_TRANSFER_SRC_BIT) != 0, "Can't read from buffer that is DEVICE_LOCAL and wasn't create with USAGE_TRANSFERS_SRC_BIT!");
+
+			// Create a staging buffer.
+			Buffer::CreateInfo info{};
+			info.InstanceSize = size;
+			info.MemoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+			info.UsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+			Buffer stagingBuffer(info);
+
+			Buffer::CopyBuffer(m_BufferHandle, stagingBuffer.GetBuffer(), size, 0, offset, Device::GetGraphicsQueue(), cmd, Device::GetGraphicsCommandPool());
+			Device::EndSingleTimeCommands(cmd, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool()); // End the command to synch with CPU
+			Device::BeginSingleTimeCommands(cmd, Device::GetGraphicsCommandPool()); // Begin new one again
+
+			// Map the staging buffer.
+			stagingBuffer.Map();
+
+			// Write data to the staging buffer.
+			stagingBuffer.ReadFromBuffer(outData, size, 0, cmd);
+
+			// Unmap the staging buffer.
+			stagingBuffer.Unmap();
+		}
+		else // If the buffer is not device local, write directly to the buffer.
+		{
+			// Check if the buffer is mapped.
+			VL_CORE_ASSERT(m_Mapped, "Cannot read from unmapped buffer!");
+
+			// Calculate the memory offset within the mapped buffer.
+			char* memOffset = reinterpret_cast<char*>(m_Mapped) + offset;
+
+			memcpy(outData, m_Mapped, size);
+		}
+
 
 		// If no command buffer was provided, end the temporary single time command buffer and submit it.
 		if (cmdBuffer == VK_NULL_HANDLE)

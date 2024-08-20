@@ -30,12 +30,12 @@ namespace Vulture
 				}
 			});
 
-			uint32_t size = (uint32_t)bytesOut.size() + 4; // + 4 to account for this 4 size bytes
-			std::vector<char> bytesSize = Vulture::Bytes::ToBytes((char*)&size, 4);
-			bytesOut.insert(bytesOut.begin(), bytesSize.begin(), bytesSize.end()); // first 4 bytes are overall size of the file
+			uint64_t size = (uint64_t)bytesOut.size() + 8; // + 8 to account for this 8 size bytes
+			std::vector<char> bytesSize = Vulture::Bytes::ToBytes((char*)&size, 8);
+			bytesOut.insert(bytesOut.begin(), bytesSize.begin(), bytesSize.end()); // first 8 bytes are overall size of the file
 
 			std::ofstream ofstream;
-			ofstream.open(filepath, std::ios_base::binary);
+			ofstream.open(filepath, std::ios_base::binary | std::ios_base::trunc);
 
 			ofstream.write(bytesOut.data(), bytesOut.size());
 			ofstream.flush();
@@ -48,15 +48,15 @@ namespace Vulture
 		{
 			std::ifstream ifstream(filepath, std::ios_base::binary);
 
-			uint32_t size = 0;
-			ifstream.read((char*)&size, 4);
+			uint64_t size = 0;
+			ifstream.read((char*)&size, 8);
 			ifstream.seekg(0);
 
 			std::vector<char> bytes(size);
 			ifstream.read(bytes.data(), size);
 
-			ifstream.seekg(4); // skip first 4 bytes of size data
-			uint32_t currentPos = 4;
+			ifstream.seekg(8); // skip first 8 bytes of size data
+			uint64_t currentPos = 8;
 			while (currentPos < size)
 			{
 				// Get the component count on this entity
@@ -66,7 +66,7 @@ namespace Vulture
 
 				Vulture::Entity entity = outScene->CreateEntity();
 
-				for (uint32_t i = 0; i < componentCount; i++)
+				for (uint64_t i = 0; i < componentCount; i++)
 				{
 					// Get the component name
 					std::string compName;
@@ -87,10 +87,10 @@ namespace Vulture
 					// Create a component from a registered constructor
 					auto component = CreateRegisteredClass(compName);
 
-					// Read 4 bytes of data size
-					uint32_t componentDataSize = 0;
-					ifstream.read((char*)&componentDataSize, 4);
-					currentPos += 4;
+					// Read 8 bytes of data size
+					uint64_t componentDataSize = 0;
+					ifstream.read((char*)&componentDataSize, 8);
+					currentPos += 8;
 
 					// read the data
 					std::vector<char> componentByteData(componentDataSize);
@@ -244,17 +244,15 @@ namespace Vulture
 				return;
 
 			std::vector<char> combinedBytes;
-			combinedBytes.reserve(nameBytes.size() + 4 + componentBytes.size());
+			combinedBytes.reserve(nameBytes.size() + 8 + componentBytes.size());
 
 			// First the name of the component class
 			combinedBytes.insert(combinedBytes.end(), nameBytes.begin(), nameBytes.end());
 
-			// Number of components
-
 			// Size of the component data bytes
-			uint32_t size = (uint32_t)componentBytes.size();
-			std::vector<char> bytesSize = Vulture::Bytes::ToBytes((char*)&size, 4);
-			combinedBytes.insert(combinedBytes.end(), bytesSize.begin(), bytesSize.end()); // first 4 bytes are overall size of the file
+			uint64_t size = (uint64_t)componentBytes.size();
+			std::vector<char> bytesSize = Vulture::Bytes::ToBytes((char*)&size, 8);
+			combinedBytes.insert(combinedBytes.end(), bytesSize.begin(), bytesSize.end()); // first 8 bytes are overall size of the file
 
 			// Component Data
 			combinedBytes.insert(combinedBytes.end(), componentBytes.begin(), componentBytes.end());

@@ -5,7 +5,6 @@
 #include "pch.h"
 #include "../Renderer/Text.h"
 #include "../Math/Transform.h"
-#include "../Renderer/Model.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -55,10 +54,7 @@ namespace Vulture
 
 		// TODO delete vector from here
 		std::vector<ScriptInterface*> Scripts;
-
-		// This vector is holding indexes into g_ScriptNames vec so that the overall structure takes less memory.
-		// And since it's used only during serialization, memory indirection doesn't really affect performance
-		std::vector<uint32_t> ScriptClassesNames;
+		std::vector<std::string> ScriptClassesNames;
 
 		template<typename T>
 		void AddScript()
@@ -69,8 +65,7 @@ namespace Vulture
 			if (name.find("class ") != std::string::npos)
 				name = name.substr(6, name.size() - 6);
 
-			ScriptClassesNames.push_back(g_ScriptNames.size());
-			g_ScriptNames.push_back(name);
+			ScriptClassesNames.push_back(name);
 		}
 
 		void InitializeScripts();
@@ -104,9 +99,69 @@ namespace Vulture
 
 		std::vector<char> Serialize() override;
 		void Deserialize(const std::vector<char>& bytes) override;
+	};
 
+	class MeshComponent : public SerializeBaseClass
+	{
+	public:
+		MeshComponent() = default;
+		~MeshComponent() = default;
+		MeshComponent(MeshComponent&& other) noexcept { AssetHandle = std::move(other.AssetHandle); };
+		MeshComponent(const MeshComponent& other) { AssetHandle = other.AssetHandle; };
+		MeshComponent& operator=(const MeshComponent& other) { AssetHandle = other.AssetHandle; return *this; };
+		MeshComponent& operator=(MeshComponent&& other) noexcept { AssetHandle = std::move(other.AssetHandle); return *this; };
 
-		// It's used to save names for serialization and deserialization of script components
-		static std::vector<std::string> g_ScriptNames;
+		std::vector<char> Serialize() override;
+		void Deserialize(const std::vector<char>& bytes) override;
+
+		Vulture::AssetHandle AssetHandle;
+	};
+
+	class MaterialComponent : public SerializeBaseClass
+	{
+	public:
+		MaterialComponent() = default;
+		~MaterialComponent() = default;
+		MaterialComponent(MaterialComponent&& other) noexcept { AssetHandle = std::move(other.AssetHandle); };
+		MaterialComponent(const MaterialComponent& other) { AssetHandle = other.AssetHandle; };
+		MaterialComponent& operator=(const MaterialComponent& other) { AssetHandle = other.AssetHandle; return *this; };
+		MaterialComponent& operator=(MaterialComponent&& other) noexcept { AssetHandle = std::move(other.AssetHandle); return *this; };
+
+		std::vector<char> Serialize() override;
+		void Deserialize(const std::vector<char>& bytes) override;
+
+		Vulture::AssetHandle AssetHandle;
+	};
+
+	class TransformComponent : public Vulture::SerializeBaseClass
+	{
+	public:
+		TransformComponent() = default;
+		~TransformComponent() = default;
+		TransformComponent(TransformComponent&& other) noexcept { Transform = std::move(other.Transform); };
+		TransformComponent(const TransformComponent& other) { Transform = other.Transform; };
+		TransformComponent& operator=(const TransformComponent& other) { Transform = other.Transform; return *this; };
+		TransformComponent& operator=(TransformComponent&& other) noexcept { Transform = std::move(other.Transform); return *this; };
+
+		std::vector<char> Serialize() override;
+		void Deserialize(const std::vector<char>& bytes) override;
+
+		Vulture::Transform Transform;
+	};
+
+	class NameComponent : public Vulture::SerializeBaseClass
+	{
+	public:
+		NameComponent() = default;
+		~NameComponent() = default;
+		NameComponent(NameComponent&& other) noexcept { Name = std::move(other.Name); };
+		NameComponent(const NameComponent& other) { Name = other.Name; };
+		NameComponent& operator=(const NameComponent& other) { Name = other.Name; return *this; };
+		NameComponent& operator=(NameComponent&& other) noexcept { Name = std::move(other.Name); return *this; };
+
+		std::vector<char> Serialize() override;
+		void Deserialize(const std::vector<char>& bytes) override;
+
+		std::string Name;
 	};
 }

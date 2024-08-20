@@ -41,6 +41,7 @@ namespace Vulture
 
 		void SetTranslation(const glm::vec3& vec);
 		void SetRotation(const glm::vec3& vec);
+		void SetRotation(const glm::quat& quat);
 		void SetScale(const glm::vec3& vec);
 
 		void AddTranslation(const glm::vec3& vec);

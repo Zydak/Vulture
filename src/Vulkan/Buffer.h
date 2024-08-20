@@ -20,7 +20,7 @@ namespace Vulture
 			VkDeviceSize MinMemoryAlignment = 1;
 			VkMemoryPropertyFlags MemoryPropertyFlags = 0;
 			VkBufferUsageFlags UsageFlags = 0;
-			uint32_t InstanceCount = 1;
+			uint64_t InstanceCount = 1;
 			bool NoPool = false;
 
 			operator bool() const
@@ -44,6 +44,8 @@ namespace Vulture
 		void Unmap();
 
 		void WriteToBuffer(void* data, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0, VkCommandBuffer cmdBuffer = 0);
+		void ReadFromBuffer(void* outData, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0, VkCommandBuffer cmdBuffer = 0);
+
 		VkResult Flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 		VkDescriptorBufferInfo DescriptorInfo();
 		VkResult Invalidate(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
@@ -63,7 +65,7 @@ namespace Vulture
 		VkDeviceAddress GetDeviceAddress() const;
 		inline bool IsMapped() const { return m_Mapped; }
 
-		inline uint32_t GetInstanceCount() const { return m_InstanceCount; }
+		inline uint64_t GetInstanceCount() const { return m_InstanceCount; }
 		inline VkDeviceSize GetInstanceSize() const { return m_InstanceSize; }
 		inline VkDeviceSize GetAlignmentSize() const { return m_InstanceSize; }
 		inline VkDeviceSize GetMinAlignment() const { return m_MinOffsetAlignment; }
@@ -91,7 +93,7 @@ namespace Vulture
 		VkBufferUsageFlags m_UsageFlags = 0;
 		VkMemoryPropertyFlags m_MemoryPropertyFlags = 0;
 
-		uint32_t m_InstanceCount = 0;
+		uint64_t m_InstanceCount = 0;
 
 		bool m_NoPool = false;
 

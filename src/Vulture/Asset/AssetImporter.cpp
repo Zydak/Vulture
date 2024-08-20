@@ -9,12 +9,16 @@
 
 #include "AssetManager.h"
 
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+
 namespace Vulture
 {
 	Image AssetImporter::ImportTexture(const std::string& path, bool HDR)
 	{
 		int texChannels;
-		stbi_set_flip_vertically_on_load(!HDR);
+		bool flipOnLoad = !HDR;
+		stbi_set_flip_vertically_on_load_thread(flipOnLoad);
 		int sizeX, sizeY;
 		void* pixels;
 		if (HDR)
@@ -48,9 +52,157 @@ namespace Vulture
 		return Image(std::move(image));
 	}
 
-	Model AssetImporter::ImportModel(const std::string& path)
+	ModelAsset AssetImporter::ImportModel(const std::string& path)
 	{
-		return Model(path);
+		Timer timer;
+
+		Assimp::Importer importer;
+		const aiScene* scene = importer.ReadFile(path,
+			aiProcess_CalcTangentSpace |
+			aiProcess_GenSmoothNormals |
+			aiProcess_ImproveCacheLocality |
+			aiProcess_RemoveRedundantMaterials |
+			aiProcess_SplitLargeMeshes |
+			aiProcess_Triangulate |
+			aiProcess_GenUVCoords |
+			aiProcess_SortByPType |
+			aiProcess_FindDegenerates |
+			aiProcess_FindInvalidData);
+		if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
+		{
+			VL_CORE_ERROR("Failed to load model: {0}", importer.GetErrorString());
+			VL_CORE_ASSERT(false, ""); // TODO: some error handling
+		}
+
+		ModelAsset asset;
+
+		int index = 0;
+		ProcessAssimpNode(scene->mRootNode, scene, path, &asset, index);
+
+		return asset;
+	}
+
+	void AssetImporter::ProcessAssimpNode(aiNode* node, const aiScene* scene, const std::string& filepath, ModelAsset* outAsset, int& index)
+	{
+		// process each mesh located at the current node
+		for (unsigned int i = 0; i < node->mNumMeshes; i++)
+		{
+			glm::mat4 transform = glm::transpose(*(glm::mat4*)(&node->mTransformation));
+			aiNode* currNode = node;
+			while (true)
+			{
+				if (currNode->mParent)
+				{
+					currNode = currNode->mParent;
+					transform *= glm::transpose(*(glm::mat4*)(&currNode->mTransformation));
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+			std::string meshName = node->mName.C_Str();
+			Mesh vlMesh(mesh, scene);
+
+			aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+			Material mat;
+
+			aiColor4D emissiveColor(0.0f, 0.0f, 0.0f, 0.0f);
+			aiColor4D diffuseColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+			material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveColor);
+			material->Get(AI_MATKEY_EMISSIVE_INTENSITY, emissiveColor.a);
+			material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor);
+			material->Get(AI_MATKEY_ROUGHNESS_FACTOR, mat.Properties.Roughness);
+			material->Get(AI_MATKEY_METALLIC_FACTOR, mat.Properties.Metallic);
+			material->Get(AI_MATKEY_REFRACTI, mat.Properties.Ior);
+			mat.Properties.SpecularStrength = mat.Properties.Ior - 1.0f;
+			mat.Properties.Ior = glm::max(mat.Properties.Ior, 1.001f);
+
+			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_DIFFUSE); i++)
+			{
+				aiString str;
+				material->GetTexture(aiTextureType_DIFFUSE, i, &str);
+				mat.Textures.AlbedoTexture = AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str()));
+				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
+			}
+
+			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_NORMALS); i++)
+			{
+				aiString str;
+				material->GetTexture(aiTextureType_NORMALS, i, &str);
+				mat.Textures.NormalTexture = AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str()));
+				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
+			}
+
+			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS); i++)
+			{
+				aiString str;
+				material->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, i, &str);
+				mat.Textures.RoughnessTexture = AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str()));
+				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
+			}
+
+			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_METALNESS); i++)
+			{
+				aiString str;
+				material->GetTexture(aiTextureType_METALNESS, i, &str);
+				mat.Textures.MetallnessTexture = AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str()));
+				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
+			}
+
+			// Create Empty Texture if none are found
+			if (material->GetTextureCount(aiTextureType_DIFFUSE) == 0)
+			{
+				mat.Textures.AlbedoTexture = AssetManager::LoadAsset("assets/white.png");
+			}
+			if (material->GetTextureCount(aiTextureType_NORMALS) == 0)
+			{
+				mat.Textures.NormalTexture = AssetManager::LoadAsset("assets/empty_normal.png");
+			}
+			if (material->GetTextureCount(aiTextureType_METALNESS) == 0)
+			{
+				mat.Textures.MetallnessTexture = AssetManager::LoadAsset("assets/white.png");
+			}
+			if (material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS) == 0)
+			{
+				mat.Textures.RoughnessTexture = AssetManager::LoadAsset("assets/white.png");
+			}
+
+			mat.Properties.Color = glm::vec4(diffuseColor.r, diffuseColor.g, diffuseColor.b, 1.0f);
+			mat.Properties.EmissiveColor = glm::vec4(emissiveColor.r, emissiveColor.g, emissiveColor.b, emissiveColor.a);
+
+			mat.Properties.Transparency = 1.0f - mat.Properties.Color.a;
+
+			std::string matName = material->GetName().C_Str();
+
+			mat.MaterialName = matName;
+
+			std::unique_ptr<Asset> materialAsset = std::make_unique<MaterialAsset>(std::move(mat));
+			AssetHandle materialHandle = AssetManager::AddAsset(filepath + "/" + matName, std::move(materialAsset));
+			outAsset->Materials.push_back(materialHandle);
+
+			std::unique_ptr<Asset> meshAsset = std::make_unique<MeshAsset>(std::move(vlMesh));
+			AssetHandle meshHandle = AssetManager::AddAsset(filepath + "::" + meshName + std::to_string(index), std::move(meshAsset));
+
+			outAsset->MeshNames.push_back(meshName);
+			outAsset->Meshes.push_back(meshHandle);
+
+			// Rotate every model 180 degrees
+			glm::mat4 rot = glm::rotate(glm::mat4{ 1.0f }, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			transform = rot * transform;
+			outAsset->MeshTransfrorms.push_back(transform);
+
+			index++;
+		}
+
+		// process each of the children nodes
+		for (unsigned int i = 0; i < node->mNumChildren; i++)
+		{
+			ProcessAssimpNode(node->mChildren[i], scene, filepath, outAsset, index);
+		}
 	}
 
 }

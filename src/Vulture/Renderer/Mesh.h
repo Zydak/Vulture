@@ -20,8 +20,6 @@ namespace Vulture
 		{
 			glm::vec3 Position;
 			glm::vec3 Normal;
-			glm::vec3 Tangent;
-			glm::vec3 Bitangent;
 			glm::vec2 TexCoord;
 
 			static std::vector<VkVertexInputBindingDescription> GetBindingDescriptions();
@@ -33,8 +31,8 @@ namespace Vulture
 			const std::vector<Vertex>* Vertices = nullptr;
 			const std::vector<uint32_t>* Indices = nullptr;
 
-			VkBufferUsageFlags vertexUsageFlags = 0;
-			VkBufferUsageFlags indexUsageFlags = 0;
+			VkBufferUsageFlags VertexUsageFlags = 0;
+			VkBufferUsageFlags IndexUsageFlags = 0;
 		};
 
 		void Init(const CreateInfo& createInfo);
@@ -42,6 +40,7 @@ namespace Vulture
 		void Destroy();
 
 		Mesh(const CreateInfo& createInfo);
+		Mesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& mat = glm::mat4(1.0f), VkBufferUsageFlags customUsageFlags = 0);
 		Mesh() = default;
 		~Mesh();
 
@@ -62,8 +61,8 @@ namespace Vulture
 		inline const Buffer* GetIndexBuffer() const { return &m_IndexBuffer; }
 		inline Buffer* GetIndexBuffer() { return &m_IndexBuffer; }
 
-		inline uint32_t& GetIndexCount() { return m_IndexCount; }
-		inline uint32_t& GetVertexCount() { return m_VertexCount; }
+		inline uint64_t& GetIndexCount() { return m_IndexCount; }
+		inline uint64_t& GetVertexCount() { return m_VertexCount; }
 
 		inline bool& HasIndexBuffer() { return m_HasIndexBuffer; }
 
@@ -77,11 +76,11 @@ namespace Vulture
 		void CreateIndexBuffer(const std::vector<uint32_t>* const indices, VkBufferUsageFlags customUsageFlags = 0);
 		
 		Buffer m_VertexBuffer;
-		uint32_t m_VertexCount = 0;
+		uint64_t m_VertexCount = 0;
 
 		bool m_HasIndexBuffer = false;
 		Buffer m_IndexBuffer;
-		uint32_t m_IndexCount = 0;
+		uint64_t m_IndexCount = 0;
 
 		bool m_Initialized = false;
 

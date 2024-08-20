@@ -23,7 +23,7 @@ namespace Vulture
 		VkDeviceAddress vertexAddress	= mesh->GetVertexBuffer()->GetDeviceAddress();
 		VkDeviceAddress indexAddress	= mesh->GetIndexBuffer()->GetDeviceAddress();
 
-		uint32_t primitiveCount			= mesh->GetIndexCount() / 3;
+		uint32_t primitiveCount			= (uint32_t)mesh->GetIndexCount() / 3;
 
 		// Describe buffer as array of Mesh::Vertex.
 		VkAccelerationStructureGeometryTrianglesDataKHR triangles{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR };
@@ -33,7 +33,7 @@ namespace Vulture
 		triangles.indexType = VK_INDEX_TYPE_UINT32;
 		triangles.indexData.deviceAddress = indexAddress;
 		triangles.transformData = {};
-		triangles.maxVertex = mesh->GetVertexCount() - 1;
+		triangles.maxVertex = (uint32_t)mesh->GetVertexCount() - 1;
 
 		// Identify the above data as opaque triangles.
 		VkAccelerationStructureGeometryKHR asGeometry{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };

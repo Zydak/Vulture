@@ -106,6 +106,11 @@ namespace Vulture
 		m_Rotation.SetAngles(vec);
 	}
 
+	void Transform::SetRotation(const glm::quat& quat)
+	{
+		m_Rotation.SetQuaternion(quat);
+	}
+
 	void Transform::SetScale(const glm::vec3& vec)
 	{
 		m_Scale = vec;

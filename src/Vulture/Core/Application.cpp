@@ -44,6 +44,10 @@ namespace Vulture
 		DeleteQueue::Init({ appInfo.MaxFramesInFlight });
 
 		REGISTER_CLASS_IN_SERIALIZER(ScriptComponent);
+		REGISTER_CLASS_IN_SERIALIZER(TransformComponent);
+		REGISTER_CLASS_IN_SERIALIZER(NameComponent);
+		REGISTER_CLASS_IN_SERIALIZER(MeshComponent);
+		REGISTER_CLASS_IN_SERIALIZER(MaterialComponent);
 	}
 
 	Application::~Application()

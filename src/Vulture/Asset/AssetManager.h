@@ -32,18 +32,19 @@ namespace Vulture
 
 		static Asset* GetAsset(const AssetHandle& handle);
 		static bool IsAssetValid(const AssetHandle& handle);
+		static bool DoesHandleExist(const AssetHandle& handle);
 
 		static void WaitToLoad(const AssetHandle& handle);
 		static bool IsAssetLoaded(const AssetHandle& handle);
-
-		static AssetHandle LoadAsset(const std::string& path);
+		static AssetHandle LoadAsset(std::string path);
+		static AssetHandle AddAsset(const std::string path, std::unique_ptr<Asset>&& asset);
 		static void UnloadAsset(const AssetHandle& handle);
 
 		static inline bool IsInitialized() { return s_Initialized; }
 
 		// T is list of types of components which to deserialize
 		template<typename... T>
-		static AssetHandle LoadSceneAsset(const std::string& path)
+		static AssetHandle LoadSceneAsset(std::string path)
 		{
 			std::hash<std::string> hash;
 			AssetHandle handle(AssetHandle::CreateInfo{ hash(path) });
@@ -61,27 +62,33 @@ namespace Vulture
 
 			std::shared_ptr<std::promise<void>> promise = std::make_shared<std::promise<void>>();
 
+			std::unique_lock<std::mutex> lock(s_AssetsMutex);
 			s_Assets[handle] = { promise->get_future(), nullptr };
-			s_ThreadPool.PushTask([](const std::string& path, std::shared_ptr<std::promise<void>> promise, const AssetHandle& handle)
+			lock.unlock();
+
+			s_ThreadPool.PushTask([](std::string path, std::shared_ptr<std::promise<void>> promise, AssetHandle handle)
 				{
 					Scope<Asset> asset = std::make_unique<SceneAsset>(std::move(AssetImporter::ImportScene<T...>(path)));
 					asset->SetValid(true);
 					asset->SetPath(path);
-
+			
 					std::unique_lock<std::mutex> lock(s_AssetsMutex);
 					s_Assets[handle].Asset = std::move(asset);
 					lock.unlock();
-
+			
 					promise->set_value();
 				}, path, promise, handle);
 
 			return AssetHandle(handle);
 		}
 	private:
+
 		static std::unordered_map<AssetHandle, AssetWithFuture> s_Assets;
 		static ThreadPool s_ThreadPool;
 		static std::mutex s_AssetsMutex;
 
 		static bool s_Initialized;
+
+		friend class AssetImporter;
 	};
 }

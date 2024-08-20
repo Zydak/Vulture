@@ -3,7 +3,6 @@
 
 #pragma once
 #include "Vulkan/Image.h"
-#include "Renderer/Model.h"
 #include "Scene/Scene.h"
 
 #include "Serializer.h"
@@ -16,7 +15,7 @@ namespace Vulture
 	{
 	public:
 		static Image ImportTexture(const std::string& path, bool HDR);
-		static Model ImportModel(const std::string& path);
+		static ModelAsset ImportModel(const std::string& path);
 
 		template<typename ... T>
 		static Scene ImportScene(const std::string& path)
@@ -28,6 +27,8 @@ namespace Vulture
 			return scene;
 		}
 	private:
+
+		static void ProcessAssimpNode(aiNode* node, const aiScene* scene, const std::string& filepath, ModelAsset* outAsset, int& index);
 	};
 
 }

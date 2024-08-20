@@ -44,8 +44,8 @@ namespace Vulture
 
 	void Mesh::CreateMesh(const CreateInfo& createInfo)
 	{
-		CreateVertexBuffer(createInfo.Vertices, createInfo.vertexUsageFlags);
-		CreateIndexBuffer(createInfo.Indices, createInfo.indexUsageFlags);
+		CreateVertexBuffer(createInfo.Vertices, createInfo.VertexUsageFlags);
+		CreateIndexBuffer(createInfo.Indices, createInfo.IndexUsageFlags);
 	}
 
 	void Mesh::CreateMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 mat, VkBufferUsageFlags customUsageFlags)
@@ -83,18 +83,6 @@ namespace Vulture
 				vec.x = mesh->mTextureCoords[0][i].x;
 				vec.y = mesh->mTextureCoords[0][i].y;
 				vertex.TexCoord = vec;
-
-				//// tangent
-				//vector.x = mesh->mTangents[i].x;
-				//vector.y = mesh->mTangents[i].y;
-				//vector.z = mesh->mTangents[i].z;
-				//vertex.Tangent = glm::normalize(glm::vec3((glm::inverse(mat)) * glm::vec4(vector, 0.0f)));
-				//
-				//// bitangent
-				//vector.x = mesh->mBitangents[i].x;
-				//vector.y = mesh->mBitangents[i].y;
-				//vector.z = mesh->mBitangents[i].z;
-				//vertex.Bitangent = glm::normalize(glm::vec3((glm::inverse(mat)) * glm::vec4(vector, 0.0f)));
 			}
 			else
 				vertex.TexCoord = glm::vec2(0.0f, 0.0f);
@@ -116,7 +104,7 @@ namespace Vulture
 
 	void Mesh::CreateVertexBuffer(const std::vector<Vertex>* const vertices, VkBufferUsageFlags customUsageFlags)
 	{
-		m_VertexCount = (uint32_t)vertices->size();
+		m_VertexCount = (uint64_t)vertices->size();
 		VkDeviceSize bufferSize = sizeof(Vertex) * m_VertexCount;
 		uint32_t vertexSize = sizeof(Vertex);
 
@@ -151,7 +139,7 @@ namespace Vulture
 			for the vertexBuffer, along with the vertex buffer usage flag.
 		*/
 
-		VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 		if (Device::UseRayTracing())
 			usageFlags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		
@@ -206,7 +194,7 @@ namespace Vulture
 			and the transfer destination flag(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
 			for the IndexBuffer, along with the IndexBuffer usage flag.
 		*/
-		VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		VkBufferUsageFlags usageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 		if (Device::UseRayTracing())
 			usageFlags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		
@@ -247,6 +235,11 @@ namespace Vulture
 		Init(createInfo);
 	}
 
+	Mesh::Mesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& mat /*= glm::mat4(1.0f)*/, VkBufferUsageFlags customUsageFlags /*= 0*/)
+	{
+		Init(mesh, scene, mat, customUsageFlags);
+	}
+
 	Mesh& Mesh::operator=(Mesh&& other) noexcept
 	{
 		if (m_Initialized)
@@ -283,11 +276,11 @@ namespace Vulture
 	{
 		if (m_HasIndexBuffer)
 		{ 
-			vkCmdDrawIndexed(commandBuffer, m_IndexCount, instanceCount, 0, 0, firstInstance); 
+			vkCmdDrawIndexed(commandBuffer, (uint32_t)m_IndexCount, instanceCount, 0, 0, firstInstance); 
 		}
 		else 
 		{ 
-			vkCmdDraw(commandBuffer, m_VertexCount, instanceCount, 0, firstInstance); 
+			vkCmdDraw(commandBuffer, (uint32_t)m_VertexCount, instanceCount, 0, firstInstance); 
 		}
 	}
 
@@ -313,9 +306,7 @@ namespace Vulture
 		attributeDescriptions.reserve(5);
 		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Position) });
 		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Normal) });
-		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Tangent) });
-		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 3, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Bitangent) });
-		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 4, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, TexCoord) });
+		attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{ 2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, TexCoord) });
 
 		return attributeDescriptions;
 	}

@@ -5,7 +5,10 @@
 #include "Asset.h"
 #include <unordered_map>
 #include "AssetManager.h"
-#include "Renderer/Model.h"
+
+#include "glm/gtx/matrix_decompose.hpp"
+
+#include "Renderer/Renderer.h"
 
 namespace Vulture
 {
@@ -87,11 +90,18 @@ namespace Vulture
 		return  AssetManager::GetAsset(*this)->GetAssetType();
 	}
 
-	Model* AssetHandle::GetModel() const
+	Mesh* AssetHandle::GetMesh() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		return &reinterpret_cast<ModelAsset*>( AssetManager::GetAsset(*this))->Model;
+		return &reinterpret_cast<MeshAsset*>(AssetManager::GetAsset(*this))->Mesh;
+	}
+
+	Material* AssetHandle::GetMaterial() const
+	{
+		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
+
+		return &reinterpret_cast<MaterialAsset*>(AssetManager::GetAsset(*this))->Material;
 	}
 
 	Scene* AssetHandle::GetScene() const
@@ -113,14 +123,22 @@ namespace Vulture
 		if (!m_Initialized)
 			return false;
 
-		return  AssetManager::IsAssetValid(*this);
+		return AssetManager::IsAssetValid(*this);
+	}
+
+	bool AssetHandle::DoesHandleExist() const
+	{
+		if (!m_Initialized)
+			return false;
+
+		return AssetManager::DoesHandleExist(*this);
 	}
 
 	bool AssetHandle::IsAssetLoaded() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		return  AssetManager::IsAssetLoaded(*this);
+		return AssetManager::IsAssetLoaded(*this);
 	}
 
 	void AssetHandle::Unload() const
@@ -163,4 +181,86 @@ namespace Vulture
 
 		return m_Handle == other;
 	}
+
+	void ModelAsset::CreateEntities(Vulture::Scene* outScene)
+	{
+		for (int i = 0; i < Meshes.size(); i++)
+		{
+			Vulture::Entity entity = outScene->CreateEntity();
+
+			auto& meshComp = entity.AddComponent<MeshComponent>();
+			meshComp.AssetHandle = Meshes[i];
+
+			auto& nameComp = entity.AddComponent<NameComponent>();
+			nameComp.Name = MeshNames[i];
+
+			auto& materialComp = entity.AddComponent<MaterialComponent>();
+			materialComp.AssetHandle = Materials[i];
+
+			glm::mat4 modelMatrix{ 1.0f };
+			glm::vec3 translation{};
+			glm::vec3 scale{};
+			glm::vec3 skew; // don't care
+			glm::vec4 perspective; // don't care
+
+			glm::quat rotation{};
+
+			glm::decompose(MeshTransfrorms[i], scale, rotation, translation, skew, perspective);
+
+			Vulture::Transform transform;
+			transform.SetRotation(rotation);
+			transform.SetTranslation(translation);
+			transform.SetScale(scale);
+
+			auto& transformComp = entity.AddComponent<TransformComponent>();
+			transformComp.Transform = std::move(transform);
+
+			// This automatically waits for textures
+			Materials[i].GetMaterial()->Textures.CreateSet();
+
+			meshComp.AssetHandle.WaitToLoad();
+		}
+	}
+
+	void MaterialTextures::CreateSet()
+	{
+		Vulture::DescriptorSetLayout::Binding bin1{ 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+		Vulture::DescriptorSetLayout::Binding bin2{ 1, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+		Vulture::DescriptorSetLayout::Binding bin3{ 2, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+		Vulture::DescriptorSetLayout::Binding bin4{ 3, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT };
+
+		TexturesSet.Init(&Vulture::Renderer::GetDescriptorPool(), { bin1, bin2, bin3, bin4 });
+
+		AlbedoTexture.WaitToLoad();
+		TexturesSet.AddImageSampler(
+			0,
+			{ Vulture::Renderer::GetLinearRepeatSampler().GetSamplerHandle(),
+			AlbedoTexture.GetImage()->GetImageView(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+		);
+		NormalTexture.WaitToLoad();
+		TexturesSet.AddImageSampler(
+			1,
+			{ Vulture::Renderer::GetLinearRepeatSampler().GetSamplerHandle(),
+			NormalTexture.GetImage()->GetImageView(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+		);
+		RoughnessTexture.WaitToLoad();
+		TexturesSet.AddImageSampler(
+			2,
+			{ Vulture::Renderer::GetLinearRepeatSampler().GetSamplerHandle(),
+			RoughnessTexture.GetImage()->GetImageView(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+		);
+		MetallnessTexture.WaitToLoad();
+		TexturesSet.AddImageSampler(
+			3,
+			{ Vulture::Renderer::GetLinearRepeatSampler().GetSamplerHandle(),
+			MetallnessTexture.GetImage()->GetImageView(),
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+		);
+
+		TexturesSet.Build();
+	}
+
 }
