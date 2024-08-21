@@ -40,7 +40,7 @@ namespace Vulture
 			return m_Entity.GetComponent<T>();
 		}
 
-		Entity m_Entity;
+		Entity m_Entity; // Assigned when InitScripts is called on the scene object
 	};
 
 	class ScriptComponent : public SerializeBaseClass

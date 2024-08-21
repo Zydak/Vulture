@@ -38,7 +38,7 @@ namespace Vulture
 		{
 			float Contrast = 1.0f;
 			float Saturation = 1.0f;
-			float Exposure = 0.5f;
+			float Exposure = 1.0f;
 			float Brightness = 0.0f;
 			float Vignette = 0.0f;
 			float Gamma = 1.0f;

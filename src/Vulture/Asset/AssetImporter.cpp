@@ -181,11 +181,11 @@ namespace Vulture
 			mat.MaterialName = matName;
 
 			std::unique_ptr<Asset> materialAsset = std::make_unique<MaterialAsset>(std::move(mat));
-			AssetHandle materialHandle = AssetManager::AddAsset(filepath + "/" + matName, std::move(materialAsset));
+			AssetHandle materialHandle = AssetManager::AddAsset(filepath + "::" + matName, std::move(materialAsset));
 			outAsset->Materials.push_back(materialHandle);
 
 			std::unique_ptr<Asset> meshAsset = std::make_unique<MeshAsset>(std::move(vlMesh));
-			AssetHandle meshHandle = AssetManager::AddAsset(filepath + "::" + meshName + std::to_string(index), std::move(meshAsset));
+			AssetHandle meshHandle = AssetManager::AddAsset(filepath + "::" + meshName, std::move(meshAsset));
 
 			outAsset->MeshNames.push_back(meshName);
 			outAsset->Meshes.push_back(meshHandle);
