@@ -99,8 +99,8 @@ namespace Vulture
 
 		float Ior = 1.5f;
 		float Transparency = 0.0f;
-	private:
-		float eta = 0.0f;
+
+		float Anisotropy = 0.0f;
 	};
 
 	class MaterialTextures
