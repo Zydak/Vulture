@@ -74,9 +74,9 @@ namespace Vulture
 		};
 
 		msdf_atlas::Charset charset;
-		for (int i = 0; i < 2; i += 2)
+		//for (int i = 0; i < 2; i += i)
 		{
-			for (uint32_t c = charsetRanges[i]; c < charsetRanges[i + 1]; c++)
+			for (uint32_t c = charsetRanges[0]; c < charsetRanges[1]; c++)
 			{
 				charset.add(c);
 			}
@@ -89,7 +89,7 @@ namespace Vulture
 		msdf_atlas::TightAtlasPacker atlasPacker;
 		atlasPacker.setPixelRange(2.0f);
 		atlasPacker.setMiterLimit(1.0f);
-		atlasPacker.setPadding(0);
+		atlasPacker.setPadding(1);
 		atlasPacker.setScale(fontSize);
 		atlasPacker.setDimensions((int)atlasSize.x, (int)atlasSize.y);
 		uint32_t remaining = atlasPacker.pack(m_Glyphs.data(), (int)m_Glyphs.size());

@@ -44,7 +44,7 @@ namespace Vulture
 		void Unmap();
 
 		void WriteToBuffer(void* data, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0, VkCommandBuffer cmdBuffer = 0);
-		void ReadFromBuffer(void* outData, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0, VkCommandBuffer cmdBuffer = 0);
+		void ReadFromBuffer(void* outData, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 
 		VkResult Flush(VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
 		VkDescriptorBufferInfo DescriptorInfo();

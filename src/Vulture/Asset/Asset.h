@@ -95,7 +95,6 @@ namespace Vulture
 		float Metallic = 0.0f;
 		float Roughness = 1.0f;
 		float SpecularTint = 0.0f;
-		float SpecularStrength = 0.0f;
 
 		float Ior = 1.5f;
 		float Transparency = 0.0f;

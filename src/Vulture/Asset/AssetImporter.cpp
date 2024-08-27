@@ -118,7 +118,6 @@ namespace Vulture
 			material->Get(AI_MATKEY_ROUGHNESS_FACTOR, mat.Properties.Roughness);
 			material->Get(AI_MATKEY_METALLIC_FACTOR, mat.Properties.Metallic);
 			material->Get(AI_MATKEY_REFRACTI, mat.Properties.Ior);
-			mat.Properties.SpecularStrength = mat.Properties.Ior - 1.0f;
 			mat.Properties.Ior = glm::max(mat.Properties.Ior, 1.001f);
 
 			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_DIFFUSE); i++)

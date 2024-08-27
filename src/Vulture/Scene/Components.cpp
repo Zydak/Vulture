@@ -124,14 +124,9 @@ namespace Vulture
 		std::vector<char> indices(indexCount * sizeof(uint32_t));
 
 		// Read buffers into vectors
-		VkCommandBuffer cmd;
-		Device::BeginSingleTimeCommands(cmd, Device::GetGraphicsCommandPool());
-
-		vertexBuffer->ReadFromBuffer(vertices.data(), vertices.size(), 0, cmd);
+		vertexBuffer->ReadFromBuffer(vertices.data(), vertices.size(), 0);
 		if (mesh->HasIndexBuffer()) // skip if empty
-			indexBuffer->ReadFromBuffer(indices.data(), indices.size(), 0, cmd);
-
-		Device::EndSingleTimeCommands(cmd, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
+			indexBuffer->ReadFromBuffer(indices.data(), indices.size(), 0);
 
 		// Start serializing
 

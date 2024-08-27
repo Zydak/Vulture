@@ -403,7 +403,7 @@ namespace Vulture
 			Device::EndSingleTimeCommands(cmd, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 	}
 
-	void Buffer::ReadFromBuffer(void* outData, VkDeviceSize size /*= VK_WHOLE_SIZE*/, VkDeviceSize offset /*= 0*/, VkCommandBuffer cmdBuffer /*= 0*/)
+	void Buffer::ReadFromBuffer(void* outData, VkDeviceSize size /*= VK_WHOLE_SIZE*/, VkDeviceSize offset /*= 0*/)
 	{
 		// Check if the Buffer has been initialized.
 		VL_CORE_ASSERT(m_Initialized, "Buffer Not Initialized!");
@@ -417,13 +417,6 @@ namespace Vulture
 		if (size == VK_WHOLE_SIZE)
 			size = m_BufferSize - offset;
 
-		// If no command buffer is provided, begin a temporary single time command buffer.
-		VkCommandBuffer cmd;
-		if (cmdBuffer == VK_NULL_HANDLE)
-			Device::BeginSingleTimeCommands(cmd, Device::GetGraphicsCommandPool());
-		else
-			cmd = cmdBuffer;
-
 		// If the buffer is device local, use a staging buffer to transfer the data.
 		if (m_MemoryPropertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 		{
@@ -436,15 +429,16 @@ namespace Vulture
 			info.UsageFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 			Buffer stagingBuffer(info);
 
+			VkCommandBuffer cmd;
+			Device::BeginSingleTimeCommands(cmd, Device::GetGraphicsCommandPool());
 			Buffer::CopyBuffer(m_BufferHandle, stagingBuffer.GetBuffer(), size, 0, offset, Device::GetGraphicsQueue(), cmd, Device::GetGraphicsCommandPool());
 			Device::EndSingleTimeCommands(cmd, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool()); // End the command to synch with CPU
-			Device::BeginSingleTimeCommands(cmd, Device::GetGraphicsCommandPool()); // Begin new one again
 
 			// Map the staging buffer.
 			stagingBuffer.Map();
 
 			// Write data to the staging buffer.
-			stagingBuffer.ReadFromBuffer(outData, size, 0, cmd);
+			stagingBuffer.ReadFromBuffer(outData, size, 0);
 
 			// Unmap the staging buffer.
 			stagingBuffer.Unmap();
@@ -459,11 +453,6 @@ namespace Vulture
 
 			memcpy(outData, m_Mapped, size);
 		}
-
-
-		// If no command buffer was provided, end the temporary single time command buffer and submit it.
-		if (cmdBuffer == VK_NULL_HANDLE)
-			Device::EndSingleTimeCommands(cmd, Device::GetGraphicsQueue(), Device::GetGraphicsCommandPool());
 	}
 
 	/**
