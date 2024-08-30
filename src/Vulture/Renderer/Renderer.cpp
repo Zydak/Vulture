@@ -793,23 +793,4 @@ namespace Vulture
 		VL_CORE_ASSERT(s_IsFrameStarted, "Cannot get frame index when frame is not in progress");
 		return s_CurrentFrameIndex;
 	}
-
-	uint32_t Renderer::m_MaxFramesInFlight;
-	Window* Renderer::s_Window;
-	Scope<DescriptorPool> Renderer::s_Pool;
-	Scope<Swapchain> Renderer::s_Swapchain;
-	std::vector<VkCommandBuffer> Renderer::s_CommandBuffers;
-	bool Renderer::s_IsFrameStarted = false;
-	uint32_t Renderer::s_CurrentImageIndex = 0;
-	uint32_t Renderer::s_CurrentFrameIndex = 0;
-	Scene* Renderer::s_CurrentSceneRendered;
-	bool Renderer::s_Initialized = true;
-	Pipeline Renderer::s_HDRToPresentablePipeline;
-	Vulture::Pipeline Renderer::s_EnvToCubemapPipeline;
-	Mesh Renderer::s_QuadMesh;
-	Sampler Renderer::s_RendererLinearSampler;
-	Sampler Renderer::s_RendererLinearSamplerRepeat;
-	Sampler Renderer::s_RendererNearestSampler;
-	Ref<Vulture::DescriptorSet> Renderer::s_EnvToCubemapDescriptorSet;
-	std::function<void()> Renderer::s_ImGuiFunction;
 }

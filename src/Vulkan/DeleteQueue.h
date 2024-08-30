@@ -7,6 +7,7 @@
 #include "Pipeline.h"
 #include "Image.h"
 #include "DescriptorSet.h"
+#include "Framebuffer.h"
 
 namespace Vulture
 {
@@ -30,8 +31,9 @@ namespace Vulture
 		static void TrashImage(Image& image);
 		static void TrashBuffer(Buffer& buffer);
 		static void TrashDescriptorSetLayout(DescriptorSetLayout& set);
+		static void TrashRenderPass(VkRenderPass renderPass);
+		static void TrashFramebuffer(VkFramebuffer framebuffer);
 	private:
-		static uint32_t s_FramesInFlight;
 
 		struct PipelineInfo
 		{
@@ -58,9 +60,13 @@ namespace Vulture
 			VkDescriptorSetLayout DescriptorSetLayoutHandle;
 		};
 
-		static std::vector<std::pair<PipelineInfo, uint32_t>> s_PipelineQueue;
-		static std::vector<std::pair<ImageInfo, uint32_t>> s_ImageQueue;
-		static std::vector<std::pair<BufferInfo, uint32_t>> s_BufferQueue;
-		static std::vector<std::pair<DescriptorInfo, uint32_t>> s_SetQueue;
+		inline static uint32_t s_FramesInFlight = 0;
+
+		inline static std::vector<std::pair<PipelineInfo, uint32_t>> s_PipelineQueue;
+		inline static std::vector<std::pair<ImageInfo, uint32_t>> s_ImageQueue;
+		inline static std::vector<std::pair<BufferInfo, uint32_t>> s_BufferQueue;
+		inline static std::vector<std::pair<DescriptorInfo, uint32_t>> s_SetQueue;
+		inline static std::vector<std::pair<VkRenderPass, uint32_t>> s_RenderPassQueue;
+		inline static std::vector<std::pair<VkFramebuffer, uint32_t>> s_FramebufferQueue;
 	};
 }

@@ -7,6 +7,8 @@
 #include "Framebuffer.h"
 #include <vulkan/vulkan_core.h>
 
+#include "DeleteQueue.h"
+
 namespace Vulture
 {
 	/*
@@ -85,9 +87,8 @@ namespace Vulture
 		if (!m_Initialized)
 			return;
 
-		vkDestroyFramebuffer(Device::GetDevice(), m_FramebufferHandle, nullptr);
-
-		vkDestroyRenderPass(Device::GetDevice(), m_RenderPass, nullptr);
+		Vulture::DeleteQueue::TrashRenderPass(m_RenderPass);
+		Vulture::DeleteQueue::TrashFramebuffer(m_FramebufferHandle);
 
 		Reset();
 	}
@@ -138,11 +139,11 @@ namespace Vulture
 		vkCmdEndRenderPass(cmd);
 	}
 
-	void Framebuffer::TransitionImageLayout(VkImageLayout newLayout, VkCommandBuffer cmd, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
+	void Framebuffer::TransitionImageLayout(VkImageLayout newLayout, VkCommandBuffer cmd)
 	{
 		for (int i = 0; i < m_Images.size(); i++)
 		{
-			m_Images[i]->TransitionImageLayout(newLayout, cmd, srcAccess, dstAccess, srcStage, dstStage);
+			m_Images[i]->TransitionImageLayout(newLayout, cmd);
 		}
 	}
 

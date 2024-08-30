@@ -169,7 +169,7 @@ namespace Vulture
 		Init(imageInfo);
 	}
 
-	void Image::WritePixels(void* data, VkCommandBuffer cmd)
+	void Image::WritePixels(void* data, VkCommandBuffer cmd, uint32_t baseLayer)
 	{
 		bool cmdProvided = cmd != 0;
 
@@ -192,10 +192,10 @@ namespace Vulture
 		buffer.WriteToBuffer((void*)data, (uint32_t)imageSize);
 		buffer.Unmap();
 
-		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmd);
-		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height, cmd);
+		TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmd, baseLayer);
+		CopyBufferToImage(buffer.GetBuffer(), (uint32_t)m_Size.width, (uint32_t)m_Size.height, baseLayer, cmd);
 		if (m_Initialized)
-			TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd); // Keep the image layout for mip mapping later on
+			TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmd, baseLayer); // If it's not initialized then keep the image layout for mip mapping later on
 
 		if (!cmdProvided)
 		{
@@ -214,24 +214,23 @@ namespace Vulture
 	 */
 	void Image::CreateImageView(VkFormat format, VkImageAspectFlagBits aspect, int layerCount, VkImageViewType imageType)
 	{
-		m_ImageViews.resize(layerCount);
-		for (int i = 0; i < layerCount; i++)
-		{
-			VkImageViewCreateInfo viewInfo{};
-			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			viewInfo.image = m_ImageHandle;
-			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			viewInfo.format = format;
-			viewInfo.subresourceRange.aspectMask = aspect;
-			viewInfo.subresourceRange.baseMipLevel = 0;
-			viewInfo.subresourceRange.levelCount = m_MipLevels;
-			viewInfo.subresourceRange.baseArrayLayer = i;
-			viewInfo.subresourceRange.layerCount = 1;
-			VL_CORE_RETURN_ASSERT(vkCreateImageView(Device::GetDevice(), &viewInfo, nullptr, &m_ImageViews[i]),
-				VK_SUCCESS,
-				"failed to create image view layer!"
-			);
-		}
+		m_ImageViews.resize(1);
+		// Maybe add more image views when there's one view per layer for layered images?
+
+		VkImageViewCreateInfo viewInfo{};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.image = m_ImageHandle;
+		viewInfo.viewType = imageType;
+		viewInfo.format = format;
+		viewInfo.subresourceRange.aspectMask = aspect;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = m_MipLevels;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = layerCount;
+		VL_CORE_RETURN_ASSERT(vkCreateImageView(Device::GetDevice(), &viewInfo, nullptr, &m_ImageViews[0]),
+			VK_SUCCESS,
+			"failed to create image view layer!"
+		);
 	}
 
 	/*
@@ -393,7 +392,7 @@ namespace Vulture
 	 * @param newLayout - The new layout to transition the image to.
 	 * @param cmdBuffer - Optional command buffer for the transition (useful for custom command buffer recording).
 	 */
-	void Image::TransitionImageLayout(VkImageLayout newLayout, VkCommandBuffer cmdBuffer, VkAccessFlags srcAccess, VkAccessFlags dstAccess, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
+	void Image::TransitionImageLayout(VkImageLayout newLayout, VkCommandBuffer cmdBuffer, uint32_t baseLayer)
 	{
 		if (newLayout == VK_IMAGE_LAYOUT_UNDEFINED)
 			return;
@@ -404,6 +403,11 @@ namespace Vulture
 			Device::BeginSingleTimeCommands(commandBuffer, Device::GetGraphicsCommandPool());
 		else
 			commandBuffer = cmdBuffer;
+
+		VkAccessFlags srcAccess = 0;
+		VkAccessFlags dstAccess = 0;
+		VkPipelineStageFlags srcStage = 0;
+		VkPipelineStageFlags dstStage = 0;
 
 		switch (m_Layout)
 		{
@@ -467,9 +471,9 @@ namespace Vulture
 		barrier.image = m_ImageHandle;
 		VkImageSubresourceRange range{};
 		range.aspectMask = m_Aspect;
-		range.baseArrayLayer = 0;
-		range.baseMipLevel = 0;
+		range.baseArrayLayer = baseLayer;
 		range.layerCount = 1;
+		range.baseMipLevel = 0;
 		range.levelCount = m_MipLevels;
 		barrier.subresourceRange = range;
 		barrier.srcAccessMask = srcAccess;
@@ -518,9 +522,11 @@ namespace Vulture
 	 * @param buffer - The source buffer containing the data to copy.
 	 * @param width - The width of the image region to copy.
 	 * @param height - The height of the image region to copy.
+	 * @param baseLayer - Layer to which data will be copied.
+	 * @param cmd - Optional command buffer.
 	 * @param offset - The offset in the image to copy the data to.
 	 */
-	void Image::CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, VkCommandBuffer cmd, VkOffset3D offset)
+	void Image::CopyBufferToImage(VkBuffer buffer, uint32_t width, uint32_t height, uint32_t baseLayer, VkCommandBuffer cmd, VkOffset3D offset)
 	{
 		bool cmdProvided = cmd != 0;
 
@@ -536,7 +542,7 @@ namespace Vulture
 
 		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		region.imageSubresource.mipLevel = 0;
-		region.imageSubresource.baseArrayLayer = 0;
+		region.imageSubresource.baseArrayLayer = baseLayer;
 		region.imageSubresource.layerCount = 1;
 
 		region.imageOffset = offset;

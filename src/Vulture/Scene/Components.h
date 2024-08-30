@@ -16,13 +16,16 @@
 #include "Entity.h"
 #include "Asset/Asset.h"
 
+#include "Effects/Tonemap.h"
+#include "Effects/Bloom.h"
+
 namespace Vulture
 {
 	class SerializeBaseClass
 	{
 	public:
 		virtual std::vector<char> Serialize() { return {}; }
-		virtual void Deserialize(const std::vector<char>& bytes) {  }
+		virtual void Deserialize(const std::vector<char>& bytes) { }
 	};
 
 	class ScriptInterface
@@ -163,5 +166,37 @@ namespace Vulture
 		void Deserialize(const std::vector<char>& bytes) override;
 
 		std::string Name;
+	};
+
+	class TonemapperSettingsComponent : public Vulture::SerializeBaseClass
+	{
+	public:
+		TonemapperSettingsComponent() = default;
+		~TonemapperSettingsComponent() = default;
+		TonemapperSettingsComponent(TonemapperSettingsComponent&& other) noexcept { Settings = std::move(other.Settings); };
+		TonemapperSettingsComponent(const TonemapperSettingsComponent& other) { Settings = other.Settings; };
+		TonemapperSettingsComponent& operator=(const TonemapperSettingsComponent& other) { Settings = other.Settings; return *this; };
+		TonemapperSettingsComponent& operator=(TonemapperSettingsComponent&& other) noexcept { Settings = std::move(other.Settings); return *this; };
+
+		std::vector<char> Serialize() override;
+		void Deserialize(const std::vector<char>& bytes) override;
+
+		Vulture::Tonemap::TonemapInfo Settings{};
+	};
+
+	class BloomSettingsComponent : public Vulture::SerializeBaseClass
+	{
+	public:
+		BloomSettingsComponent() = default;
+		~BloomSettingsComponent() = default;
+		BloomSettingsComponent(BloomSettingsComponent&& other) noexcept { Settings = std::move(other.Settings); };
+		BloomSettingsComponent(const BloomSettingsComponent& other) { Settings = other.Settings; };
+		BloomSettingsComponent& operator=(const BloomSettingsComponent& other) { Settings = other.Settings; return *this; };
+		BloomSettingsComponent& operator=(BloomSettingsComponent&& other) noexcept { Settings = std::move(other.Settings); return *this; };
+
+		std::vector<char> Serialize() override;
+		void Deserialize(const std::vector<char>& bytes) override;
+
+		Vulture::Bloom::BloomInfo Settings{};
 	};
 }

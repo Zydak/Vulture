@@ -45,9 +45,9 @@ namespace Vulture
 		pixelBuffer.Map(bitmap.width * bitmap.height * 4);
 		pixelBuffer.WriteToBuffer((void*)bitmap.pixels, bitmap.width * bitmap.height * 4);
 		pixelBuffer.Unmap();
-		tex->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+		tex->TransitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 		tex->CopyBufferToImage(pixelBuffer.GetBuffer(), bitmap.width, bitmap.height);
-		tex->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+		tex->TransitionImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		return tex;
 	}
 

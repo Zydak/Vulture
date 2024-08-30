@@ -49,19 +49,24 @@ namespace Vulture
 			DescriptorSetLayout::Binding bin1{ 1, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT };
 			DescriptorSetLayout imageLayout({ bin, bin1 });
 
-			std::string currentTonemapper = GetTonemapperMacroDefinition(info.Tonemapper);
+			std::string currentTonemapper = GetTonemapperMacroDefinition(m_CurrentTonemapper);
 
-			Pipeline::ComputeCreateInfo info{};
-			Shader shader({ "../Vulture/src/Vulture/Shaders/Tonemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT, { {currentTonemapper, ""} } });
-			info.Shader = &shader;
+			Pipeline::ComputeCreateInfo pipelineInfo{};
 
-			info.DescriptorSetLayouts = {
+			std::vector<Shader::Define> defines = { {currentTonemapper, ""} };
+			if (m_EnableChromaticAberration)
+				defines.emplace_back(Shader::Define{ "USE_CHROMATIC_ABERRATION", "" });
+
+			Shader shader({ "../Vulture/src/Vulture/Shaders/Tonemap.comp" , VK_SHADER_STAGE_COMPUTE_BIT, defines });
+			pipelineInfo.Shader = &shader;
+
+			pipelineInfo.DescriptorSetLayouts = {
 				imageLayout.GetDescriptorSetLayoutHandle()
 			};;
-			info.PushConstants = m_Push.GetRangePtr();
-			info.debugName = "Tone Map Pipeline";
+			pipelineInfo.PushConstants = m_Push.GetRangePtr();
+			pipelineInfo.debugName = "Tone Map Pipeline";
 
-			m_Pipeline.Init(info);
+			m_Pipeline.Init(pipelineInfo);
 		}
 
 		m_Initialized = true;
@@ -153,6 +158,13 @@ namespace Vulture
 
 	void Tonemap::Run(const TonemapInfo& info, VkCommandBuffer cmd)
 	{
+		if (m_CurrentTonemapper != info.Tonemapper || m_EnableChromaticAberration != info.ChromaticAberration)
+		{
+			m_CurrentTonemapper = info.Tonemapper;
+			m_EnableChromaticAberration = info.ChromaticAberration;
+			RecompileShader(m_CurrentTonemapper, m_EnableChromaticAberration);
+		}
+
 		m_OutputImage->TransitionImageLayout(
 			VK_IMAGE_LAYOUT_GENERAL,
 			Vulture::Renderer::GetCurrentCommandBuffer()
@@ -210,6 +222,9 @@ namespace Vulture
 		m_InputImage = nullptr;
 		m_OutputImage = nullptr;
 		m_Initialized = false;
+
+		m_CurrentTonemapper = Tonemappers::Filmic;
+		m_EnableChromaticAberration = false;
 	}
 
 }

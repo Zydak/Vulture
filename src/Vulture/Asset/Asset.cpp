@@ -94,28 +94,28 @@ namespace Vulture
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		return &reinterpret_cast<MeshAsset*>(AssetManager::GetAsset(*this))->Mesh;
+		return &dynamic_cast<MeshAsset*>(AssetManager::GetAsset(*this))->Mesh;
 	}
 
 	Material* AssetHandle::GetMaterial() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		return &reinterpret_cast<MaterialAsset*>(AssetManager::GetAsset(*this))->Material;
+		return &dynamic_cast<MaterialAsset*>(AssetManager::GetAsset(*this))->Material;
 	}
 
 	Scene* AssetHandle::GetScene() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		return &reinterpret_cast<SceneAsset*>(AssetManager::GetAsset(*this))->Scene;
+		return &dynamic_cast<SceneAsset*>(AssetManager::GetAsset(*this))->Scene;
 	}
 
 	Image* AssetHandle::GetImage() const
 	{
 		VL_CORE_ASSERT(m_Initialized, "Handle is not Initialized!");
 
-		return &reinterpret_cast<TextureAsset*>( AssetManager::GetAsset(*this))->Image;
+		return &dynamic_cast<TextureAsset*>( AssetManager::GetAsset(*this))->Image;
 	}
 
 	bool AssetHandle::IsAssetValid() const
@@ -188,8 +188,9 @@ namespace Vulture
 		{
 			Vulture::Entity entity = outScene->CreateEntity();
 
-			auto& meshComp = entity.AddComponent<MeshComponent>();
-			meshComp.AssetHandle = Meshes[i];
+			Vulture::MeshComponent* meshComp = &entity.AddComponent<MeshComponent>();
+			Vulture::Mesh* mesh = Meshes[i].GetMesh();
+			meshComp->AssetHandle = Meshes[i];
 
 			auto& nameComp = entity.AddComponent<NameComponent>();
 			nameComp.Name = MeshNames[i];
@@ -218,7 +219,7 @@ namespace Vulture
 			// This automatically waits for textures
 			Materials[i].GetMaterial()->Textures.CreateSet();
 
-			meshComp.AssetHandle.WaitToLoad();
+			meshComp->AssetHandle.WaitToLoad();
 		}
 	}
 

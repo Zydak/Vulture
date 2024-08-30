@@ -84,7 +84,6 @@ namespace Vulture
 		}
 
 		CreateBloomMips();
-		RecreateDescriptors(info.MipsCount);
 
 		m_Initialized = true;
 	}
@@ -156,8 +155,15 @@ namespace Vulture
 		Destroy();
 	}
 
-	void Bloom::Run(const BloomInfo& bloomInfo, VkCommandBuffer cmd)
+	void Bloom::Run(const BloomInfo& _bloomInfo, VkCommandBuffer cmd)
 	{
+		BloomInfo bloomInfo = _bloomInfo;
+
+		if (bloomInfo.MipCount != m_CurrentMipCount)
+		{
+			RecreateDescriptors(bloomInfo.MipCount);
+		}
+
 		if (m_InputImage->GetImage() != m_OutputImage->GetImage())
 		{
 			VkImageLayout prevInputLayout = m_InputImage->GetLayout();
@@ -178,8 +184,8 @@ namespace Vulture
 		if (bloomInfo.MipCount <= 0 || bloomInfo.MipCount > 10)
 		{
 			VL_CORE_WARN("Incorrect mips count! {}. Min = 1 & Max = 10", bloomInfo.MipCount);
-			return;
 		}
+		bloomInfo.MipCount = glm::clamp(bloomInfo.MipCount, (uint32_t)0, (uint32_t)10);
 
 		auto* data = m_Push.GetDataPtr();
 		data->MipCount = bloomInfo.MipCount;
@@ -264,7 +270,7 @@ namespace Vulture
 		};
 
 		// TODO: detect error when accidentally calling AddImageSampelr instead of Update, could be useful
-		m_AccumulateSet[info.MipsCount].UpdateImageSampler(
+		m_AccumulateSet[m_CurrentMipCount].UpdateImageSampler(
 			1,
 			imageInfo
 		);
@@ -272,11 +278,13 @@ namespace Vulture
 
 	void Bloom::RecreateDescriptors(uint32_t mipsCount)
 	{
+		m_CurrentMipCount = mipsCount;
+
 		if (mipsCount <= 0 || mipsCount > 10)
 		{
 			VL_CORE_WARN("Incorrect mips count! {}. Min = 1 & Max = 10", mipsCount);
-			return;
 		}
+		mipsCount = glm::clamp(mipsCount, (uint32_t)0, (uint32_t)10);
 
 		//-----------------------------------------------
 		// Descriptor sets
@@ -386,6 +394,7 @@ namespace Vulture
 		m_InputImage = nullptr;
 		m_OutputImage = nullptr;
 		m_Initialized = false;
+		m_CurrentMipCount = 0;
 	}
 
 }

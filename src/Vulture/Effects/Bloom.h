@@ -20,15 +20,13 @@ namespace Vulture
 		{
 			Image* InputImage = nullptr;
 			Image* OutputImage = nullptr;
-
-			uint32_t MipsCount = 10;
 		};
 
 		struct BloomInfo
 		{
 			float Threshold = 1.5f;
 			float Strength = 0.4f;
-			int MipCount = 10;
+			uint32_t MipCount = 10;
 		};
 
 		void Init(const CreateInfo& info);
@@ -46,12 +44,11 @@ namespace Vulture
 		void Run(const BloomInfo& bloomInfo, VkCommandBuffer cmd);
 
 		void UpdateDescriptors(const CreateInfo& info);
-		void RecreateDescriptors(uint32_t mipsCount);
-		void CreateBloomMips();
 
 		inline bool IsInitialized() const { return m_Initialized; }
 	private:
-
+		void RecreateDescriptors(uint32_t mipsCount);
+		void CreateBloomMips();
 		PushConstant<BloomInfo> m_Push;
 
 		VkExtent2D m_ImageSize = { 0, 0 };
@@ -68,6 +65,8 @@ namespace Vulture
 
 		Image* m_InputImage = nullptr;
 		Image* m_OutputImage = nullptr;
+
+		uint32_t m_CurrentMipCount = 0;
 
 		bool m_Initialized = false;
 

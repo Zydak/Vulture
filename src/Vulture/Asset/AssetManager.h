@@ -83,11 +83,11 @@ namespace Vulture
 		}
 	private:
 
-		static std::unordered_map<AssetHandle, AssetWithFuture> s_Assets;
-		static ThreadPool s_ThreadPool;
-		static std::mutex s_AssetsMutex;
+		inline static std::unordered_map<AssetHandle, AssetWithFuture> s_Assets;
+		inline static ThreadPool s_ThreadPool;
+		inline static std::mutex s_AssetsMutex;
 
-		static bool s_Initialized;
+		inline static bool s_Initialized = false;
 
 		friend class AssetImporter;
 	};

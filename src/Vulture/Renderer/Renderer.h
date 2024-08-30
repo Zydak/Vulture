@@ -78,32 +78,31 @@ namespace Vulture
 		static void InitImGui();
 		static void DestroyImGui();
 
-		static uint32_t m_MaxFramesInFlight;
-		
-		static Scope<DescriptorPool> s_Pool;
-		static Window* s_Window;
-		static std::vector<VkCommandBuffer> s_CommandBuffers;
-		static Scope<Swapchain> s_Swapchain;
+		inline static uint32_t m_MaxFramesInFlight = 0;
 
-		static bool s_IsFrameStarted;
-		static uint32_t s_CurrentImageIndex;
-		static uint32_t s_CurrentFrameIndex;
+		inline static Scope<DescriptorPool> s_Pool = nullptr;
+		inline static Window* s_Window = nullptr;
+		inline static std::vector<VkCommandBuffer> s_CommandBuffers;
+		inline static Scope<Swapchain> s_Swapchain = nullptr;
 
-		// TODO: delete this from here
-		static Scene* s_CurrentSceneRendered;
+		inline static bool s_IsFrameStarted = false;
+		inline static uint32_t s_CurrentImageIndex = 0;
+		inline static uint32_t s_CurrentFrameIndex = 0;
 
-		static Mesh s_QuadMesh;
-		static Sampler s_RendererLinearSampler;
-		static Sampler s_RendererLinearSamplerRepeat;
-		static Sampler s_RendererNearestSampler;
+		inline static Scene* s_CurrentSceneRendered = nullptr;
 
-		static Ref<DescriptorSet> s_EnvToCubemapDescriptorSet;
+		inline static Mesh s_QuadMesh;
+		inline static Sampler s_RendererLinearSampler;
+		inline static Sampler s_RendererLinearSamplerRepeat;
+		inline static Sampler s_RendererNearestSampler;
 
-		static Pipeline s_HDRToPresentablePipeline;
-		static Pipeline s_EnvToCubemapPipeline;
+		inline static Ref<DescriptorSet> s_EnvToCubemapDescriptorSet = nullptr;
 
-		static std::function<void()> s_ImGuiFunction;
+		inline static Pipeline s_HDRToPresentablePipeline;
+		inline static Pipeline s_EnvToCubemapPipeline;
 
-		static bool s_Initialized;
+		inline static std::function<void()> s_ImGuiFunction;
+
+		inline static bool s_Initialized = false;
 	};
 }

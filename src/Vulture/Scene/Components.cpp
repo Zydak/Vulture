@@ -317,7 +317,39 @@ namespace Vulture
 		mat.MaterialName = materialName;
 
 		std::unique_ptr<Asset> asset = std::make_unique<MaterialAsset>(std::move(mat));
-		AssetHandle = AssetManager::AddAsset(materialName, std::move(asset)); // TODO: do something if 2 materials have the same name?
+		AssetHandle = AssetManager::AddAsset(materialName, std::move(asset));
+	}
+
+	std::vector<char> TonemapperSettingsComponent::Serialize()
+	{
+		std::vector<char> bytes;
+
+		bytes.resize(sizeof(Vulture::Tonemap::TonemapInfo));
+
+		memcpy(bytes.data(), &Settings, sizeof(Vulture::Tonemap::TonemapInfo));
+
+		return bytes;
+	}
+
+	void TonemapperSettingsComponent::Deserialize(const std::vector<char>& bytes)
+	{
+		memcpy(&Settings, bytes.data(), sizeof(Vulture::Tonemap::TonemapInfo));
+	}
+
+	std::vector<char> BloomSettingsComponent::Serialize()
+	{
+		std::vector<char> bytes;
+
+		bytes.resize(sizeof(Vulture::Bloom::BloomInfo));
+
+		memcpy(bytes.data(), &Settings, sizeof(Vulture::Bloom::BloomInfo));
+
+		return bytes;
+	}
+
+	void BloomSettingsComponent::Deserialize(const std::vector<char>& bytes)
+	{
+		memcpy(&Settings, bytes.data(), sizeof(Vulture::Bloom::BloomInfo));
 	}
 
 }

@@ -179,9 +179,4 @@ namespace Vulture
 			}, asset);
 	}
 
-	std::unordered_map<Vulture::AssetHandle, Vulture::AssetWithFuture> AssetManager::s_Assets;
-	Vulture::ThreadPool AssetManager::s_ThreadPool;
-	std::mutex AssetManager::s_AssetsMutex;
-	bool AssetManager::s_Initialized = false;
-
 }

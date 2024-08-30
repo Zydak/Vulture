@@ -104,6 +104,42 @@ namespace Vulture
 				buf.second--;
 			}
 		}
+
+		// Render Passes
+		for (int i = 0; i < s_RenderPassQueue.size(); i++)
+		{
+			auto& renderPass = s_RenderPassQueue[i];
+			if (renderPass.second == 0)
+			{
+				// Destroy the Vulkan buffer and deallocate the buffer memory.
+				vkDestroyRenderPass(Vulture::Device::GetDevice(), renderPass.first, nullptr);
+
+				s_RenderPassQueue.erase(s_RenderPassQueue.begin() + i);
+				i = -1; // Go back to the beginning of the vector
+			}
+			else
+			{
+				renderPass.second--;
+			}
+		}
+
+		// Framebuffers
+		for (int i = 0; i < s_FramebufferQueue.size(); i++)
+		{
+			auto& framebuffer = s_FramebufferQueue[i];
+			if (framebuffer.second == 0)
+			{
+				// Destroy the Vulkan buffer and deallocate the buffer memory.
+				vkDestroyFramebuffer(Vulture::Device::GetDevice(), framebuffer.first, nullptr);
+
+				s_FramebufferQueue.erase(s_FramebufferQueue.begin() + i);
+				i = -1; // Go back to the beginning of the vector
+			}
+			else
+			{
+				framebuffer.second--;
+			}
+		}
 	}
 
 	void DeleteQueue::TrashPipeline(const Pipeline& pipeline)
@@ -143,11 +179,14 @@ namespace Vulture
 		s_SetQueue.emplace_back(std::make_pair(info, s_FramesInFlight));
 	}
 
-	uint32_t DeleteQueue::s_FramesInFlight = 0;
+	void DeleteQueue::TrashRenderPass(VkRenderPass renderPass)
+	{
+		s_RenderPassQueue.emplace_back(std::make_pair(renderPass, s_FramesInFlight));
+	}
 
-	std::vector<std::pair<Vulture::DeleteQueue::PipelineInfo, uint32_t>> DeleteQueue::s_PipelineQueue;
-	std::vector<std::pair<Vulture::DeleteQueue::ImageInfo, uint32_t>> DeleteQueue::s_ImageQueue;
-	std::vector<std::pair<Vulture::DeleteQueue::BufferInfo, uint32_t>> DeleteQueue::s_BufferQueue;
-	std::vector<std::pair<Vulture::DeleteQueue::DescriptorInfo, uint32_t>> DeleteQueue::s_SetQueue;
+	void DeleteQueue::TrashFramebuffer(VkFramebuffer framebuffer)
+	{
+		s_FramebufferQueue.emplace_back(std::make_pair(framebuffer, s_FramesInFlight));
+	}
 
 }

@@ -63,7 +63,7 @@ namespace Vulture
 		void Bind(VkCommandBuffer cmd, const std::vector<VkClearValue>& clearColors);
 		void Unbind(VkCommandBuffer cmd);
 
-		void TransitionImageLayout(VkImageLayout newLayout, VkCommandBuffer cmd = 0, VkAccessFlags srcAccess = 0, VkAccessFlags dstAccess = 0, VkPipelineStageFlags srcStage = 0, VkPipelineStageFlags dstStage = 0);
+		void TransitionImageLayout(VkImageLayout newLayout, VkCommandBuffer cmd = 0);
 
 		Framebuffer() = default;
 		Framebuffer(const CreateInfo& createInfo);

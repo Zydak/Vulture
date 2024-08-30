@@ -48,6 +48,8 @@ namespace Vulture
 		REGISTER_CLASS_IN_SERIALIZER(NameComponent);
 		REGISTER_CLASS_IN_SERIALIZER(MeshComponent);
 		REGISTER_CLASS_IN_SERIALIZER(MaterialComponent);
+		REGISTER_CLASS_IN_SERIALIZER(TonemapperSettingsComponent);
+		REGISTER_CLASS_IN_SERIALIZER(BloomSettingsComponent);
 	}
 
 	Application::~Application()

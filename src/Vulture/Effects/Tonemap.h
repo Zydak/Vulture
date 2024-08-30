@@ -30,8 +30,6 @@ namespace Vulture
 		{
 			Image* InputImage = nullptr;
 			Image* OutputImage = nullptr;
-
-			Tonemappers Tonemapper = Tonemappers::Filmic;
 		};
 
 		struct TonemapInfo
@@ -46,18 +44,19 @@ namespace Vulture
 			float Tint = 0.0f;
 			glm::vec4 ColorFilter = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-			glm::ivec2 AberrationOffsets[3] = { {2.0f, -2.0f}, {-2.0f, 2.0f}, {2.0f, -2.0f} };
+			glm::vec2 AberrationOffsets[3] = { {2.0f, -2.0f}, {-2.0f, 2.0f}, {2.0f, -2.0f} };
 			float AberrationVignette = 1.0f;
 
 			float whitePointReinhard = 3.0f;
+
+			Tonemappers Tonemapper = Tonemappers::Filmic;
+			bool ChromaticAberration = false;
 		};
 
 		void Init(const CreateInfo& info);
 		void Destroy();
 
 		inline bool IsInitialized() const { return m_Initialized; }
-
-		void RecompileShader(Tonemappers tonemapper, bool chromaticAberration);
 
 		Tonemap() = default;
 		Tonemap(const CreateInfo& info);
@@ -72,11 +71,16 @@ namespace Vulture
 	private:
 		std::string GetTonemapperMacroDefinition(Tonemappers tonemapper);
 
+		void RecompileShader(Tonemappers tonemapper, bool chromaticAberration);
+
 		DescriptorSet m_Descriptor;
 		Pipeline m_Pipeline;
 		PushConstant<TonemapInfo> m_Push;
 
 		VkExtent2D m_ImageSize = { 0, 0 };
+
+		Tonemappers m_CurrentTonemapper = Tonemappers::Filmic;
+		bool m_EnableChromaticAberration = false;
 
 		Image* m_InputImage = nullptr;
 		Image* m_OutputImage = nullptr;

@@ -179,15 +179,55 @@ namespace Vulture
 
 			mat.MaterialName = matName;
 
-			std::unique_ptr<Asset> materialAsset = std::make_unique<MaterialAsset>(std::move(mat));
-			AssetHandle materialHandle = AssetManager::AddAsset(filepath + "::" + matName, std::move(materialAsset));
-			outAsset->Materials.push_back(materialHandle);
+			// For some models multiple materials have the same name, we have to handle that otherwise the
+			// incorrect material will be used + we'll probably crash when trying to delete this since
+			// 2 materials have the same handle.
+			{
+				std::string path = filepath + "::Material::" + matName;
 
-			std::unique_ptr<Asset> meshAsset = std::make_unique<MeshAsset>(std::move(vlMesh));
-			AssetHandle meshHandle = AssetManager::AddAsset(filepath + "::" + meshName, std::move(meshAsset));
+				std::hash<std::string> hash;
+				AssetHandle handle(AssetHandle::CreateInfo{ hash(path) });
 
-			outAsset->MeshNames.push_back(meshName);
-			outAsset->Meshes.push_back(meshHandle);
+				int index = 0;
+				while (true)
+				{
+					AssetHandle handle(AssetHandle::CreateInfo{ hash(path + std::to_string(index)) });
+					if (handle.DoesHandleExist())
+						index++;
+					else break;
+				}
+				path += std::to_string(index);
+
+				std::unique_ptr<Asset> materialAsset = std::make_unique<MaterialAsset>(std::move(mat));
+				AssetHandle materialHandle = AssetManager::AddAsset(filepath + "::Material::" + matName, std::move(materialAsset));
+				outAsset->Materials.push_back(materialHandle);
+			}
+
+			// For some models multiple meshes have the same name, we have to handle that otherwise the
+			// incorrect mesh will be used + we'll probably crash when trying to delete this since
+			// 2 meshes have the same handle.
+			{
+				std::string path = filepath + "::Mesh::" + meshName;
+
+				std::hash<std::string> hash;
+				AssetHandle handle(AssetHandle::CreateInfo{ hash(path) });
+
+				int index = 0;
+				while (true)
+				{
+					AssetHandle handle(AssetHandle::CreateInfo{ hash(path + std::to_string(index)) });
+					if (handle.DoesHandleExist())
+						index++;
+					else break;
+				}
+				path += std::to_string(index);
+
+				std::unique_ptr<Asset> meshAsset = std::make_unique<MeshAsset>(std::move(vlMesh));
+				AssetHandle meshHandle = AssetManager::AddAsset(path, std::move(meshAsset));
+
+				outAsset->MeshNames.push_back(meshName);
+				outAsset->Meshes.push_back(meshHandle);
+			}
 
 			// Rotate every model 180 degrees
 			glm::mat4 rot = glm::rotate(glm::mat4{ 1.0f }, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));

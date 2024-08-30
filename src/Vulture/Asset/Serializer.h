@@ -131,7 +131,8 @@ namespace Vulture
 		template<typename... Ts>
 		static void PushComponentToRegistry(SerializeBaseClass* comp, Vulture::Entity& entity, const std::vector<char>& deserializedData)
 		{
-			comp->Deserialize(deserializedData);
+			if (!deserializedData.empty())
+				comp->Deserialize(deserializedData);
 
 			DeduceObjectTypeAndAddToEntity<Ts...>(comp, entity);
 		}
@@ -240,8 +241,6 @@ namespace Vulture
 			nameBytes.push_back('\0');
 
 			std::vector<char> componentBytes = baseClass->Serialize();
-			if (componentBytes.empty())
-				return;
 
 			std::vector<char> combinedBytes;
 			combinedBytes.reserve(nameBytes.size() + 8 + componentBytes.size());
