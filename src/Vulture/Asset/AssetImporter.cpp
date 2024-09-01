@@ -173,7 +173,7 @@ namespace Vulture
 			mat.Properties.Color = glm::vec4(diffuseColor.r, diffuseColor.g, diffuseColor.b, 1.0f);
 			mat.Properties.EmissiveColor = glm::vec4(emissiveColor.r, emissiveColor.g, emissiveColor.b, emissiveColor.a);
 
-			mat.Properties.Transparency = 1.0f - mat.Properties.Color.a;
+			mat.Properties.Transparency = 1.0f - diffuseColor.a;
 
 			std::string matName = material->GetName().C_Str();
 
