@@ -94,7 +94,7 @@ namespace Vulture
 				if (currNode->mParent)
 				{
 					currNode = currNode->mParent;
-					transform *= glm::transpose(*(glm::mat4*)(&currNode->mTransformation));
+					transform = glm::transpose(*(glm::mat4*)(&currNode->mTransformation)) * transform;
 				}
 				else
 				{
@@ -118,7 +118,6 @@ namespace Vulture
 			material->Get(AI_MATKEY_ROUGHNESS_FACTOR, mat.Properties.Roughness);
 			material->Get(AI_MATKEY_METALLIC_FACTOR, mat.Properties.Metallic);
 			material->Get(AI_MATKEY_REFRACTI, mat.Properties.Ior);
-			mat.Properties.Ior = glm::max(mat.Properties.Ior, 1.001f);
 
 			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_DIFFUSE); i++)
 			{
