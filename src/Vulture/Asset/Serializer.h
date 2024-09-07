@@ -85,7 +85,7 @@ namespace Vulture
 					}
 
 					// Create a component from a registered constructor
-					auto component = CreateRegisteredClass(compName);
+					void* component = CreateRegisteredClass(compName);
 
 					// Read 8 bytes of data size
 					uint64_t componentDataSize = 0;
@@ -98,7 +98,7 @@ namespace Vulture
 					currentPos += componentDataSize;
 
 					// Push component onto the entity
-					PushComponentToRegistry<Components...>(component.get(), entity, componentByteData);
+					PushComponentToRegistry<Components...>(component, compName, entity, componentByteData);
 				}
 			}
 		}
@@ -108,33 +108,22 @@ namespace Vulture
 		template<typename T>
 		static void RegisterClass(const std::string& className)
 		{
-			s_ReflectionMap[className] = []() { return std::dynamic_pointer_cast<SerializeBaseClass>(std::make_shared<T>()); };
-			s_ReflectionMapRawPtr[className] = []() { return (SerializeBaseClass*) (new T()); };
+			s_ReflectionMap[className] = []() { return (void*)(new T()); };
 		}
 
-		static std::shared_ptr<SerializeBaseClass> CreateRegisteredClass(const std::string& className)
+		static void* CreateRegisteredClass(const std::string& className)
 		{
 			VL_CORE_ASSERT(s_ReflectionMap.find(className) != s_ReflectionMap.end(), "class {} wasn't registered!", className);
 
 			return s_ReflectionMap[className]();
 		}
 
-		static SerializeBaseClass* CreateRegisteredClassRawPtr(const std::string& className)
-		{
-			VL_CORE_ASSERT(s_ReflectionMapRawPtr.find(className) != s_ReflectionMapRawPtr.end(), "class {} wasn't registered!", className);
-
-			return s_ReflectionMapRawPtr[className]();
-		}
-
 	private:
 
 		template<typename... Ts>
-		static void PushComponentToRegistry(SerializeBaseClass* comp, Vulture::Entity& entity, const std::vector<char>& deserializedData)
+		static void PushComponentToRegistry(void* comp, const std::string& compName, Vulture::Entity& entity, const std::vector<char>& deserializedData)
 		{
-			if (!deserializedData.empty())
-				comp->Deserialize(deserializedData);
-
-			DeduceObjectTypeAndAddToEntity<Ts...>(comp, entity);
+			DeduceObjectTypeAndAddToEntity<Ts...>(comp, compName, entity, deserializedData);
 		}
 
 		template<typename T>
@@ -144,13 +133,31 @@ namespace Vulture
 		}
 
 		template<typename T>
-		static T* TryCast(SerializeBaseClass* obj)
+		static T* TryCast(void* obj, const std::string& compName)
 		{
-			return dynamic_cast<T*>(obj);
+			std::string name = typeid(T).name();
+			if (name.find("class ") != std::string::npos)
+				name = name.substr(6, name.size() - 6);
+
+			if (name.find(" * __ptr64") != std::string::npos)
+				name = name.substr(0, name.size() - 10);
+
+			if (name.find(" * __ptr32") != std::string::npos)
+				name = name.substr(0, name.size() - 10);
+
+			if (name.find("Vulture::") != std::string::npos)
+				name = name.substr(9, name.size() - 9);
+
+			if (name == compName)
+				return (T*)(obj);
+			else
+				return nullptr;
+
+			//return dynamic_cast<T*>(obj);
 		}
 
 		template<typename... T>
-		static void DeduceObjectTypeAndAddToEntity(SerializeBaseClass* obj, Vulture::Entity& entity)
+		static void DeduceObjectTypeAndAddToEntity(void* obj, const std::string& compName, Vulture::Entity& entity, const std::vector<char>& deserializedData)
 		{
 			if constexpr (sizeof...(T) == 0)
 				return;
@@ -158,14 +165,14 @@ namespace Vulture
 			{
 				// Try casting the obj into one of the components given in T
 				// It will fill the tuple with nullptrs except for the original obj type
-				std::tuple<T*...> tuple = { TryCast<T>(obj)... };
+				std::tuple<T*...> tuple = { TryCast<T>(obj, compName)... };
 
-				IterateTupleAndAddComponent(tuple, entity);
+				IterateTupleAndAddComponent(tuple, entity, deserializedData);
 			}
 		}
 
 		template<size_t I = 0, typename... T>
-		constexpr static void IterateTupleAndAddComponent(const std::tuple<T...>& tuple, Vulture::Entity& entity)
+		constexpr static void IterateTupleAndAddComponent(const std::tuple<T...>& tuple, Vulture::Entity& entity, const std::vector<char>& deserializedData)
 		{
 			// Iterate the tuple and check if the component != nullptr. If true then add the component to the entity
 			// otherwise keep iterating
@@ -177,11 +184,14 @@ namespace Vulture
 				auto comp = std::get<I>(tuple);
 				if (comp != nullptr)
 				{
+					if (!deserializedData.empty())
+						comp->Deserialize(deserializedData);
+
 					PushComponent(std::move(*comp), entity);
 					return;
 				}
 
-				IterateTupleAndAddComponent<I + 1>(tuple, entity);
+				IterateTupleAndAddComponent<I + 1>(tuple, entity, deserializedData);
 			}
 		}
 
@@ -231,8 +241,6 @@ namespace Vulture
 			if (name.find("Vulture::") != std::string::npos)
 				name = name.substr(9, name.size() - 9);
 
-			SerializeBaseClass* baseClass = (SerializeBaseClass*)component;
-
 			std::vector<char> nameBytes;
 			for (int i = 0; i < name.size(); i++)
 			{
@@ -240,7 +248,7 @@ namespace Vulture
 			}
 			nameBytes.push_back('\0');
 
-			std::vector<char> componentBytes = baseClass->Serialize();
+			std::vector<char> componentBytes = component->Serialize();
 
 			std::vector<char> combinedBytes;
 			combinedBytes.reserve(nameBytes.size() + 8 + componentBytes.size());
@@ -261,11 +269,7 @@ namespace Vulture
 			bytesOut.insert(bytesOut.end(), combinedBytes.begin(), combinedBytes.end());
 		}
 
-		static std::unordered_map<std::string, std::function<std::shared_ptr<SerializeBaseClass> ()>> s_ReflectionMap;
-		static std::unordered_map<std::string, std::function<SerializeBaseClass* ()>> s_ReflectionMapRawPtr;
+		static inline std::unordered_map<std::string, std::function<void* ()>> s_ReflectionMap;
 	};
-
-	inline std::unordered_map<std::string, std::function<std::shared_ptr<SerializeBaseClass> ()>> Serializer::s_ReflectionMap;
-	inline std::unordered_map<std::string, std::function<SerializeBaseClass* ()>> Serializer::s_ReflectionMapRawPtr;
 
 }

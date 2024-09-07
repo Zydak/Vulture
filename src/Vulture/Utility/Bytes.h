@@ -17,7 +17,7 @@ namespace Vulture
 		static T FromBytes(const std::vector<char>& bytes)
 		{
 			T object;
-			memcpy(&object, bytes.data(), bytes.size());
+			memcpy(&object, bytes.data(), sizeof(T));
 
 			return object;
 		}

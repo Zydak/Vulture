@@ -74,10 +74,9 @@ namespace Vulture
 
 		for (int i = 0; i < scriptClassNames.size(); i++)
 		{
-			SerializeBaseClass* baseClass = Serializer::CreateRegisteredClassRawPtr(scriptClassNames[i]);
-			ScriptInterface* scInterface = dynamic_cast<ScriptInterface*>(baseClass);
+			ScriptInterface* scInterface = (ScriptInterface*)Serializer::CreateRegisteredClass(scriptClassNames[i]);
 
-			VL_CORE_ASSERT(scInterface != nullptr, "Script doesn't inherit from script interface or SerializerBaseClass!");
+			VL_CORE_ASSERT(scInterface != nullptr, "Script doesn't inherit from script interface!");
 
 			Scripts.push_back(scInterface);
 		}

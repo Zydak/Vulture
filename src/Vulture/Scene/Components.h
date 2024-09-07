@@ -21,13 +21,6 @@
 
 namespace Vulture
 {
-	class SerializeBaseClass
-	{
-	public:
-		virtual std::vector<char> Serialize() { return {}; }
-		virtual void Deserialize(const std::vector<char>& bytes) { }
-	};
-
 	class ScriptInterface
 	{
 	public:
@@ -46,7 +39,7 @@ namespace Vulture
 		Entity m_Entity; // Assigned when InitScripts is called on the scene object
 	};
 
-	class ScriptComponent : public SerializeBaseClass
+	class ScriptComponent
 	{
 	public:
 		ScriptComponent() = default;
@@ -100,11 +93,11 @@ namespace Vulture
 
 		inline uint32_t GetScriptCount() const { return (uint32_t)Scripts.size(); }
 
-		std::vector<char> Serialize() override;
-		void Deserialize(const std::vector<char>& bytes) override;
+		std::vector<char> Serialize();
+		void Deserialize(const std::vector<char>& bytes);
 	};
 
-	class MeshComponent : public SerializeBaseClass
+	class MeshComponent
 	{
 	public:
 		MeshComponent() = default;
@@ -114,13 +107,13 @@ namespace Vulture
 		MeshComponent& operator=(const MeshComponent& other) { AssetHandle = other.AssetHandle; return *this; };
 		MeshComponent& operator=(MeshComponent&& other) noexcept { AssetHandle = std::move(other.AssetHandle); return *this; };
 
-		std::vector<char> Serialize() override;
-		void Deserialize(const std::vector<char>& bytes) override;
+		std::vector<char> Serialize();
+		void Deserialize(const std::vector<char>& bytes);
 
 		Vulture::AssetHandle AssetHandle;
 	};
 
-	class MaterialComponent : public SerializeBaseClass
+	class MaterialComponent
 	{
 	public:
 		MaterialComponent() = default;
@@ -130,13 +123,13 @@ namespace Vulture
 		MaterialComponent& operator=(const MaterialComponent& other) { AssetHandle = other.AssetHandle; return *this; };
 		MaterialComponent& operator=(MaterialComponent&& other) noexcept { AssetHandle = std::move(other.AssetHandle); return *this; };
 
-		std::vector<char> Serialize() override;
-		void Deserialize(const std::vector<char>& bytes) override;
+		std::vector<char> Serialize();
+		void Deserialize(const std::vector<char>& bytes);
 
 		Vulture::AssetHandle AssetHandle;
 	};
 
-	class TransformComponent : public Vulture::SerializeBaseClass
+	class TransformComponent
 	{
 	public:
 		TransformComponent() = default;
@@ -146,13 +139,13 @@ namespace Vulture
 		TransformComponent& operator=(const TransformComponent& other) { Transform = other.Transform; return *this; };
 		TransformComponent& operator=(TransformComponent&& other) noexcept { Transform = std::move(other.Transform); return *this; };
 
-		std::vector<char> Serialize() override;
-		void Deserialize(const std::vector<char>& bytes) override;
+		std::vector<char> Serialize();
+		void Deserialize(const std::vector<char>& bytes);
 
 		Vulture::Transform Transform;
 	};
 
-	class NameComponent : public Vulture::SerializeBaseClass
+	class NameComponent
 	{
 	public:
 		NameComponent() = default;
@@ -162,13 +155,13 @@ namespace Vulture
 		NameComponent& operator=(const NameComponent& other) { Name = other.Name; return *this; };
 		NameComponent& operator=(NameComponent&& other) noexcept { Name = std::move(other.Name); return *this; };
 
-		std::vector<char> Serialize() override;
-		void Deserialize(const std::vector<char>& bytes) override;
+		std::vector<char> Serialize();
+		void Deserialize(const std::vector<char>& bytes);
 
 		std::string Name;
 	};
 
-	class TonemapperSettingsComponent : public Vulture::SerializeBaseClass
+	class TonemapperSettingsComponent
 	{
 	public:
 		TonemapperSettingsComponent() = default;
@@ -178,13 +171,13 @@ namespace Vulture
 		TonemapperSettingsComponent& operator=(const TonemapperSettingsComponent& other) { Settings = other.Settings; return *this; };
 		TonemapperSettingsComponent& operator=(TonemapperSettingsComponent&& other) noexcept { Settings = std::move(other.Settings); return *this; };
 
-		std::vector<char> Serialize() override;
-		void Deserialize(const std::vector<char>& bytes) override;
+		std::vector<char> Serialize();
+		void Deserialize(const std::vector<char>& bytes);
 
 		Vulture::Tonemap::TonemapInfo Settings{};
 	};
 
-	class BloomSettingsComponent : public Vulture::SerializeBaseClass
+	class BloomSettingsComponent
 	{
 	public:
 		BloomSettingsComponent() = default;
@@ -194,8 +187,8 @@ namespace Vulture
 		BloomSettingsComponent& operator=(const BloomSettingsComponent& other) { Settings = other.Settings; return *this; };
 		BloomSettingsComponent& operator=(BloomSettingsComponent&& other) noexcept { Settings = std::move(other.Settings); return *this; };
 
-		std::vector<char> Serialize() override;
-		void Deserialize(const std::vector<char>& bytes) override;
+		std::vector<char> Serialize();
+		void Deserialize(const std::vector<char>& bytes);
 
 		Vulture::Bloom::BloomInfo Settings{};
 	};
