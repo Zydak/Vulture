@@ -197,7 +197,7 @@ namespace Vulture
 		std::vector<glm::mat4> MeshTransfrorms;
 		std::vector<AssetHandle> Materials;
 
-		void CreateEntities(Vulture::Scene* outScene);
+		void CreateEntities(Vulture::Scene* outScene, bool addMaterials = true);
 	};
 
 	class SceneAsset : public Asset

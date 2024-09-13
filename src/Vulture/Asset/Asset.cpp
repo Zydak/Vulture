@@ -182,7 +182,7 @@ namespace Vulture
 		return m_Handle == other;
 	}
 
-	void ModelAsset::CreateEntities(Vulture::Scene* outScene)
+	void ModelAsset::CreateEntities(Vulture::Scene* outScene, bool addMaterials)
 	{
 		for (int i = 0; i < Meshes.size(); i++)
 		{
@@ -195,8 +195,11 @@ namespace Vulture
 			auto& nameComp = entity.AddComponent<NameComponent>();
 			nameComp.Name = MeshNames[i];
 
-			auto& materialComp = entity.AddComponent<MaterialComponent>();
-			materialComp.AssetHandle = Materials[i];
+			if (addMaterials)
+			{
+				auto& materialComp = entity.AddComponent<MaterialComponent>();
+				materialComp.AssetHandle = Materials[i];
+			}
 
 			glm::mat4 modelMatrix{ 1.0f };
 			glm::vec3 translation{};
