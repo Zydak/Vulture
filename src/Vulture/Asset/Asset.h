@@ -90,14 +90,16 @@ namespace Vulture
 	class MaterialProperties
 	{
 	public:
-		glm::vec4 Color;
-		glm::vec4 EmissiveColor;
+		glm::vec4 Color = glm::vec4(1.0f);
+		glm::vec4 EmissiveColor = glm::vec4(1.0f);
+		glm::vec4 MediumColor = glm::vec4(1.0f);
 		float Metallic = 0.0f;
 		float Roughness = 1.0f;
 		float SpecularTint = 0.0f;
 
 		float Ior = 1.5f;
 		float Transparency = 0.0f;
+		float MediumDensity = 1.0f;
 
 		float Anisotropy = 0.0f;
 	};
