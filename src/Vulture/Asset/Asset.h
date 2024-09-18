@@ -1,6 +1,3 @@
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
-
 #pragma once
 #include "Utility/Utility.h"
 #include <future>
@@ -100,6 +97,7 @@ namespace Vulture
 		float Ior = 1.5f;
 		float Transparency = 0.0f;
 		float MediumDensity = 1.0f;
+		float MediumAnisotropy = 1.0f;
 
 		float Anisotropy = 0.0f;
 	};

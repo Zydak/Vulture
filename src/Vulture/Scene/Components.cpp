@@ -1,6 +1,3 @@
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
-
 #include "pch.h"
 #include "Components.h"
 #include "Renderer/Renderer.h"
@@ -223,7 +220,7 @@ namespace Vulture
 				name.push_back(ch);
 		}
 
-		Name = name;
+		Name = std::move(name);
 	}
 
 	std::vector<char> MaterialComponent::Serialize()
@@ -241,10 +238,10 @@ namespace Vulture
 		// 3. Rougness
 		// 4. Metallness
 		std::vector<std::string> names;
-		names.push_back(mat->Textures.AlbedoTexture.GetAsset()->GetPath());
-		names.push_back(mat->Textures.NormalTexture.GetAsset()->GetPath());
-		names.push_back(mat->Textures.RoughnessTexture.GetAsset()->GetPath());
-		names.push_back(mat->Textures.MetallnessTexture.GetAsset()->GetPath());
+		names.emplace_back(mat->Textures.AlbedoTexture.GetAsset()->GetPath());
+		names.emplace_back(mat->Textures.NormalTexture.GetAsset()->GetPath());
+		names.emplace_back(mat->Textures.RoughnessTexture.GetAsset()->GetPath());
+		names.emplace_back(mat->Textures.MetallnessTexture.GetAsset()->GetPath());
 
 		for (int i = 0; i < 4; i++)
 		{

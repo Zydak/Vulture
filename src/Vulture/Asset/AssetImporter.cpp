@@ -1,6 +1,3 @@
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
-
 #include "pch.h"
 #include "AssetImporter.h"
 
@@ -187,15 +184,15 @@ namespace Vulture
 				std::hash<std::string> hash;
 				AssetHandle handle(AssetHandle::CreateInfo{ hash(path) });
 
-				int index = 0;
+				int indexMat = 0;
 				while (true)
 				{
-					AssetHandle handle(AssetHandle::CreateInfo{ hash(path + std::to_string(index)) });
+					AssetHandle handle(AssetHandle::CreateInfo{ hash(path + std::to_string(indexMat)) });
 					if (handle.DoesHandleExist())
-						index++;
+						indexMat++;
 					else break;
 				}
-				path += std::to_string(index);
+				path += std::to_string(indexMat);
 
 				std::unique_ptr<Asset> materialAsset = std::make_unique<MaterialAsset>(std::move(mat));
 				AssetHandle materialHandle = AssetManager::AddAsset(filepath + "::Material::" + matName, std::move(materialAsset));
@@ -211,15 +208,15 @@ namespace Vulture
 				std::hash<std::string> hash;
 				AssetHandle handle(AssetHandle::CreateInfo{ hash(path) });
 
-				int index = 0;
+				int indexMesh = 0;
 				while (true)
 				{
-					AssetHandle handle(AssetHandle::CreateInfo{ hash(path + std::to_string(index)) });
+					AssetHandle handle(AssetHandle::CreateInfo{ hash(path + std::to_string(indexMesh)) });
 					if (handle.DoesHandleExist())
-						index++;
+						indexMesh++;
 					else break;
 				}
-				path += std::to_string(index);
+				path += std::to_string(indexMesh);
 
 				std::unique_ptr<Asset> meshAsset = std::make_unique<MeshAsset>(std::move(vlMesh));
 				AssetHandle meshHandle = AssetManager::AddAsset(path, std::move(meshAsset));

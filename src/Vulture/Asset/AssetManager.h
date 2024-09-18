@@ -1,6 +1,3 @@
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
-
 #pragma once
 #include "pch.h"
 
@@ -37,7 +34,7 @@ namespace Vulture
 		static void WaitToLoad(const AssetHandle& handle);
 		static bool IsAssetLoaded(const AssetHandle& handle);
 		static AssetHandle LoadAsset(std::string path);
-		static AssetHandle AddAsset(const std::string path, std::unique_ptr<Asset>&& asset);
+		static AssetHandle AddAsset(const std::string& path, std::unique_ptr<Asset>&& asset);
 		static void UnloadAsset(const AssetHandle& handle);
 
 		static inline bool IsInitialized() { return s_Initialized; }

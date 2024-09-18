@@ -1,6 +1,3 @@
-// This is a personal academic project. Dear PVS-Studio, please check it.
-// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
-
 #include "pch.h"
 #include "AssetManager.h"
 #include "AssetImporter.h"
@@ -137,7 +134,7 @@ namespace Vulture
 		return AssetHandle(handle);
 	}
 
-	Vulture::AssetHandle AssetManager::AddAsset(const std::string path, std::unique_ptr<Asset>&& asset)
+	Vulture::AssetHandle AssetManager::AddAsset(const std::string& path, std::unique_ptr<Asset>&& asset)
 	{
 		std::hash<std::string> hash;
 		AssetHandle handle(AssetHandle::CreateInfo{ hash(path) });

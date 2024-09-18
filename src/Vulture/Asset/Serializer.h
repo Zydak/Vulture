@@ -98,7 +98,9 @@ namespace Vulture
 					currentPos += componentDataSize;
 
 					// Push component onto the entity
-					PushComponentToRegistry<Components...>(component, compName, entity, componentByteData);
+					DeduceObjectTypeAndAddToEntity<Components...>(component, compName, entity, componentByteData);
+
+					delete component;
 				}
 			}
 		}
@@ -120,12 +122,6 @@ namespace Vulture
 
 	private:
 
-		template<typename... Ts>
-		static void PushComponentToRegistry(void* comp, const std::string& compName, Vulture::Entity& entity, const std::vector<char>& deserializedData)
-		{
-			DeduceObjectTypeAndAddToEntity<Ts...>(comp, compName, entity, deserializedData);
-		}
-
 		template<typename T>
 		static void PushComponent(T&& comp, Vulture::Entity& entity)
 		{
@@ -135,6 +131,7 @@ namespace Vulture
 		template<typename T>
 		static T* TryCast(void* obj, const std::string& compName)
 		{
+			// Check and parse the name
 			std::string name = typeid(T).name();
 			if (name.find("class ") != std::string::npos)
 				name = name.substr(6, name.size() - 6);
@@ -148,6 +145,7 @@ namespace Vulture
 			if (name.find("Vulture::") != std::string::npos)
 				name = name.substr(9, name.size() - 9);
 
+			// If the name matches that of a component then return it
 			if (name == compName)
 				return (T*)(obj);
 			else
@@ -202,6 +200,8 @@ namespace Vulture
 				return;
 			else
 			{
+				// Tuple is filled with nullptr except for the components that the entity contains
+				// so iterate over the tuple and check if they are nullptr or not
 				auto comp = std::get<I>(tuple);
 				if (comp != nullptr)
 					SerializeComponent(comp, bytesOut);
