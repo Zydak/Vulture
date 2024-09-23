@@ -700,10 +700,9 @@ namespace Vulture
 	{
 		uint32_t size = uint32_t(data.size());
 
-		// Compute the integral(sum) of the emitted radiance of the environment map
+		// Compute the integral of the emitted radiance of the environment map
 		// Since each element in data is already weighted by its solid angle
-		// the integral is a simple sum
-		float sum = std::accumulate(data.begin(), data.end(), 0.F);
+		float sum = std::accumulate(data.begin(), data.end(), 0.0F);
 
 		float average = sum / float(size);
 		for (uint32_t i = 0; i < size; i++)

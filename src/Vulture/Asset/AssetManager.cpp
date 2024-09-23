@@ -62,7 +62,7 @@ namespace Vulture
 		return iter->second.Future.wait_for(std::chrono::duration<float>(0)) == std::future_status::ready;
 	}
 
-	AssetHandle AssetManager::LoadAsset(std::string path)
+	AssetHandle AssetManager::LoadAsset(const std::string& path)
 	{
 		std::hash<std::string> hash;
 		AssetHandle handle(AssetHandle::CreateInfo{hash(path)});

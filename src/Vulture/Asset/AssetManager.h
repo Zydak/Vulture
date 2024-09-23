@@ -33,7 +33,7 @@ namespace Vulture
 
 		static void WaitToLoad(const AssetHandle& handle);
 		static bool IsAssetLoaded(const AssetHandle& handle);
-		static AssetHandle LoadAsset(std::string path);
+		static AssetHandle LoadAsset(const std::string& path);
 		static AssetHandle AddAsset(const std::string& path, std::unique_ptr<Asset>&& asset);
 		static void UnloadAsset(const AssetHandle& handle);
 
@@ -41,7 +41,7 @@ namespace Vulture
 
 		// T is list of types of components which to deserialize
 		template<typename... T>
-		static AssetHandle LoadSceneAsset(std::string path)
+		static AssetHandle LoadSceneAsset(const std::string& path)
 		{
 			std::hash<std::string> hash;
 			AssetHandle handle(AssetHandle::CreateInfo{ hash(path) });

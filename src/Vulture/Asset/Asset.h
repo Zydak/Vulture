@@ -100,6 +100,7 @@ namespace Vulture
 		float MediumAnisotropy = 1.0f;
 
 		float Anisotropy = 0.0f;
+		float AnisotropyRotation = 0.0f;
 	};
 
 	class MaterialTextures

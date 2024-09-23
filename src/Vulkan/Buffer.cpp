@@ -434,13 +434,13 @@ namespace Vulture
 			// Map the staging buffer.
 			stagingBuffer.Map();
 
-			// Write data to the staging buffer.
+			// Read data from the staging buffer.
 			stagingBuffer.ReadFromBuffer(outData, size, 0);
 
 			// Unmap the staging buffer.
 			stagingBuffer.Unmap();
 		}
-		else // If the buffer is not device local, write directly to the buffer.
+		else // If the buffer is not device local, read directly to the buffer.
 		{
 			// Check if the buffer is mapped.
 			VL_CORE_ASSERT(m_Mapped, "Cannot read from unmapped buffer!");

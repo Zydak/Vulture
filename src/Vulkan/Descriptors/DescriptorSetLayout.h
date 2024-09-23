@@ -40,7 +40,7 @@ namespace Vulture
 		inline bool IsInitialized() const { return m_Initialized; }
 
 	private:
-		VkDescriptorSetLayout m_DescriptorSetLayoutHandle;
+		VkDescriptorSetLayout m_DescriptorSetLayoutHandle = VK_NULL_HANDLE;
 		std::vector<Binding> m_Bindings;
 
 		bool m_Initialized = false;
