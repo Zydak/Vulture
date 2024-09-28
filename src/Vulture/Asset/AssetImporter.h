@@ -11,7 +11,7 @@ namespace Vulture
 	class AssetImporter
 	{
 	public:
-		static Image ImportTexture(const std::string& path, bool HDR);
+		static Image ImportTexture(std::string path, bool HDR);
 		static ModelAsset ImportModel(const std::string& path);
 
 		template<typename ... T>

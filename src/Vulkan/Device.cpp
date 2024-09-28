@@ -454,8 +454,12 @@ namespace Vulture
 	 * @param MBSize - Size of memory blocks in megabytes (if non-zero, takes precedence over ByteSize).
 	 * @param ByteSize - Size of memory blocks in bytes (if MBSize is zero, this value is used).
 	 */
-	void Device::CreateMemoryPool(uint32_t memoryIndex, VmaPool& pool, VkDeviceSize MBSize, VkDeviceSize ByteSize)
+	void Device::CreateMemoryPool(uint32_t memoryIndex, VmaPool& pool, VkDeviceSize MBSize, VkDeviceSize ByteSize, bool isImage)
 	{
+		static int x = 0;
+		VL_CORE_TRACE("Pool Allocation {}", x);
+		x++;
+
 		// Initialize memory pool creation info
 		VmaPoolCreateInfo poolInfo{};
 
@@ -477,14 +481,17 @@ namespace Vulture
 		// Set pool priority
 		poolInfo.priority = 0.5f;
 
-		if (std::find(s_DeviceExtensions.begin(), s_DeviceExtensions.end(), VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME) != s_DeviceExtensions.end())
+		if (isImage == false)
 		{
-			// Set export memory information
-			s_ExportMemoryInfo = {};
-			s_ExportMemoryInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
-			s_ExportMemoryInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+			if (std::find(s_DeviceExtensions.begin(), s_DeviceExtensions.end(), VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME) != s_DeviceExtensions.end())
+			{
+				// Set export memory information
+				s_ExportMemoryInfo = {};
+				s_ExportMemoryInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
+				s_ExportMemoryInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
 
-			poolInfo.pMemoryAllocateNext = &s_ExportMemoryInfo;
+				poolInfo.pMemoryAllocateNext = &s_ExportMemoryInfo;
+			}
 		}
 
 		// Create the memory pool
@@ -642,6 +649,8 @@ namespace Vulture
 	 */
 	void Device::CreateImage(VkImageCreateInfo& createInfo, VkImage& image, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags)
 	{
+		static std::unordered_map<int, VmaPool> imagePools;
+
 		// Assert that the device has been initialized before creating the image
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
@@ -649,16 +658,63 @@ namespace Vulture
 		uint32_t memoryIndex = 0;
 		FindMemoryTypeIndexForImage(createInfo, memoryIndex, customFlags);
 
-		// Initialize allocation creation info
-		VmaAllocationCreateInfo allocCreateInfo = {};
-		allocCreateInfo.memoryTypeBits = memoryIndex;
+		auto it = imagePools.find(memoryIndex);
+		if (it != imagePools.end())
+		{
+			// Pool found for the memory type index
+			VmaAllocationCreateInfo allocCreateInfo = {};
+			allocCreateInfo.pool = it->second;
+			allocCreateInfo.memoryTypeBits = memoryIndex;
 
-		// Create the image and allocate memory for it
-		VL_CORE_RETURN_ASSERT(
-			vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr),
-			VK_SUCCESS,
-			"Couldn't create an image!"
-		);
+			// Attempt to create image using the existing pool
+			if (vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr) < 0)
+			{
+				// TODO: recreate pool when it fills up instead of just not using one
+				// If creation fails, try again without specifying the pool
+				allocCreateInfo.pool = nullptr;
+				allocCreateInfo.memoryTypeBits = memoryIndex;
+
+				if (vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr) < 0)
+				{
+					VL_CORE_ASSERT(false, "Couldn't create an image!");
+				}
+				static int x = 0;
+				VL_CORE_TRACE("Allocation {}", x);
+				x++;
+			}
+		}
+		else
+		{
+			// Pool not found for the memory type index, create a new pool
+			imagePools[memoryIndex] = VmaPool();
+			CreateMemoryPool(memoryIndex, imagePools[memoryIndex], 300, 0, true);
+
+			VmaAllocationCreateInfo allocCreateInfo = {};
+			allocCreateInfo.pool = imagePools[memoryIndex];
+
+			if (vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr) < 0)
+			{
+				VL_CORE_ASSERT(false, "Couldn't create an image!");
+			}
+		}
+
+		// // Assert that the device has been initialized before creating the image
+		// VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
+		// 
+		// // Find the memory type index suitable for the image
+		// uint32_t memoryIndex = 0;
+		// FindMemoryTypeIndexForImage(createInfo, memoryIndex, customFlags);
+		// 
+		// // Initialize allocation creation info
+		// VmaAllocationCreateInfo allocCreateInfo = {};
+		// allocCreateInfo.memoryTypeBits = memoryIndex;
+		// 
+		// // Create the image and allocate memory for it
+		// VL_CORE_RETURN_ASSERT(
+		// 	vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr),
+		// 	VK_SUCCESS,
+		// 	"Couldn't create an image!"
+		// );
 	}
 
 	/**

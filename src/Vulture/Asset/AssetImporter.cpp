@@ -11,8 +11,14 @@
 
 namespace Vulture
 {
-	Image AssetImporter::ImportTexture(const std::string& path, bool HDR)
+	Image AssetImporter::ImportTexture(std::string path, bool HDR)
 	{
+		for (int i = 0; i < path.size(); i++)
+		{
+			if (path[i] == '%')
+				path[i] = ' ';
+		}
+
 		int texChannels;
 		bool flipOnLoad = !HDR;
 		stbi_set_flip_vertically_on_load_thread(flipOnLoad);
@@ -121,7 +127,6 @@ namespace Vulture
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE, i, &str);
 				mat.Textures.AlbedoTexture = AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str()));
-				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
 			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_NORMALS); i++)
@@ -129,7 +134,6 @@ namespace Vulture
 				aiString str;
 				material->GetTexture(aiTextureType_NORMALS, i, &str);
 				mat.Textures.NormalTexture = AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str()));
-				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
 			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS); i++)
@@ -137,7 +141,6 @@ namespace Vulture
 				aiString str;
 				material->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, i, &str);
 				mat.Textures.RoughnessTexture = AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str()));
-				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
 			for (int i = 0; i < (int)material->GetTextureCount(aiTextureType_METALNESS); i++)
@@ -145,7 +148,6 @@ namespace Vulture
 				aiString str;
 				material->GetTexture(aiTextureType_METALNESS, i, &str);
 				mat.Textures.MetallnessTexture = AssetManager::LoadAsset(std::string("assets/") + std::string(str.C_Str()));
-				VL_CORE_INFO("Loaded texture: {0}", str.C_Str());
 			}
 
 			// Create Empty Texture if none are found

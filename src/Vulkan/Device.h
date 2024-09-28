@@ -125,7 +125,7 @@ namespace Vulture
 		static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
 
 		static void CreateMemoryAllocator();
-		static void CreateMemoryPool(uint32_t memoryIndex, VmaPool& pool, VkDeviceSize MBSize = 10, VkDeviceSize ByteSize = 0);
+		static void CreateMemoryPool(uint32_t memoryIndex, VmaPool& pool, VkDeviceSize MBSize = 10, VkDeviceSize ByteSize = 0, bool isImage = false);
 		static void FindMemoryTypeIndex(VkMemoryPropertyFlags flags, uint32_t& memoryIndex);
 		static void FindMemoryTypeIndexForBuffer(VkBufferCreateInfo& createInfo, uint32_t& memoryIndex, VkMemoryPropertyFlags flags = 0);
 		static void FindMemoryTypeIndexForImage(VkImageCreateInfo& createInfo, uint32_t& memoryIndex, VkMemoryPropertyFlags flags = 0);

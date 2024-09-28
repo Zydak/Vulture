@@ -72,7 +72,6 @@ namespace Vulture
 			return AssetHandle(handle);
 		}
 
-		VL_CORE_TRACE("Loading asset: {}", path);
 
 		size_t dotPos = path.find_last_of('.');
 		VL_CORE_ASSERT(dotPos != std::string::npos, "Failed to get file extension! Path: {}", path);
@@ -88,6 +87,7 @@ namespace Vulture
 		{
 			s_ThreadPool.PushTask([](std::string path, std::shared_ptr<std::promise<void>> promise, AssetHandle handle)
 				{
+					VL_CORE_TRACE("Loading Texture: {}", path);
 					Scope<Asset> asset = std::make_unique<TextureAsset>(std::move(AssetImporter::ImportTexture(path, false)));
 					asset->SetValid(true);
 					asset->SetPath(path);
