@@ -19,6 +19,17 @@ namespace Vulture
 		if (!s_Initialized)
 			return;
 
+		for (auto iterator = s_Assets.begin();;)
+		{
+			iterator = s_Assets.begin();
+
+			if (iterator == s_Assets.end())
+				break;
+
+			iterator->second.Asset.reset();
+			s_Assets.erase(iterator->first);
+		}
+
 		s_ThreadPool.Destroy();
 		s_Assets.clear();
 		s_Initialized = false;
@@ -141,6 +152,7 @@ namespace Vulture
 		if (s_Assets.contains(handle))
 		{
 			// Asset with this path is already loaded
+			asset.release();
 			return AssetHandle(handle);
 		}
 

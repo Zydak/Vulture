@@ -22,6 +22,8 @@ namespace Vulture
 		static void Init(const CreateInfo& info);
 		static void Destroy();
 
+		static void ClearQueue();
+
 		static void UpdateQueue();
 
 		static void TrashPipeline(const Pipeline& pipeline);

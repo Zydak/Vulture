@@ -148,6 +148,7 @@ namespace Vulture
 
 		static VmaAllocator s_Allocator;
 		static std::unordered_map<uint32_t, VmaPool> s_Pools;
+		static inline std::unordered_map<uint32_t, VmaPool> s_ImagePools;
 		static VkPhysicalDeviceProperties2 s_Properties;
 		static VkSampleCountFlagBits s_MaxSampleCount;
 		static VkPhysicalDeviceFeatures2 s_Features;

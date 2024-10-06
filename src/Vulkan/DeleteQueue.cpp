@@ -19,6 +19,14 @@ namespace Vulture
 		s_FramesInFlight = 0;
 	}
 
+	void DeleteQueue::ClearQueue()
+	{
+		for (int i = 0; i <= s_FramesInFlight; i++)
+		{
+			UpdateQueue();
+		}
+	}
+
 	void DeleteQueue::UpdateQueue()
 	{
 		// Pipelines

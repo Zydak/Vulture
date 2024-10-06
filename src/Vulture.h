@@ -18,8 +18,9 @@
 #include "Vulture/src/Vulkan/SBT.h"
 #include "Vulture/src/Vulkan/PushConstant.h"
 #include "Vulture/src/Vulkan/Shader.h"
-#include "Vulture/src/Vulture/Math/Quaternion.h"
+#include "Vulture/src/Vulkan/DeleteQueue.h"
 
+#include "Vulture/src/Vulture/Math/Quaternion.h"
 #include "Vulture/src/Vulture/Effects/Tonemap.h"
 #include "Vulture/src/Vulture/Effects/Bloom.h"
 #include "Vulture/src/Vulture/Effects/Effect.h"

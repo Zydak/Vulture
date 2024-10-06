@@ -127,6 +127,10 @@ namespace Vulture
 		{
 			vmaDestroyPool(s_Allocator, pool.second);
 		}
+		for (auto& pool : s_ImagePools)
+		{
+			vmaDestroyPool(s_Allocator, pool.second);
+		}
 		// Destroy memory allocator
 		vmaDestroyAllocator(s_Allocator);
 
@@ -463,6 +467,7 @@ namespace Vulture
 		// Initialize memory pool creation info
 		VmaPoolCreateInfo poolInfo{};
 
+		poolInfo.blockSize = 0;
 		// Set block size based on MBSize or ByteSize
 		if (MBSize != 0)
 		{
@@ -604,8 +609,8 @@ namespace Vulture
 			// Attempt to create buffer using the existing pool
 			if (vmaCreateBufferWithAlignment(s_Allocator, &createInfo, &allocCreateInfo, minAlignment, &buffer, &alloc, nullptr) < 0)
 			{
-				// TODO: recreate pool when it fills up instead of just not using one
 				// If creation fails, try again without specifying the pool
+				VL_CORE_ERROR("Allocating Buffer without pool");
 				allocCreateInfo.pool = nullptr;
 				allocCreateInfo.requiredFlags = customFlags;
 				if (vmaCreateBufferWithAlignment(s_Allocator, &createInfo, &allocCreateInfo, minAlignment, &buffer, &alloc, nullptr) < 0)
@@ -618,7 +623,7 @@ namespace Vulture
 		{
 			// Pool not found for the memory type index, create a new pool
 			s_Pools[memoryIndex] = VmaPool();
-			CreateMemoryPool(memoryIndex, s_Pools[memoryIndex]);
+			CreateMemoryPool(memoryIndex, s_Pools[memoryIndex], 300);
 
 			VmaAllocationCreateInfo allocCreateInfo = {};
 			allocCreateInfo.pool = s_Pools[memoryIndex];
@@ -649,8 +654,6 @@ namespace Vulture
 	 */
 	void Device::CreateImage(VkImageCreateInfo& createInfo, VkImage& image, VmaAllocation& alloc, VkMemoryPropertyFlags customFlags)
 	{
-		static std::unordered_map<int, VmaPool> imagePools;
-
 		// Assert that the device has been initialized before creating the image
 		VL_CORE_ASSERT(s_Initialized, "Device not Initialized!");
 
@@ -658,8 +661,8 @@ namespace Vulture
 		uint32_t memoryIndex = 0;
 		FindMemoryTypeIndexForImage(createInfo, memoryIndex, customFlags);
 
-		auto it = imagePools.find(memoryIndex);
-		if (it != imagePools.end())
+		auto it = s_ImagePools.find(memoryIndex);
+		if (it != s_ImagePools.end())
 		{
 			// Pool found for the memory type index
 			VmaAllocationCreateInfo allocCreateInfo = {};
@@ -669,10 +672,10 @@ namespace Vulture
 			// Attempt to create image using the existing pool
 			if (vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr) < 0)
 			{
-				// TODO: recreate pool when it fills up instead of just not using one
 				// If creation fails, try again without specifying the pool
 				allocCreateInfo.pool = nullptr;
 				allocCreateInfo.memoryTypeBits = memoryIndex;
+				VL_CORE_ERROR("Allocating Image without pool");
 
 				if (vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr) < 0)
 				{
@@ -686,11 +689,12 @@ namespace Vulture
 		else
 		{
 			// Pool not found for the memory type index, create a new pool
-			imagePools[memoryIndex] = VmaPool();
-			CreateMemoryPool(memoryIndex, imagePools[memoryIndex], 300, 0, true);
+			s_ImagePools[memoryIndex] = VmaPool();
+			CreateMemoryPool(memoryIndex, s_ImagePools[memoryIndex], 300, 0, true);
+			VL_CORE_ERROR("CREATING IMAGE POOL ----------------------------");
 
 			VmaAllocationCreateInfo allocCreateInfo = {};
-			allocCreateInfo.pool = imagePools[memoryIndex];
+			allocCreateInfo.pool = s_ImagePools[memoryIndex];
 
 			if (vmaCreateImage(s_Allocator, &createInfo, &allocCreateInfo, &image, &alloc, nullptr) < 0)
 			{

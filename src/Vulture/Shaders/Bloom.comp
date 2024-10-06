@@ -46,10 +46,10 @@ void main()
 	{
 		for (int j = -range; j <= range; j++)
 		{
-			color += texture(inputImage, texCoord + (vec2(i, j) / (TextureSize / 2.0f))).xyz * kernel[i + range][j + range];
+			color += texture(inputImage, texCoord + (vec2(i, j) / (TextureSize / 2.0f))).xyz;
 		}
 	}
-	color /= 16;
+	color /= 9;
 	color *= pBloomInfo.Strength;
 
 	// make bloom effect less or more intense

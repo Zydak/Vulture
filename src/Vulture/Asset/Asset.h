@@ -157,7 +157,20 @@ namespace Vulture
 	{
 	public:
 		explicit MaterialAsset(Material&& material) { Material = std::move(material); };
-		~MaterialAsset() {};
+		~MaterialAsset() 
+		{
+			if (Material.Textures.AlbedoTexture.DoesHandleExist())
+				Material.Textures.AlbedoTexture.Unload(); 
+
+			if (Material.Textures.NormalTexture.DoesHandleExist())
+				Material.Textures.NormalTexture.Unload();
+
+			if (Material.Textures.RoughnessTexture.DoesHandleExist())
+				Material.Textures.RoughnessTexture.Unload();
+
+			if (Material.Textures.MetallnessTexture.DoesHandleExist())
+				Material.Textures.MetallnessTexture.Unload();
+		};
 		explicit MaterialAsset(const MaterialAsset& other) = delete;
 		MaterialAsset& operator=(const MaterialAsset& other) = delete;
 		explicit MaterialAsset(MaterialAsset&& other) noexcept { Material = std::move(other.Material); }
