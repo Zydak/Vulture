@@ -21,7 +21,7 @@ namespace Vulture
 
 	void DeleteQueue::ClearQueue()
 	{
-		for (int i = 0; i <= s_FramesInFlight; i++)
+		for (int i = 0; i <= (int)s_FramesInFlight; i++)
 		{
 			UpdateQueue();
 		}

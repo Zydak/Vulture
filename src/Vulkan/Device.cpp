@@ -10,6 +10,8 @@
 #include <vulkan/vk_platform.h>
 #include <Dxgi1_2.h>
 
+#include "vulkan.hpp"
+
 namespace Vulture
 {
 	std::vector<const char*> Device::s_ValidationLayers = { "VK_LAYER_KHRONOS_validation" };
@@ -310,8 +312,7 @@ namespace Vulture
 	void Device::CreateInstance()
 	{
 		// Set up application information
-		VkApplicationInfo appInfo{};
-		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+		vk::ApplicationInfo appInfo;
 		appInfo.pApplicationName = "Vulture";
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.pEngineName = "No Engine";
@@ -319,21 +320,20 @@ namespace Vulture
 		appInfo.apiVersion = VK_API_VERSION_1_2;
 
 		// Set up instance creation information
-		VkInstanceCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+		vk::InstanceCreateInfo createInfo;
 		createInfo.pApplicationInfo = &appInfo;
 
 		// Debug messenger creation info (if validation layers enabled)
-		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+		vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
 		if (s_EnableValidationLayers)
 		{
 			// Enable validation layers
-			createInfo.enabledLayerCount = static_cast<uint32_t>(s_ValidationLayers.size());
+			createInfo.enabledLayerCount = (uint32_t)s_ValidationLayers.size();
 			createInfo.ppEnabledLayerNames = s_ValidationLayers.data();
 
 			// Populate debug messenger creation info
 			PopulateDebugMessenger(debugCreateInfo);
-			createInfo.pNext = reinterpret_cast<VkDebugUtilsMessengerCreateFlagsEXT*>(&debugCreateInfo);
+			createInfo.pNext = &debugCreateInfo;
 		}
 		else
 		{
@@ -343,16 +343,13 @@ namespace Vulture
 		}
 
 		// Get required GLFW extensions
-		auto glfwExtensions = GetRequiredGlfwExtensions();
+		std::vector<const char*> glfwExtensions = GetRequiredGlfwExtensions();
 		// Set enabled extension count and extension names
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(glfwExtensions.size());
+		createInfo.enabledExtensionCount = (uint32_t)glfwExtensions.size();
 		createInfo.ppEnabledExtensionNames = glfwExtensions.data();
 
 		// Create Vulkan instance
-		VL_CORE_RETURN_ASSERT(vkCreateInstance(&createInfo, nullptr, &s_Instance),
-			VK_SUCCESS,
-			"failed to create instance!"
-		);
+		s_Instance = vk::createInstance(createInfo);
 
 		// Check if required GLFW extensions are supported
 		CheckRequiredGlfwExtensions();

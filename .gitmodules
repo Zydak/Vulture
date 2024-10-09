@@ -43,3 +43,6 @@
 [submodule "lib/ImNodeFlow"]
 	path = lib/ImNodeFlow
 	url = https://github.com/Zydak/ImNodeFlow
+[submodule "lib/Vulkan-Hpp"]
+	path = lib/Vulkan-Hpp
+	url = https://github.com/KhronosGroup/Vulkan-Hpp
