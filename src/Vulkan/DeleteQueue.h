@@ -67,5 +67,7 @@ namespace Vulture
 		inline static std::vector<std::pair<DescriptorInfo, uint32_t>> s_SetQueue;
 		inline static std::vector<std::pair<VkRenderPass, uint32_t>> s_RenderPassQueue;
 		inline static std::vector<std::pair<VkFramebuffer, uint32_t>> s_FramebufferQueue;
+
+		inline static std::mutex s_Mutex;
 	};
 }

@@ -152,7 +152,7 @@ namespace Vulture
 		if (s_Assets.contains(handle))
 		{
 			// Asset with this path is already loaded
-			asset.release();
+			free(asset.release());
 			return AssetHandle(handle);
 		}
 

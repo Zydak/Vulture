@@ -29,6 +29,7 @@ namespace Vulture
 
 	void DeleteQueue::UpdateQueue()
 	{
+		s_Mutex.lock();
 		// Pipelines
 		for (int i = 0; i < s_PipelineQueue.size(); i++)
 		{
@@ -145,6 +146,7 @@ namespace Vulture
 				framebuffer.second--;
 			}
 		}
+		s_Mutex.unlock();
 	}
 
 	void DeleteQueue::TrashPipeline(const Pipeline& pipeline)
@@ -153,7 +155,9 @@ namespace Vulture
 		info.Handle = pipeline.GetPipeline();
 		info.Layout = pipeline.GetPipelineLayout();
 
+		s_Mutex.lock();
 		s_PipelineQueue.emplace_back(std::make_pair(info, s_FramesInFlight));
+		s_Mutex.unlock();
 	}
 
 	void DeleteQueue::TrashImage(Image& image)
@@ -163,7 +167,9 @@ namespace Vulture
 		info.Views = image.GetImageViews();
 		info.Allocation = image.GetAllocation();
 
+		s_Mutex.lock();
 		s_ImageQueue.emplace_back(std::make_pair(info, s_FramesInFlight));
+		s_Mutex.unlock();
 	}
 
 	void DeleteQueue::TrashBuffer(Buffer& buffer)
@@ -173,7 +179,9 @@ namespace Vulture
 		info.Allocation = buffer.GetAllocation();
 		info.Pool = buffer.GetVmaPool();
 
+		s_Mutex.lock();
 		s_BufferQueue.emplace_back(std::make_pair(info, s_FramesInFlight));
+		s_Mutex.unlock();
 	}
 
 	void DeleteQueue::TrashDescriptorSetLayout(DescriptorSetLayout& set)
@@ -181,17 +189,23 @@ namespace Vulture
 		DescriptorInfo info{};
 		info.DescriptorSetLayoutHandle = set.GetDescriptorSetLayoutHandle();
 
+		s_Mutex.lock();
 		s_SetQueue.emplace_back(std::make_pair(info, s_FramesInFlight));
+		s_Mutex.unlock();
 	}
 
 	void DeleteQueue::TrashRenderPass(VkRenderPass renderPass)
 	{
+		s_Mutex.lock();
 		s_RenderPassQueue.emplace_back(std::make_pair(renderPass, s_FramesInFlight));
+		s_Mutex.unlock();
 	}
 
 	void DeleteQueue::TrashFramebuffer(VkFramebuffer framebuffer)
 	{
+		s_Mutex.lock();
 		s_FramebufferQueue.emplace_back(std::make_pair(framebuffer, s_FramesInFlight));
+		s_Mutex.unlock();
 	}
 
 }
