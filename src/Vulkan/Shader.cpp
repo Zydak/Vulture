@@ -6,12 +6,18 @@
 #include <shaderc/libshaderc_util/file_finder.h>
 #include <shaderc/glslc/file_includer.h>
 
+
 namespace Vulture
 {
 	bool Shader::Init(const CreateInfo& info)
 	{
 		if (m_Initialized)
 			Destroy();
+
+		if (s_GlobalSession == nullptr)
+		{
+			slang::createGlobalSession(&s_GlobalSession);
+		}
 
 		if (!std::filesystem::exists(info.Filepath))
 		{
@@ -101,6 +107,106 @@ namespace Vulture
 
 	std::vector<uint32_t> Shader::CompileSource(const std::string& filepath, const std::vector<Define>& defines)
 	{
+		if (filepath.find(".slang") != std::string::npos)
+		{
+			std::vector<uint32_t> data;
+
+			slang::TargetDesc targetDesc{};
+			targetDesc.format = SLANG_SPIRV;
+			targetDesc.profile = s_GlobalSession->findProfile("spirv_1_3");
+
+			const char* searchPaths[] = { "src/shaders/" };
+
+			slang::CompilerOptionEntry compilerOptions;
+			compilerOptions.name = slang::CompilerOptionName::Optimization;
+			compilerOptions.value = slang::CompilerOptionValue{ slang::CompilerOptionValueKind::Int, SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_MAXIMAL };
+
+			slang::SessionDesc sessionDesc{};
+
+			std::vector<slang::PreprocessorMacroDesc> macros(defines.size());
+
+			for (int i = 0; i < defines.size(); i++)
+			{
+				macros.emplace_back(defines[i].Name.c_str(), defines[i].Value.c_str());
+			}
+
+			sessionDesc.preprocessorMacros = macros.data();
+			sessionDesc.preprocessorMacroCount = macros.size();
+
+			sessionDesc.targets = &targetDesc;
+			sessionDesc.targetCount = 1;
+
+			sessionDesc.searchPaths = searchPaths;
+			sessionDesc.searchPathCount = 1;
+
+			sessionDesc.compilerOptionEntries = &compilerOptions;
+			sessionDesc.compilerOptionEntryCount = 1;
+
+			Microsoft::WRL::ComPtr<slang::ISession> session;
+			s_GlobalSession->createSession(sessionDesc, &session);
+
+			Microsoft::WRL::ComPtr<slang::IBlob> diagnostics;
+			Microsoft::WRL::ComPtr<slang::IModule> module = session->loadModule(filepath.c_str(), &diagnostics);
+
+			if (diagnostics)
+			{
+				VL_CORE_ERROR((const char*)diagnostics->getBufferPointer());
+			}
+
+			if (module == nullptr)
+				return data;
+
+			SlangResult res;
+
+			Microsoft::WRL::ComPtr<slang::IEntryPoint> entryPoint;
+			res = module->findEntryPointByName("main", &entryPoint);
+
+			if (res != 0)
+				return data;
+
+			slang::IComponentType* components[] = { module.Get(), entryPoint.Get() };
+			Microsoft::WRL::ComPtr<slang::IComponentType> program;
+			res = session->createCompositeComponentType(components, 2, &program);
+
+			if (res != 0)
+				return data;
+
+			Microsoft::WRL::ComPtr<slang::IComponentType> linkedProgram;
+			Microsoft::WRL::ComPtr<ISlangBlob> diagnosticBlob;
+			res = program->link(&linkedProgram, &diagnosticBlob);
+
+			if (diagnosticBlob)
+			{
+				VL_CORE_ERROR((const char*)diagnosticBlob->getBufferPointer());
+			}
+
+			if (res != 0)
+				return data;
+
+			int entryPointIndex = 0; // only one entry point
+			int targetIndex = 0; // only one target
+			Microsoft::WRL::ComPtr<slang::IBlob> kernelBlob;
+			Microsoft::WRL::ComPtr<slang::IBlob> diagnostics1;
+
+			res = linkedProgram->getEntryPointCode(entryPointIndex, targetIndex, &kernelBlob, &diagnostics1);
+
+			if (diagnostics1)
+			{
+				VL_CORE_ERROR((const char*)diagnostics1->getBufferPointer());
+			}
+
+			if (res != 0)
+				return data;
+
+			int codeSize = kernelBlob->getBufferSize();
+
+			data.resize(codeSize / 4);
+
+			memcpy(data.data(), kernelBlob->getBufferPointer(), codeSize);
+
+			return data;
+		}
+
 		CreateCacheDir();
 		std::string sourceToCache = ReadShaderFile(filepath);
 
@@ -127,6 +233,7 @@ namespace Vulture
 				shaderc::CompileOptions options;
 				options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
 				options.SetOptimizationLevel(shaderc_optimization_level_performance);
+				options.SetSourceLanguage(shaderc_source_language::shaderc_source_language_glsl);
 				for (int i = 0; i < defines.size(); i++)
 				{
 					options.AddMacroDefinition(defines[i].Name, defines[i].Value);

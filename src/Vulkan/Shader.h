@@ -5,6 +5,10 @@
 
 #include <shaderc/shaderc.hpp>
 
+#include <slang.h>
+
+#include "wrl/client.h"
+
 namespace Vulture
 {
 	class Shader
@@ -53,5 +57,7 @@ namespace Vulture
 		bool m_Initialized = false;
 
 		void Reset();
+
+		inline static Microsoft::WRL::ComPtr<slang::IGlobalSession> s_GlobalSession = nullptr;
 	};
 }

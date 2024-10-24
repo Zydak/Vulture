@@ -53,6 +53,7 @@ project "Vulture"
         "spdlog",
         "assimp",
         "lib/cuda/*.lib",
+        "lib/slang/lib/*.lib",
         "lodepng",
         "imNodeFlow",
     }
